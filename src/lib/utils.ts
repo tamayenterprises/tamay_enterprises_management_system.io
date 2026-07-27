@@ -1,7 +1,14 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { format, formatDistanceToNow, isPast, differenceInDays } from 'date-fns'
-import type { CertificationStatus, DocumentCategory, DocumentRecord, ProjectStatus, UserRole } from '@/types/database'
+import type {
+  ApprovalStatus,
+  CertificationStatus,
+  DocumentCategory,
+  DocumentRecord,
+  ProjectStatus,
+  UserRole,
+} from '@/types/database'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -29,6 +36,15 @@ export function roleLabel(role: UserRole) {
     subcontractor: 'Subcontractor',
   }
   return labels[role]
+}
+
+export function approvalStatusLabel(status: ApprovalStatus) {
+  const labels: Record<ApprovalStatus, string> = {
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+  }
+  return labels[status]
 }
 
 export function projectStatusLabel(status: ProjectStatus) {
