@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
+  AssignmentHistory,
   Certification,
   DocumentRecord,
   Notification,
@@ -26,7 +27,7 @@ export function useRoles() {
   })
 }
 
-export function useProjects(options?: { assignedOnly?: boolean; search?: string }) {
+export function useProjects(options?: { assignedOnly?: boolean; search?: string; status?: ProjectStatus | 'all' }) {
   const { profile } = useAuth()
 
   return useQuery({
@@ -41,6 +42,10 @@ export function useProjects(options?: { assignedOnly?: boolean; search?: string 
 
       if (options?.search) {
         query = query.ilike('name', `%${options.search}%`)
+      }
+
+      if (options?.status && options.status !== 'all') {
+        query = query.eq('status', options.status)
       }
 
       const { data, error } = await query
@@ -91,6 +96,23 @@ export function useProjectAssignments(projectId?: string) {
   })
 }
 
+export function useAssignmentHistory(projectId?: string) {
+  return useQuery({
+    queryKey: ['assignment-history', projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('assignment_history')
+        .select('*, profile:profiles!profile_id(*)')
+        .eq('project_id', projectId!)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      return (data ?? []) as Array<AssignmentHistory & { profile?: Profile }>
+    },
+  })
+}
+
 export function useProjectNotes(projectId?: string) {
   return useQuery({
     queryKey: ['project-notes', projectId],
@@ -107,21 +129,38 @@ export function useProjectNotes(projectId?: string) {
   })
 }
 
+export function useProjectDocuments(projectId?: string) {
+  return useQuery({
+    queryKey: ['project-documents', projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('project_id', projectId!)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as DocumentRecord[]
+    },
+  })
+}
+
 export function useCreateProject() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
 
   return useMutation({
     mutationFn: async (values: ProjectFormValues) => {
-      const { data, error } = await supabase
-        .from('projects')
-        .insert({
-          ...values,
-          organization_id: profile!.organization_id!,
-          created_by: profile!.id,
-        })
-        .select()
-        .single()
+      const payload = {
+        ...values,
+        start_date: values.start_date || null,
+        deadline: values.deadline || null,
+        description: values.description || null,
+        location: values.location || null,
+        organization_id: profile!.organization_id!,
+        created_by: profile!.id,
+      }
+      const { data, error } = await supabase.from('projects').insert(payload).select().single()
       if (error) throw error
       return data as Project
     },
@@ -134,7 +173,12 @@ export function useUpdateProject(projectId: string) {
 
   return useMutation({
     mutationFn: async (values: Partial<ProjectFormValues> & { status?: ProjectStatus }) => {
-      const { data, error } = await supabase.from('projects').update(values).eq('id', projectId).select().single()
+      const payload = {
+        ...values,
+        start_date: values.start_date === '' ? null : values.start_date,
+        deadline: values.deadline === '' ? null : values.deadline,
+      }
+      const { data, error } = await supabase.from('projects').update(payload).eq('id', projectId).select().single()
       if (error) throw error
       return data as Project
     },
@@ -142,6 +186,21 @@ export function useUpdateProject(projectId: string) {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
     },
+  })
+}
+
+export function useArchiveProject() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      const { error } = await supabase
+        .from('projects')
+        .update({ archived_at: new Date().toISOString() })
+        .eq('id', projectId)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
   })
 }
 
@@ -358,6 +417,7 @@ export function useAssignWorker() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-assignments', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['assignment-history', variables.projectId] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
   })
@@ -402,6 +462,7 @@ export function useRemoveAssignment() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-assignments', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['assignment-history', variables.projectId] })
     },
   })
 }
