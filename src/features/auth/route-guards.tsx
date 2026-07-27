@@ -38,7 +38,13 @@ export function GuestRoute() {
     return <Navigate to="/dashboard" replace />
   }
 
+  // Pending users should finish on the pending page, not bounce between guest routes
   if (session && profile && profile.approval_status !== 'approved') {
+    return <Navigate to="/pending-approval" replace />
+  }
+
+  // Session without a profile (e.g. deleted profile row) — force sign-in cleanup
+  if (session && !profile) {
     return <Navigate to="/pending-approval" replace />
   }
 

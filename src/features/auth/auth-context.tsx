@@ -80,7 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(data)
       },
       signOut: async () => {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
+        setSession(null)
         setProfile(null)
       },
     }),

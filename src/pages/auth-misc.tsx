@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -8,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
-import { formatAuthError } from '@/lib/auth-errors'
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@/lib/validations'
 import type { z } from 'zod'
 import { useAuth } from '@/features/auth/auth-context'
@@ -25,7 +25,7 @@ export function ForgotPasswordPage() {
       redirectTo: `${window.location.origin}/reset-password`,
     })
     if (error) {
-      toast.error(formatAuthError(error.message))
+      toast.error(error.message)
       return
     }
     toast.success('Password reset email sent if the account exists.')
@@ -70,7 +70,7 @@ export function ResetPasswordPage() {
   const onSubmit = handleSubmit(async (values) => {
     const { error } = await supabase.auth.updateUser({ password: values.password })
     if (error) {
-      toast.error(formatAuthError(error.message))
+      toast.error(error.message)
       return
     }
     toast.success('Password updated. You can sign in with your new password.')
@@ -109,6 +109,19 @@ export function ResetPasswordPage() {
 
 export function PendingApprovalPage() {
   const { signOut, profile } = useAuth()
+  const navigate = useNavigate()
+  const [signingOut, setSigningOut] = useState(false)
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    try {
+      await signOut()
+      navigate('/sign-in', { replace: true })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to sign out')
+      setSigningOut(false)
+    }
+  }
 
   return (
     <AuthLayout>
@@ -125,8 +138,8 @@ export function PendingApprovalPage() {
           <p className="text-sm text-muted-foreground">
             You will receive access once an admin approves your account. Unapproved users cannot enter the system.
           </p>
-          <Button variant="outline" className="w-full" onClick={() => signOut()}>
-            Sign out
+          <Button variant="outline" className="w-full" disabled={signingOut} onClick={handleSignOut}>
+            {signingOut ? 'Signing out...' : 'Sign out'}
           </Button>
         </CardContent>
       </Card>
@@ -145,7 +158,7 @@ export function ChangePasswordPage() {
   const onSubmit = handleSubmit(async (values) => {
     const { error } = await supabase.auth.updateUser({ password: values.password })
     if (error) {
-      toast.error(formatAuthError(error.message))
+      toast.error(error.message)
       return
     }
     reset()

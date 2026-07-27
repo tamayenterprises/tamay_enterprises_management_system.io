@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -9,9 +9,12 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
-export function createClient() {
-  return createBrowserClient(
-    supabaseUrl ?? 'https://placeholder.supabase.co',
-    supabaseKey ?? 'placeholder-key',
-  )
+export function createClientBrowser() {
+  return createClient(supabaseUrl ?? 'https://placeholder.supabase.co', supabaseKey ?? 'placeholder-key', {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  })
 }

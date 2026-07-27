@@ -39,6 +39,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [query, setQuery] = useState('')
   const { data: unread = 0 } = useUnreadNotifications()
 
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/sign-in', { replace: true })
+  }
+
   const visibleNav = navItems.filter((item) => {
     if (item.admin) return profile?.role === 'admin'
     if (item.management) return isManagementRole(profile?.role)
@@ -108,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Button
               variant="secondary"
               className="w-full justify-start gap-2 bg-white/10 text-white hover:bg-white/20"
-              onClick={() => signOut()}
+              onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
               Sign out
