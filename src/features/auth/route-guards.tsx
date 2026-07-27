@@ -1,0 +1,60 @@
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { useAuth } from '@/features/auth/auth-context'
+import { LoadingState } from '@/components/ui/loading-state'
+import type { UserRole } from '@/types/database'
+import { isManagementRole } from '@/lib/utils'
+
+export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
+  const { session, profile, loading } = useAuth()
+  const location = useLocation()
+
+  if (loading) return <LoadingState label="Checking session..." />
+
+  if (!session) {
+    return <Navigate to="/sign-in" replace state={{ from: location }} />
+  }
+
+  if (!profile) {
+    return <Navigate to="/sign-in" replace />
+  }
+
+  if (profile.approval_status !== 'approved' || !profile.is_active) {
+    return <Navigate to="/pending-approval" replace />
+  }
+
+  if (roles && !roles.includes(profile.role)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <Outlet />
+}
+
+export function GuestRoute() {
+  const { session, profile, loading } = useAuth()
+
+  if (loading) return <LoadingState />
+
+  if (session && profile?.approval_status === 'approved' && profile.is_active) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  if (session && profile && profile.approval_status !== 'approved') {
+    return <Navigate to="/pending-approval" replace />
+  }
+
+  return <Outlet />
+}
+
+export function ManagementRoute() {
+  const { profile, loading } = useAuth()
+  if (loading) return <LoadingState />
+  if (!isManagementRole(profile?.role)) return <Navigate to="/dashboard" replace />
+  return <Outlet />
+}
+
+export function AdminRoute() {
+  const { profile, loading } = useAuth()
+  if (loading) return <LoadingState />
+  if (profile?.role !== 'admin') return <Navigate to="/dashboard" replace />
+  return <Outlet />
+}
