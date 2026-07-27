@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LoadingState } from '@/components/ui/loading-state'
 import { supabase } from '@/lib/supabase'
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@/lib/validations'
 import type { z } from 'zod'
@@ -108,9 +109,20 @@ export function ResetPasswordPage() {
 }
 
 export function PendingApprovalPage() {
-  const { signOut, profile } = useAuth()
+  const { signOut, profile, loading, session } = useAuth()
   const navigate = useNavigate()
   const [signingOut, setSigningOut] = useState(false)
+
+  useEffect(() => {
+    if (loading) return
+    if (!session) {
+      navigate('/sign-in', { replace: true })
+      return
+    }
+    if (profile?.approval_status === 'approved' && profile.is_active) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [loading, session, profile, navigate])
 
   const handleSignOut = async () => {
     setSigningOut(true)
@@ -121,6 +133,10 @@ export function PendingApprovalPage() {
       toast.error(error instanceof Error ? error.message : 'Unable to sign out')
       setSigningOut(false)
     }
+  }
+
+  if (loading || (profile?.approval_status === 'approved' && profile.is_active)) {
+    return <LoadingState label="Checking account status..." />
   }
 
   return (

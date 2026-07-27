@@ -28,35 +28,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    const syncSession = async (nextSession: Session | null) => {
       if (!mounted) return
-      setSession(data.session)
-      if (data.session?.user) {
-        try {
-          const nextProfile = await fetchProfile(data.session.user.id)
-          if (mounted) setProfile(nextProfile)
-        } catch {
-          if (mounted) setProfile(null)
-        }
+      setSession(nextSession)
+
+      if (!nextSession?.user) {
+        setProfile(null)
+        setLoading(false)
+        return
       }
-      if (mounted) setLoading(false)
+
+      setLoading(true)
+      try {
+        const nextProfile = await fetchProfile(nextSession.user.id)
+        if (mounted) setProfile(nextProfile)
+      } catch {
+        if (mounted) setProfile(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      void syncSession(data.session)
     })
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      setSession(nextSession)
-      if (nextSession?.user) {
-        try {
-          const nextProfile = await fetchProfile(nextSession.user.id)
-          setProfile(nextProfile)
-        } catch {
-          setProfile(null)
-        }
-      } else {
-        setProfile(null)
-      }
-      setLoading(false)
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void syncSession(nextSession)
     })
 
     return () => {
@@ -83,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut({ scope: 'local' })
         setSession(null)
         setProfile(null)
+        setLoading(false)
       },
     }),
     [session, profile, loading],

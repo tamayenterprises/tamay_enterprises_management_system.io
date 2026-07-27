@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -11,6 +11,7 @@ import { formatAuthError } from '@/lib/auth-errors'
 import { signInSchema, type SignInValues } from '@/lib/validations'
 
 export function SignInPage() {
+  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
@@ -33,12 +34,13 @@ export function SignInPage() {
     const profile = profileData as { approval_status: string; is_active: boolean } | null
 
     if (!profile || profile.approval_status !== 'approved' || !profile.is_active) {
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
       toast.error('Your account is pending approval or inactive.')
       return
     }
 
     toast.success('Welcome back')
+    navigate('/dashboard', { replace: true })
   })
 
   return (
