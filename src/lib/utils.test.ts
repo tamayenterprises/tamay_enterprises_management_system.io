@@ -12,7 +12,8 @@ import {
 
 describe('utils', () => {
   it('merges class names', () => {
-    expect(cn('px-2', 'hidden' && 'hidden', 'px-4')).toContain('px-4')
+    expect(cn('px-2', 'py-1', 'px-4')).toContain('px-4')
+    expect(cn('px-2', undefined, 'text-sm')).toContain('text-sm')
   })
 
   it('formats names and initials', () => {
