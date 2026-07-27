@@ -67,11 +67,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex h-full flex-col">
           <div className="border-b border-white/10 px-4 py-5">
-            <img
-              src="/tamay-logo.png"
-              alt="Tamay Enterprises"
-              className="mx-auto h-auto w-full max-w-[180px] rounded-xl object-contain"
-            />
+            <div className="mx-auto flex h-[148px] w-[148px] items-center justify-center rounded-full bg-white p-3 shadow-[0_0_0_3px_rgba(255,255,255,0.2)]">
+              <img
+                src="/tamay-logo.png"
+                alt="Tamay Enterprises"
+                className="h-full w-full rounded-full object-contain"
+              />
+            </div>
             <p className="mt-3 text-center text-xs text-sidebar-muted">Workforce & field operations</p>
           </div>
           <nav className="flex-1 space-y-1 p-3">
