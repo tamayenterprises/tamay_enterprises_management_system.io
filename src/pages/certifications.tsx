@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-context'
 import {
+  createCertificationProofUrl,
   useCertifications,
   useCreateCertification,
   useDeleteCertification,
@@ -21,7 +22,7 @@ import {
   useUpdateCertification,
 } from '@/features/data/hooks'
 import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
-import { confirmAction } from '@/lib/uploads'
+import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
 import type { Certification } from '@/types/database'
 
@@ -34,6 +35,7 @@ export function CertificationsPage() {
   const [status, setStatus] = useState<string>('all')
   const [type, setType] = useState<string>('all')
   const [createOpen, setCreateOpen] = useState(false)
+  const [proofFile, setProofFile] = useState<File | null>(null)
 
   const { data, isLoading, isError } = useCertifications({
     search,
@@ -87,7 +89,7 @@ export function CertificationsPage() {
           <p className="text-sm text-muted-foreground">
             {canManage
               ? 'Track OSHA, CPR, equipment, and trade credentials across the workforce.'
-              : 'Manage your certifications, licenses, and expiration dates.'}
+              : 'Upload your certification proof file, keep expiration dates current, and remove outdated records.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -117,7 +119,13 @@ export function CertificationsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <Dialog
+            open={createOpen}
+            onOpenChange={(open) => {
+              setCreateOpen(open)
+              if (!open) setProofFile(null)
+            }}
+          >
             <DialogTrigger asChild>
               <Button>Add certification</Button>
             </DialogTrigger>
@@ -129,11 +137,15 @@ export function CertificationsPage() {
                 className="space-y-3"
                 onSubmit={form.handleSubmit(async (values) => {
                   try {
+                    if (!proofFile) {
+                      toast.error('Upload a proof file (PDF or image) for this certification.')
+                      return
+                    }
                     const payload = {
                       ...values,
                       profile_id: canManage ? values.profile_id : profile!.id,
                     }
-                    await createCertification.mutateAsync(payload)
+                    await createCertification.mutateAsync({ values: payload, file: proofFile })
                     toast.success('Certification added')
                     form.reset({
                       name: '',
@@ -143,6 +155,7 @@ export function CertificationsPage() {
                       expiration_date: '',
                       notes: '',
                     })
+                    setProofFile(null)
                     setCreateOpen(false)
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : 'Create failed')
@@ -205,11 +218,22 @@ export function CertificationsPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
+                  <Label>Proof file</Label>
+                  <Input
+                    type="file"
+                    accept={UPLOAD_ACCEPT}
+                    onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Required. Upload PDF or image proof of the certification.
+                  </p>
+                </div>
+                <div className="space-y-1">
                   <Label>Notes</Label>
                   <Textarea {...form.register('notes')} />
                 </div>
                 <Button type="submit" disabled={createCertification.isPending}>
-                  Save
+                  {createCertification.isPending ? 'Saving…' : 'Save'}
                 </Button>
               </form>
             </DialogContent>
@@ -225,7 +249,10 @@ export function CertificationsPage() {
       </div>
 
       {certifications.length === 0 ? (
-        <EmptyState title="No certifications found" description="Add OSHA, CPR, equipment, or trade credentials to start tracking." />
+        <EmptyState
+          title="No certifications found"
+          description="Add OSHA, CPR, equipment, or trade credentials with a proof file to start tracking."
+        />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {certifications.map((cert) => (
@@ -235,9 +262,14 @@ export function CertificationsPage() {
               canManage={canManage}
               canRemove={canManage || cert.profile_id === profile?.id}
               workers={workers}
-              onSave={async (values) => {
+              onSave={async (values, file) => {
                 try {
-                  await updateCertification.mutateAsync({ id: cert.id, values })
+                  await updateCertification.mutateAsync({
+                    id: cert.id,
+                    values,
+                    file,
+                    existingDocumentUrl: cert.document_url,
+                  })
                   toast.success('Certification updated')
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : 'Update failed')
@@ -246,10 +278,18 @@ export function CertificationsPage() {
               onDelete={async () => {
                 if (!confirmAction(`Remove certification "${cert.name}"? This cannot be undone.`)) return
                 try {
-                  await deleteCertification.mutateAsync(cert.id)
+                  await deleteCertification.mutateAsync(cert)
                   toast.success('Certification removed')
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : 'Remove failed')
+                }
+              }}
+              onViewProof={async () => {
+                try {
+                  const url = await createCertificationProofUrl(cert.document_url)
+                  window.open(url, '_blank', 'noopener,noreferrer')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Unable to open proof file')
                 }
               }}
             />
@@ -292,15 +332,18 @@ function CertificationCard({
   workers,
   onSave,
   onDelete,
+  onViewProof,
 }: {
   cert: Certification
   canManage: boolean
   canRemove: boolean
   workers: Array<{ id: string; first_name: string; last_name: string }>
-  onSave: (values: CertificationFormValues) => Promise<void>
+  onSave: (values: CertificationFormValues, file?: File | null) => Promise<void>
   onDelete: () => Promise<void>
+  onViewProof: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
+  const [proofFile, setProofFile] = useState<File | null>(null)
   const form = useForm<CertificationFormValues>({
     resolver: zodResolver(certificationSchema),
     values: {
@@ -338,9 +381,21 @@ function CertificationCard({
       <CardContent className="space-y-3 text-sm">
         <p>Issued: {formatDate(cert.issue_date)}</p>
         <p>Expires: {formatDate(cert.expiration_date)}</p>
+        <p>Proof file: {cert.document_url ? 'Uploaded' : 'Missing'}</p>
         {cert.notes ? <p className="text-muted-foreground">{cert.notes}</p> : null}
-        <div className="flex gap-2 pt-1">
-          <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex flex-wrap gap-2 pt-1">
+          {cert.document_url ? (
+            <Button size="sm" variant="outline" onClick={onViewProof}>
+              View proof
+            </Button>
+          ) : null}
+          <Dialog
+            open={open}
+            onOpenChange={(next) => {
+              setOpen(next)
+              if (!next) setProofFile(null)
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
                 Edit
@@ -353,7 +408,8 @@ function CertificationCard({
               <form
                 className="space-y-3"
                 onSubmit={form.handleSubmit(async (values) => {
-                  await onSave(values)
+                  await onSave(values, proofFile)
+                  setProofFile(null)
                   setOpen(false)
                 })}
               >
@@ -408,6 +464,19 @@ function CertificationCard({
                     <Label>Expiration date</Label>
                     <Input type="date" {...form.register('expiration_date')} />
                   </div>
+                </div>
+                <div className="space-y-1">
+                  <Label>Replace proof file (optional)</Label>
+                  <Input
+                    type="file"
+                    accept={UPLOAD_ACCEPT}
+                    onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {cert.document_url
+                      ? 'Leave empty to keep the current proof file.'
+                      : 'Upload a PDF or image as proof.'}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <Label>Notes</Label>
