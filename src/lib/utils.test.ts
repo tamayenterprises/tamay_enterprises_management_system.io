@@ -3,6 +3,9 @@ import {
   certificationStatusLabel,
   cn,
   deriveCertificationStatus,
+  documentCategoryLabel,
+  documentStorageBucket,
+  formatFileSize,
   fullName,
   getInitials,
   isManagementRole,
@@ -25,6 +28,16 @@ describe('utils', () => {
     expect(roleLabel('project_manager')).toBe('Project Manager')
     expect(projectStatusLabel('in_progress')).toBe('In Progress')
     expect(certificationStatusLabel('expiring_soon')).toBe('Expiring Soon')
+  })
+
+  it('labels document categories and formats file sizes', () => {
+    expect(documentCategoryLabel('work_photo')).toBe('Work photo')
+    expect(formatFileSize(512)).toBe('512 B')
+    expect(formatFileSize(2048)).toBe('2.0 KB')
+    expect(documentStorageBucket({ storage_path: 'user/file.pdf', project_id: null })).toBe('documents')
+    expect(
+      documentStorageBucket({ storage_path: 'user/project/file.pdf', project_id: 'abc' }),
+    ).toBe('project-files')
   })
 
   it('identifies management roles', () => {

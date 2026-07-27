@@ -16,8 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-context'
 import {
+  createDocumentSignedUrl,
   useAssignWorker,
   useAssignmentHistory,
+  useDeleteDocument,
   useProfiles,
   useProject,
   useProjectAssignments,
@@ -25,8 +27,17 @@ import {
   useProjectNotes,
   useRemoveAssignment,
   useUpdateProject,
+  useUploadDocument,
 } from '@/features/data/hooks'
-import { formatDate, formatRelative, fullName, isManagementRole, projectStatusLabel, roleLabel } from '@/lib/utils'
+import {
+  documentCategoryLabel,
+  formatDate,
+  formatRelative,
+  fullName,
+  isManagementRole,
+  projectStatusLabel,
+  roleLabel,
+} from '@/lib/utils'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 import { supabase } from '@/lib/supabase'
@@ -44,6 +55,8 @@ export function ProjectDetailPage() {
   const updateProject = useUpdateProject(projectId ?? '')
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
+  const uploadDocument = useUploadDocument()
+  const deleteDocument = useDeleteDocument()
   const [note, setNote] = useState('')
   const [selectedWorker, setSelectedWorker] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -278,31 +291,20 @@ export function ProjectDetailPage() {
                 <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                 <Button
                   size="sm"
-                  disabled={!file || !profile?.organization_id}
+                  disabled={!file || !profile?.organization_id || uploadDocument.isPending}
                   onClick={async () => {
                     if (!file || !profile?.organization_id) return
-                    const path = `${profile.id}/${project.id}/${Date.now()}-${file.name}`
-                    const { error: uploadError } = await supabase.storage.from('project-files').upload(path, file)
-                    if (uploadError) {
-                      toast.error(uploadError.message)
-                      return
-                    }
-                    const { error } = await supabase.from('documents').insert({
-                      organization_id: profile.organization_id,
-                      owner_id: profile.id,
-                      project_id: project.id,
-                      uploaded_by: profile.id,
-                      name: file.name,
-                      category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
-                      storage_path: path,
-                      mime_type: file.type,
-                      file_size: file.size,
-                    })
-                    if (error) toast.error(error.message)
-                    else {
+                    try {
+                      await uploadDocument.mutateAsync({
+                        file,
+                        category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
+                        projectId: project.id,
+                        bucket: 'project-files',
+                      })
                       setFile(null)
                       toast.success('File uploaded')
-                      queryClient.invalidateQueries({ queryKey: ['project-documents', project.id] })
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Upload failed')
                     }
                   }}
                 >
@@ -314,12 +316,47 @@ export function ProjectDetailPage() {
               ) : (
                 <div className="space-y-2">
                   {documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                    <div
+                      key={doc.id}
+                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
                       <div>
                         <p className="font-medium">{doc.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {doc.category} · {formatRelative(doc.created_at)}
+                          {documentCategoryLabel(doc.category)} · {formatRelative(doc.created_at)}
                         </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              const url = await createDocumentSignedUrl(doc)
+                              window.open(url, '_blank', 'noopener,noreferrer')
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : 'Download failed')
+                            }
+                          }}
+                        >
+                          Download
+                        </Button>
+                        {canManage || doc.uploaded_by === profile?.id ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              try {
+                                await deleteDocument.mutateAsync(doc)
+                                toast.success('File deleted')
+                              } catch (error) {
+                                toast.error(error instanceof Error ? error.message : 'Delete failed')
+                              }
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   ))}

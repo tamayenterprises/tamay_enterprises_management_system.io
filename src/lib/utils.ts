@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { format, formatDistanceToNow, isPast, differenceInDays } from 'date-fns'
-import type { CertificationStatus, ProjectStatus, UserRole } from '@/types/database'
+import type { CertificationStatus, DocumentCategory, DocumentRecord, ProjectStatus, UserRole } from '@/types/database'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -49,6 +49,35 @@ export function certificationStatusLabel(status: CertificationStatus) {
     missing: 'Missing',
   }
   return labels[status]
+}
+
+export function documentCategoryLabel(category: DocumentCategory) {
+  const labels: Record<DocumentCategory, string> = {
+    certification: 'Certification',
+    license: 'License',
+    insurance: 'Insurance',
+    contract: 'Contract',
+    identification: 'Identification',
+    work_photo: 'Work photo',
+    project_file: 'Project file',
+    company: 'Company',
+    miscellaneous: 'Miscellaneous',
+  }
+  return labels[category]
+}
+
+export function formatFileSize(bytes?: number | null) {
+  if (bytes == null || Number.isNaN(bytes)) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** Infer storage bucket from upload path conventions used in the app. */
+export function documentStorageBucket(doc: Pick<DocumentRecord, 'storage_path' | 'project_id'>) {
+  const parts = doc.storage_path.split('/')
+  if (doc.project_id && parts.length >= 3) return 'project-files'
+  return 'documents'
 }
 
 export function deriveCertificationStatus(expirationDate?: string | null): CertificationStatus {
