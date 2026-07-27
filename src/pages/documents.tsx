@@ -229,7 +229,7 @@ export function DocumentsPage() {
             <DocumentCard
               key={doc.id}
               doc={doc}
-              canDelete={canManage || doc.uploaded_by === profile?.id}
+              canDelete={canManage || doc.uploaded_by === profile?.id || doc.owner_id === profile?.id}
               onDownload={async () => {
                 try {
                   const url = await createDocumentSignedUrl(doc)
@@ -239,12 +239,12 @@ export function DocumentsPage() {
                 }
               }}
               onDelete={async () => {
-                if (!confirmAction(`Delete "${doc.name}"? This cannot be undone.`)) return
+                if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`)) return
                 try {
                   await deleteDocument.mutateAsync(doc)
-                  toast.success('Document deleted')
+                  toast.success('Document removed')
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Delete failed')
+                  toast.error(error instanceof Error ? error.message : 'Remove failed')
                 }
               }}
             />
@@ -302,7 +302,7 @@ function DocumentCard({
           </Button>
           {canDelete ? (
             <Button size="sm" variant="destructive" onClick={onDelete}>
-              Delete
+              Remove
             </Button>
           ) : null}
         </div>

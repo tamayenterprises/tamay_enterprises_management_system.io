@@ -233,6 +233,7 @@ export function CertificationsPage() {
               key={cert.id}
               cert={cert}
               canManage={canManage}
+              canRemove={canManage || cert.profile_id === profile?.id}
               workers={workers}
               onSave={async (values) => {
                 try {
@@ -243,12 +244,12 @@ export function CertificationsPage() {
                 }
               }}
               onDelete={async () => {
-                if (!confirmAction(`Delete certification "${cert.name}"? This cannot be undone.`)) return
+                if (!confirmAction(`Remove certification "${cert.name}"? This cannot be undone.`)) return
                 try {
                   await deleteCertification.mutateAsync(cert.id)
-                  toast.success('Certification deleted')
+                  toast.success('Certification removed')
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Delete failed')
+                  toast.error(error instanceof Error ? error.message : 'Remove failed')
                 }
               }}
             />
@@ -287,12 +288,14 @@ function SummaryCard({
 function CertificationCard({
   cert,
   canManage,
+  canRemove,
   workers,
   onSave,
   onDelete,
 }: {
   cert: Certification
   canManage: boolean
+  canRemove: boolean
   workers: Array<{ id: string; first_name: string; last_name: string }>
   onSave: (values: CertificationFormValues) => Promise<void>
   onDelete: () => Promise<void>
@@ -414,9 +417,9 @@ function CertificationCard({
               </form>
             </DialogContent>
           </Dialog>
-          {canManage ? (
+          {canRemove ? (
             <Button size="sm" variant="destructive" onClick={onDelete}>
-              Delete
+              Remove
             </Button>
           ) : null}
         </div>
