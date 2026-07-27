@@ -66,14 +66,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="border-b border-white/10 px-5 py-6">
-            <img
-              src="/tamay-logo.png"
-              alt="Tamay Enterprises"
-              className="mb-3 h-12 w-12 rounded-full border-[3px] border-white object-cover shadow-sm animate-brand-pulse"
-            />
-            <p className="brand-mark text-2xl text-white">Tamay Enterprises</p>
-            <p className="mt-1 text-xs text-sidebar-muted">Workforce & field operations</p>
+          <div className="border-b border-white/10 px-5 py-5">
+            <div className="rounded-2xl bg-white px-3 py-3 shadow-sm">
+              <img
+                src="/tamay-logo.png"
+                alt="Tamay Enterprises"
+                className="mx-auto h-auto w-full max-w-[148px] object-contain"
+              />
+            </div>
+            <p className="mt-3 text-center text-xs text-sidebar-muted">Workforce & field operations</p>
           </div>
           <nav className="flex-1 space-y-1 p-3">
             {visibleNav.map((item) => (
