@@ -90,11 +90,13 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
       </div>
       <div className="relative z-10 w-full max-w-md animate-rise space-y-6">
         <div className="text-center">
-          <img
-            src="/tamay-logo.png"
-            alt="Tamay Enterprises"
-            className="mx-auto mb-4 h-auto w-full max-w-[260px] rounded-2xl object-contain shadow-brand"
-          />
+          <div className="mx-auto mb-4 flex h-[180px] w-[180px] items-center justify-center rounded-full bg-white p-3 shadow-[0_0_0_3px_rgba(255,255,255,0.25)] shadow-brand">
+            <img
+              src="/tamay-logo.png"
+              alt="Tamay Enterprises"
+              className="h-full w-full rounded-full object-contain"
+            />
+          </div>
           <p className="text-sm text-white/75">Construction · Real Estate · Logistics</p>
         </div>
         {children}
