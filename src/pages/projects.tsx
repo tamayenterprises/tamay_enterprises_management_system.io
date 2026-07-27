@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useArchiveProject, useCreateProject, useProjects } from '@/features/data/hooks'
 import { useAuth } from '@/features/auth/auth-context'
 import { formatDate, isManagementRole, projectStatusLabel } from '@/lib/utils'
+import { confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 
@@ -216,6 +217,7 @@ export function ProjectsPage() {
                       size="sm"
                       variant="outline"
                       onClick={async () => {
+                        if (!confirmAction(`Archive project "${project.name}"?`)) return
                         try {
                           await archiveProject.mutateAsync(project.id)
                           toast.success('Project archived')

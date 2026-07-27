@@ -38,6 +38,7 @@ import {
   projectStatusLabel,
   roleLabel,
 } from '@/lib/utils'
+import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 import { supabase } from '@/lib/supabase'
@@ -288,7 +289,11 @@ export function ProjectDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                <Input
+                  type="file"
+                  accept={UPLOAD_ACCEPT}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
                 <Button
                   size="sm"
                   disabled={!file || !profile?.organization_id || uploadDocument.isPending}
@@ -346,6 +351,7 @@ export function ProjectDetailPage() {
                             size="sm"
                             variant="destructive"
                             onClick={async () => {
+                              if (!confirmAction(`Delete "${doc.name}"? This cannot be undone.`)) return
                               try {
                                 await deleteDocument.mutateAsync(doc)
                                 toast.success('File deleted')

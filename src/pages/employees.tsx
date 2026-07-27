@@ -11,20 +11,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
-import { useProfiles, useUpdateProfile } from '@/features/data/hooks'
+import { useProfiles, useUpdateProfile, useAdminSetUserAccess } from '@/features/data/hooks'
 import { formatDate, fullName, roleLabel } from '@/lib/utils'
+import { confirmAction } from '@/lib/uploads'
 import { profileSchema, type ProfileFormValues } from '@/lib/validations'
 import type { Profile } from '@/types/database'
-import { supabase } from '@/lib/supabase'
 
 export function EmployeesPage() {
   const [search, setSearch] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
-  const { data, isLoading, isError, refetch } = useProfiles({
+  const { data, isLoading, isError } = useProfiles({
     role: 'employee',
     search,
   })
   const updateProfile = useUpdateProfile()
+  const setAccess = useAdminSetUserAccess()
 
   const employees = useMemo(() => {
     const rows = data ?? []
@@ -41,7 +42,9 @@ export function EmployeesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-semibold">Employees</h1>
-          <p className="text-sm text-muted-foreground">Create, edit, activate, and archive company employees.</p>
+          <p className="text-sm text-muted-foreground">
+            Edit, activate, and archive approved employees. New accounts come from sign-up + admin approval.
+          </p>
         </div>
         <div className="flex gap-2">
           <Input
@@ -88,14 +91,10 @@ export function EmployeesPage() {
                 }
               }}
               onArchive={async () => {
+                if (!confirmAction(`Archive ${fullName(employee.first_name, employee.last_name)}?`)) return
                 try {
-                  const { error } = await supabase
-                    .from('profiles')
-                    .update({ archived_at: new Date().toISOString(), is_active: false })
-                    .eq('id', employee.id)
-                  if (error) throw error
+                  await setAccess.mutateAsync({ id: employee.id, archived: true })
                   toast.success('Employee archived')
-                  refetch()
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : 'Archive failed')
                 }
