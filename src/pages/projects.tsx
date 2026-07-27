@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -13,20 +13,33 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useCreateProject, useProjects } from '@/features/data/hooks'
+import { useArchiveProject, useCreateProject, useProjects } from '@/features/data/hooks'
 import { useAuth } from '@/features/auth/auth-context'
 import { formatDate, isManagementRole, projectStatusLabel } from '@/lib/utils'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
-import { supabase } from '@/lib/supabase'
+import type { ProjectStatus } from '@/types/database'
+
+const STATUS_FILTERS: Array<{ value: ProjectStatus | 'all'; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'not_started', label: 'Not Started' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'waiting', label: 'Waiting' },
+  { value: 'completed', label: 'Completed' },
+]
 
 export function ProjectsPage() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<ProjectStatus | 'all'>('all')
+  const [createOpen, setCreateOpen] = useState(false)
   const { data, isLoading, isError } = useProjects({
     assignedOnly: !isManagementRole(profile?.role),
     search,
+    status,
   })
   const createProject = useCreateProject()
+  const archiveProject = useArchiveProject()
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -40,19 +53,23 @@ export function ProjectsPage() {
     },
   })
 
+  const projects = useMemo(() => data ?? [], [data])
+
   if (isLoading) return <LoadingState />
   if (isError) return <EmptyState title="Unable to load projects" />
-
-  const projects = data ?? []
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-3xl font-semibold">Projects</h1>
-          <p className="text-sm text-muted-foreground">Track status, deadlines, and jobsite details.</p>
+          <p className="text-sm text-muted-foreground">
+            {isManagementRole(profile?.role)
+              ? 'Create projects, set deadlines, and track jobsite progress.'
+              : 'Projects assigned to you.'}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input
             placeholder="Search projects..."
             value={search}
@@ -60,7 +77,7 @@ export function ProjectsPage() {
             className="w-64"
           />
           {isManagementRole(profile?.role) ? (
-            <Dialog>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <Button>New project</Button>
               </DialogTrigger>
@@ -72,9 +89,11 @@ export function ProjectsPage() {
                   className="space-y-3"
                   onSubmit={form.handleSubmit(async (values) => {
                     try {
-                      await createProject.mutateAsync(values)
+                      const project = await createProject.mutateAsync(values)
                       toast.success('Project created')
                       form.reset()
+                      setCreateOpen(false)
+                      navigate(`/projects/${project.id}`)
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Create failed')
                     }
@@ -83,6 +102,9 @@ export function ProjectsPage() {
                   <div className="space-y-1">
                     <Label>Name</Label>
                     <Input {...form.register('name')} />
+                    {form.formState.errors.name ? (
+                      <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+                    ) : null}
                   </div>
                   <div className="space-y-1">
                     <Label>Location</Label>
@@ -138,12 +160,27 @@ export function ProjectsPage() {
                       <Input type="date" {...form.register('deadline')} />
                     </div>
                   </div>
-                  <Button type="submit">Create</Button>
+                  <Button type="submit" disabled={createProject.isPending}>
+                    {createProject.isPending ? 'Creating...' : 'Create'}
+                  </Button>
                 </form>
               </DialogContent>
             </Dialog>
           ) : null}
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((filter) => (
+          <Button
+            key={filter.value}
+            size="sm"
+            variant={status === filter.value ? 'default' : 'outline'}
+            onClick={() => setStatus(filter.value)}
+          >
+            {filter.label}
+          </Button>
+        ))}
       </div>
 
       {projects.length === 0 ? (
@@ -161,12 +198,15 @@ export function ProjectsPage() {
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">{project.location || 'No location'}</p>
                 </div>
-                <Badge>{projectStatusLabel(project.status)}</Badge>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge>{projectStatusLabel(project.status)}</Badge>
+                  <Badge variant="secondary">{project.priority}</Badge>
+                </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <p className="line-clamp-2 text-muted-foreground">{project.description || 'No description'}</p>
+                <p>Start: {formatDate(project.start_date)}</p>
                 <p>Deadline: {formatDate(project.deadline)}</p>
-                <p>Priority: {project.priority}</p>
                 <div className="flex gap-2 pt-2">
                   <Button asChild size="sm">
                     <Link to={`/projects/${project.id}`}>Open</Link>
@@ -176,12 +216,12 @@ export function ProjectsPage() {
                       size="sm"
                       variant="outline"
                       onClick={async () => {
-                        const { error } = await supabase
-                          .from('projects')
-                          .update({ archived_at: new Date().toISOString() })
-                          .eq('id', project.id)
-                        if (error) toast.error(error.message)
-                        else toast.success('Project archived')
+                        try {
+                          await archiveProject.mutateAsync(project.id)
+                          toast.success('Project archived')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Archive failed')
+                        }
                       }}
                     >
                       Archive
