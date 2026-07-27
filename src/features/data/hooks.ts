@@ -295,17 +295,24 @@ export function useApproveUser() {
   })
 }
 
-export function useCertifications(filters?: { search?: string; status?: string }) {
+export function useCertifications(filters?: {
+  search?: string
+  status?: string
+  type?: string
+  profileId?: string
+}) {
   return useQuery({
     queryKey: ['certifications', filters],
     queryFn: async () => {
       let query = supabase
         .from('certifications')
         .select('*, profile:profiles(*)')
-        .order('expiration_date', { ascending: true })
+        .order('expiration_date', { ascending: true, nullsFirst: false })
 
       if (filters?.status) query = query.eq('status', filters.status)
+      if (filters?.type) query = query.eq('certification_type', filters.type)
       if (filters?.search) query = query.ilike('name', `%${filters.search}%`)
+      if (filters?.profileId) query = query.eq('profile_id', filters.profileId)
 
       const { data, error } = await query
       if (error) throw error
@@ -323,13 +330,52 @@ export function useCreateCertification() {
       const { data, error } = await supabase
         .from('certifications')
         .insert({
-          ...values,
+          name: values.name,
+          certification_type: values.certification_type,
+          profile_id: values.profile_id,
+          issue_date: values.issue_date || null,
+          expiration_date: values.expiration_date || null,
+          notes: values.notes || null,
           organization_id: profile!.organization_id!,
         })
         .select()
         .single()
       if (error) throw error
       return data as Certification
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certifications'] }),
+  })
+}
+
+export function useUpdateCertification() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, values }: { id: string; values: Partial<CertificationFormValues> }) => {
+      const { data, error } = await supabase
+        .from('certifications')
+        .update({
+          ...values,
+          issue_date: values.issue_date === '' ? null : values.issue_date,
+          expiration_date: values.expiration_date === '' ? null : values.expiration_date,
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Certification
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certifications'] }),
+  })
+}
+
+export function useDeleteCertification() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('certifications').delete().eq('id', id)
+      if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certifications'] }),
   })
