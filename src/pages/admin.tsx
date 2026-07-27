@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useApproveUser, usePendingApprovals, useProfiles } from '@/features/data/hooks'
+import { useApproveUser, usePendingApprovals, useProfiles, useRoles } from '@/features/data/hooks'
 import { formatRelative, fullName, roleLabel } from '@/lib/utils'
 import type { UserRole } from '@/types/database'
 import { supabase } from '@/lib/supabase'
@@ -14,10 +14,15 @@ import { Link } from 'react-router-dom'
 export function AdminPage() {
   const pending = usePendingApprovals()
   const profiles = useProfiles({ includeArchived: true })
+  const roles = useRoles()
   const approveUser = useApproveUser()
 
-  if (pending.isLoading || profiles.isLoading) return <LoadingState />
-  if (pending.isError || profiles.isError) return <EmptyState title="Unable to load admin panel" />
+  if (pending.isLoading || profiles.isLoading || roles.isLoading) return <LoadingState />
+  if (pending.isError || profiles.isError || roles.isError) {
+    return <EmptyState title="Unable to load admin panel" />
+  }
+
+  const roleOptions = roles.data ?? []
 
   return (
     <div className="space-y-8">
@@ -107,10 +112,11 @@ export function AdminPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="project_manager">Project Manager</SelectItem>
-                    <SelectItem value="employee">Employee</SelectItem>
-                    <SelectItem value="subcontractor">Subcontractor</SelectItem>
+                    {roleOptions.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

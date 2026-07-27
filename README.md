@@ -120,3 +120,13 @@ update public.profiles
 set role = 'admin', approval_status = 'approved', is_active = true
 where email = 'your-admin@email.com';
 ```
+
+## Editing roles in Supabase (non-technical)
+
+Roles are stored in the `roles` lookup table with friendly labels (Admin, Project Manager, etc.).
+
+1. Open **Table Editor** → **profiles**
+2. Click the **role** cell for a user
+3. Choose from the dropdown (linked to `roles`)
+
+To rename how a role appears in that dropdown, edit the `label` column in the **roles** table. Do not change role `id` values unless you also update app/RLS logic.

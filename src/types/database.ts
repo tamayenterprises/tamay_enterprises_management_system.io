@@ -15,6 +15,14 @@ export type DocumentCategory =
   | 'miscellaneous'
 export type AssignmentAction = 'assigned' | 'removed' | 'reassigned'
 
+export interface RoleOption {
+  id: UserRole
+  label: string
+  description: string | null
+  sort_order: number
+  created_at: string
+}
+
 export interface Organization {
   id: string
   name: string

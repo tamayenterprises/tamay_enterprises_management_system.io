@@ -5,7 +5,6 @@
 create extension if not exists "pgcrypto";
 
 -- Enums
-create type public.user_role as enum ('admin', 'project_manager', 'employee', 'subcontractor');
 create type public.approval_status as enum ('pending', 'approved', 'rejected');
 create type public.project_status as enum ('not_started', 'in_progress', 'waiting', 'completed');
 create type public.project_priority as enum ('low', 'medium', 'high', 'urgent');
@@ -22,6 +21,21 @@ create type public.document_category as enum (
   'miscellaneous'
 );
 create type public.assignment_action as enum ('assigned', 'removed', 'reassigned');
+
+-- Role lookup table (friendly dropdown labels in Supabase Table Editor)
+create table public.roles (
+  id text primary key,
+  label text not null unique,
+  description text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+insert into public.roles (id, label, description, sort_order) values
+  ('admin', 'Admin', 'Full access: users, approvals, settings, and all projects.', 1),
+  ('project_manager', 'Project Manager', 'Create and manage projects, assignments, and project files.', 2),
+  ('employee', 'Employee', 'View assigned projects and update progress.', 3),
+  ('subcontractor', 'Subcontractor', 'Same as employee, with company and trade profile fields.', 4);
 
 -- Organizations (future multi-tenant readiness)
 create table public.organizations (
@@ -41,7 +55,7 @@ create table public.profiles (
   first_name text not null,
   last_name text not null,
   phone text,
-  role public.user_role not null default 'employee',
+  role text not null default 'employee' references public.roles (id),
   approval_status public.approval_status not null default 'pending',
   is_active boolean not null default true,
   avatar_url text,
@@ -264,7 +278,7 @@ begin
     coalesce(new.raw_user_meta_data->>'first_name', ''),
     coalesce(new.raw_user_meta_data->>'last_name', ''),
     new.raw_user_meta_data->>'phone',
-    requested_role::public.user_role,
+    requested_role,
     'pending',
     new.raw_user_meta_data->>'company_name',
     new.raw_user_meta_data->>'trade_specialization'
@@ -391,6 +405,7 @@ $$;
 
 -- Enable RLS
 alter table public.organizations enable row level security;
+alter table public.roles enable row level security;
 alter table public.profiles enable row level security;
 alter table public.projects enable row level security;
 alter table public.project_assignments enable row level security;
@@ -400,6 +415,16 @@ alter table public.certifications enable row level security;
 alter table public.documents enable row level security;
 alter table public.notifications enable row level security;
 alter table public.activity_log enable row level security;
+
+-- Roles policies (readable by everyone authenticated; editable by admins in Studio/app)
+create policy "Authenticated users can view roles"
+  on public.roles for select
+  using (auth.role() = 'authenticated');
+
+create policy "Admins can manage roles"
+  on public.roles for all
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- Organizations policies
 create policy "Members can view their organization"

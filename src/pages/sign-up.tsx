@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { signUpSchema, type SignUpValues } from '@/lib/validations'
 
 export function SignUpPage() {
+  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
@@ -46,7 +47,11 @@ export function SignUpPage() {
       return
     }
 
-    toast.success('Registration submitted. Await management approval before signing in.')
+    // Clear any auto-created session so the user lands on sign-in, not pending-approval
+    await supabase.auth.signOut()
+
+    toast.success('Registration submitted. You can sign in after management approves your account.')
+    navigate('/sign-in', { replace: true })
   })
 
   return (

@@ -11,8 +11,20 @@ import type {
   ProjectAssignment,
   ProjectNote,
   ProjectStatus,
+  RoleOption,
   UserRole,
 } from '@/types/database'
+
+export function useRoles() {
+  return useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('roles').select('*').order('sort_order')
+      if (error) throw error
+      return (data ?? []) as RoleOption[]
+    },
+  })
+}
 
 export function useProjects(options?: { assignedOnly?: boolean; search?: string }) {
   const { profile } = useAuth()
