@@ -45,9 +45,9 @@ export function SignInPage() {
 
   return (
     <AuthLayout>
-      <Card className="w-full max-w-md border-border/60 bg-card/95 shadow-xl shadow-black/20 backdrop-blur-sm">
+      <Card className="w-full max-w-md border-border/70 bg-white shadow-brand">
         <CardHeader>
-          <CardTitle className="tracking-wide">Sign in</CardTitle>
+          <CardTitle>Sign in</CardTitle>
           <CardDescription>Access the Tamay Enterprises management system.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -84,18 +84,19 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(135deg,#0a2236_0%,#0f3d5e_48%,#16324a_100%)]" />
-        <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(245,248,251,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(245,248,251,0.08)_1px,transparent_1px)] [background-size:32px_32px]" />
-        <div className="absolute -left-16 top-16 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
-        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-primary/40 blur-3xl" />
+        <div className="absolute inset-0 bg-brand-hero" />
+        <div className="absolute -left-16 top-16 h-72 w-72 rounded-full bg-accent/25 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-[#35558f]/40 blur-3xl" />
       </div>
       <div className="relative z-10 w-full max-w-md animate-rise space-y-6">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-sm bg-accent text-base font-bold text-accent-foreground animate-brand-pulse">
-            TE
-          </div>
-          <p className="brand-mark text-4xl font-semibold text-white">Tamay Enterprises</p>
-          <p className="mt-2 text-sm text-white/70">Construction workforce & project operations</p>
+          <img
+            src="/tamay-logo.png"
+            alt="Tamay Enterprises"
+            className="mx-auto mb-4 h-16 w-16 rounded-full border-[3px] border-white object-cover shadow-md animate-brand-pulse"
+          />
+          <p className="brand-mark text-4xl text-white">Tamay Enterprises</p>
+          <p className="mt-2 text-sm text-white/75">Construction · Real Estate · Logistics</p>
         </div>
         {children}
       </div>

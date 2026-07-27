@@ -67,10 +67,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex h-full flex-col">
           <div className="border-b border-white/10 px-5 py-6">
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-sm bg-accent text-sm font-bold text-accent-foreground animate-brand-pulse">
-              TE
-            </div>
-            <p className="brand-mark text-2xl font-semibold text-white">Tamay Enterprises</p>
+            <img
+              src="/tamay-logo.png"
+              alt="Tamay Enterprises"
+              className="mb-3 h-12 w-12 rounded-full border-[3px] border-white object-cover shadow-sm animate-brand-pulse"
+            />
+            <p className="brand-mark text-2xl text-white">Tamay Enterprises</p>
             <p className="mt-1 text-xs text-sidebar-muted">Workforce & field operations</p>
           </div>
           <nav className="flex-1 space-y-1 p-3">
@@ -81,15 +83,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    'group flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm text-white/75 transition duration-200 hover:bg-white/10 hover:text-white',
-                    isActive && 'bg-white/12 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
+                    'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 transition duration-200 hover:bg-white/10 hover:text-white',
+                    isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
                   )
                 }
               >
                 <item.icon className="h-4 w-4 transition group-hover:scale-105" />
-                <span className="flex-1 tracking-wide">{item.label}</span>
+                <span className="flex-1 font-medium">{item.label}</span>
                 {item.to === '/notifications' && unread > 0 ? (
-                  <span className="rounded-sm bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground">
+                  <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
                     {unread}
                   </span>
                 ) : null}
@@ -100,7 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="mb-3 flex items-center gap-3">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={profile?.avatar_url ?? undefined} />
-                <AvatarFallback className="rounded-sm bg-white/15 text-white">
+                <AvatarFallback className="rounded-full bg-white/15 text-white">
                   {profile ? getInitials(profile.first_name, profile.last_name) : 'TE'}
                 </AvatarFallback>
               </Avatar>
@@ -129,13 +131,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           aria-label="Close menu"
-          className="fixed inset-0 z-30 bg-[#0a2236]/50 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-30 bg-[#092e4c]/45 backdrop-blur-[2px] lg:hidden"
           onClick={() => setOpen(false)}
         />
       ) : null}
 
       <div className="min-w-0">
-        <header className="sticky top-0 z-20 border-b border-border/70 bg-card/85 backdrop-blur-md">
+        <header className="sticky top-0 z-20 border-b border-border/80 bg-white/90 backdrop-blur-md">
           <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen((v) => !v)}>
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -146,7 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search employees, projects, documents..."
-                className="border-border/80 bg-background/70 pl-9"
+                className="border-border bg-[#fbfcff] pl-9"
               />
             </form>
             <Button variant="outline" size="icon" onClick={() => navigate('/notifications')}>
