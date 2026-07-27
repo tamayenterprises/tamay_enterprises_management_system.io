@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
+import { formatAuthError } from '@/lib/auth-errors'
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@/lib/validations'
 import type { z } from 'zod'
 import { useAuth } from '@/features/auth/auth-context'
@@ -24,7 +25,7 @@ export function ForgotPasswordPage() {
       redirectTo: `${window.location.origin}/reset-password`,
     })
     if (error) {
-      toast.error(error.message)
+      toast.error(formatAuthError(error.message))
       return
     }
     toast.success('Password reset email sent if the account exists.')
@@ -69,7 +70,7 @@ export function ResetPasswordPage() {
   const onSubmit = handleSubmit(async (values) => {
     const { error } = await supabase.auth.updateUser({ password: values.password })
     if (error) {
-      toast.error(error.message)
+      toast.error(formatAuthError(error.message))
       return
     }
     toast.success('Password updated. You can sign in with your new password.')
@@ -144,7 +145,7 @@ export function ChangePasswordPage() {
   const onSubmit = handleSubmit(async (values) => {
     const { error } = await supabase.auth.updateUser({ password: values.password })
     if (error) {
-      toast.error(error.message)
+      toast.error(formatAuthError(error.message))
       return
     }
     reset()

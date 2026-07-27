@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
+import { formatAuthError } from '@/lib/auth-errors'
 import { signUpSchema, type SignUpValues } from '@/lib/validations'
 
 export function SignUpPage() {
@@ -43,7 +44,7 @@ export function SignUpPage() {
     })
 
     if (error) {
-      toast.error(error.message)
+      toast.error(formatAuthError(error.message))
       return
     }
 
