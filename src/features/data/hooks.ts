@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
+import { documentStorageBucket } from '@/lib/utils'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   AssignmentHistory,
@@ -136,7 +137,7 @@ export function useProjectDocuments(projectId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select('*')
+        .select('*, owner:profiles!owner_id(*), uploader:profiles!uploaded_by(*)')
         .eq('project_id', projectId!)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -381,18 +382,127 @@ export function useDeleteCertification() {
   })
 }
 
-export function useDocuments(filters?: { search?: string; category?: string }) {
+export function useDocuments(filters?: {
+  search?: string
+  category?: string
+  projectId?: string
+  ownerId?: string
+  mineOnly?: boolean
+}) {
+  const { profile } = useAuth()
+
   return useQuery({
-    queryKey: ['documents', filters],
+    queryKey: ['documents', filters, profile?.id],
+    enabled: Boolean(profile),
     queryFn: async () => {
-      let query = supabase.from('documents').select('*').order('created_at', { ascending: false })
+      let query = supabase
+        .from('documents')
+        .select('*, owner:profiles!owner_id(*), uploader:profiles!uploaded_by(*), project:projects(*)')
+        .order('created_at', { ascending: false })
+
       if (filters?.category) query = query.eq('category', filters.category)
       if (filters?.search) query = query.ilike('name', `%${filters.search}%`)
+      if (filters?.projectId) query = query.eq('project_id', filters.projectId)
+      if (filters?.ownerId) query = query.eq('owner_id', filters.ownerId)
+      if (filters?.mineOnly && profile?.id) {
+        query = query.or(`owner_id.eq.${profile.id},uploaded_by.eq.${profile.id}`)
+      }
+
       const { data, error } = await query
       if (error) throw error
       return (data ?? []) as DocumentRecord[]
     },
   })
+}
+
+export function useUploadDocument() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({
+      file,
+      category,
+      projectId,
+      bucket = 'documents',
+    }: {
+      file: File
+      category: DocumentRecord['category']
+      projectId?: string | null
+      bucket?: 'documents' | 'project-files'
+    }) => {
+      if (!profile?.organization_id) throw new Error('Missing organization')
+
+      const path = projectId
+        ? `${profile.id}/${projectId}/${Date.now()}-${file.name}`
+        : `${profile.id}/${Date.now()}-${file.name}`
+
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file)
+      if (uploadError) throw uploadError
+
+      const { data, error } = await supabase
+        .from('documents')
+        .insert({
+          organization_id: profile.organization_id,
+          owner_id: profile.id,
+          uploaded_by: profile.id,
+          project_id: projectId || null,
+          name: file.name,
+          category,
+          storage_path: path,
+          mime_type: file.type || null,
+          file_size: file.size,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        await supabase.storage.from(bucket).remove([path])
+        throw error
+      }
+
+      return data as DocumentRecord
+    },
+    onSuccess: (doc) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      if (doc.project_id) {
+        queryClient.invalidateQueries({ queryKey: ['project-documents', doc.project_id] })
+      }
+    },
+  })
+}
+
+export function useDeleteDocument() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (doc: DocumentRecord) => {
+      const bucket = documentStorageBucket(doc)
+      const { error } = await supabase.from('documents').delete().eq('id', doc.id)
+      if (error) throw error
+      await supabase.storage.from(bucket).remove([doc.storage_path])
+    },
+    onSuccess: (_data, doc) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      if (doc.project_id) {
+        queryClient.invalidateQueries({ queryKey: ['project-documents', doc.project_id] })
+      }
+    },
+  })
+}
+
+export async function createDocumentSignedUrl(doc: DocumentRecord) {
+  const primary = documentStorageBucket(doc)
+  const fallback = primary === 'documents' ? 'project-files' : 'documents'
+
+  const first = await supabase.storage.from(primary).createSignedUrl(doc.storage_path, 60 * 10)
+  if (!first.error && first.data?.signedUrl) return first.data.signedUrl
+
+  const second = await supabase.storage.from(fallback).createSignedUrl(doc.storage_path, 60 * 10)
+  if (second.error || !second.data?.signedUrl) {
+    throw second.error ?? first.error ?? new Error('Unable to create download link')
+  }
+  return second.data.signedUrl
 }
 
 export function useDashboardData() {

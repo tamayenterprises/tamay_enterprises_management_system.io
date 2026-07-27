@@ -134,6 +134,9 @@ export interface DocumentRecord {
   file_size: number | null
   created_at: string
   updated_at: string
+  owner?: Profile
+  uploader?: Profile
+  project?: Project
 }
 
 export interface Notification {
