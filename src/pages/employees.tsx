@@ -21,7 +21,7 @@ export function EmployeesPage() {
   const [search, setSearch] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
   const { data, isLoading, isError, refetch } = useProfiles({
-    role: ['employee', 'admin', 'project_manager'],
+    role: 'employee',
     search,
   })
   const updateProfile = useUpdateProfile()
