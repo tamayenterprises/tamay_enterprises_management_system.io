@@ -159,6 +159,7 @@ export interface ActivityLog {
   action: string
   metadata: Record<string, unknown>
   created_at: string
+  actor?: Profile
 }
 
 export interface Database {

@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket } from '@/lib/utils'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
+  ActivityLog,
   AssignmentHistory,
   Certification,
   DocumentRecord,
@@ -266,21 +267,25 @@ export function usePendingApprovals() {
 
 export function useApproveUser() {
   const queryClient = useQueryClient()
+  const { profile } = useAuth()
 
   return useMutation({
     mutationFn: async ({ id, approve }: { id: string; approve: boolean }) => {
       const { data, error } = await supabase
         .from('profiles')
-        .update({ approval_status: approve ? 'approved' : 'rejected' })
+        .update({
+          approval_status: approve ? 'approved' : 'rejected',
+          is_active: approve,
+        })
         .eq('id', id)
         .select()
         .single()
       if (error) throw error
-      const profile = data as Profile
+      const approvedProfile = data as Profile
 
-      if (approve && profile.organization_id) {
+      if (approve && approvedProfile.organization_id) {
         await supabase.from('notifications').insert({
-          organization_id: profile.organization_id,
+          organization_id: approvedProfile.organization_id,
           recipient_id: id,
           title: 'Account approved',
           message: 'Your Tamay Enterprises account has been approved. You can now access the system.',
@@ -288,10 +293,124 @@ export function useApproveUser() {
         })
       }
 
-      return profile
+      if (profile?.organization_id) {
+        await supabase.from('activity_log').insert({
+          organization_id: profile.organization_id,
+          actor_id: profile.id,
+          entity_type: 'profile',
+          entity_id: id,
+          action: approve ? 'approved_user' : 'rejected_user',
+          metadata: {
+            email: approvedProfile.email,
+            role: approvedProfile.role,
+          },
+        })
+      }
+
+      return approvedProfile
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+    },
+  })
+}
+
+export function useUpdateUserRole() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ id, role }: { id: string; role: UserRole }) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ role })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+
+      if (profile?.organization_id) {
+        await supabase.from('activity_log').insert({
+          organization_id: profile.organization_id,
+          actor_id: profile.id,
+          entity_type: 'profile',
+          entity_id: id,
+          action: 'updated_role',
+          metadata: { role },
+        })
+      }
+
+      return data as Profile
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+    },
+  })
+}
+
+export function useAdminSetUserAccess() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      isActive,
+      archived,
+      approvalStatus,
+    }: {
+      id: string
+      isActive?: boolean
+      archived?: boolean
+      approvalStatus?: Profile['approval_status']
+    }) => {
+      const payload: Record<string, unknown> = {}
+      if (typeof isActive === 'boolean') payload.is_active = isActive
+      if (typeof archived === 'boolean') {
+        payload.archived_at = archived ? new Date().toISOString() : null
+        if (archived) payload.is_active = false
+      }
+      if (approvalStatus) {
+        payload.approval_status = approvalStatus
+        if (approvalStatus === 'approved') payload.is_active = true
+      }
+
+      const { data, error } = await supabase.from('profiles').update(payload).eq('id', id).select().single()
+      if (error) throw error
+
+      if (profile?.organization_id) {
+        await supabase.from('activity_log').insert({
+          organization_id: profile.organization_id,
+          actor_id: profile.id,
+          entity_type: 'profile',
+          entity_id: id,
+          action: 'updated_access',
+          metadata: payload,
+        })
+      }
+
+      return data as Profile
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+    },
+  })
+}
+
+export function useActivityLog(limit = 25) {
+  return useQuery({
+    queryKey: ['activity-log', limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('*, actor:profiles!actor_id(*)')
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (error) throw error
+      return (data ?? []) as ActivityLog[]
     },
   })
 }

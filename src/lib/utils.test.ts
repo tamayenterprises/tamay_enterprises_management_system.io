@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  approvalStatusLabel,
   certificationStatusLabel,
   cn,
   deriveCertificationStatus,
@@ -28,6 +29,7 @@ describe('utils', () => {
     expect(roleLabel('project_manager')).toBe('Project Manager')
     expect(projectStatusLabel('in_progress')).toBe('In Progress')
     expect(certificationStatusLabel('expiring_soon')).toBe('Expiring Soon')
+    expect(approvalStatusLabel('pending')).toBe('Pending')
   })
 
   it('labels document categories and formats file sizes', () => {
