@@ -351,8 +351,12 @@ export function useDocuments(filters?: { search?: string; category?: string }) {
 
 export function useDashboardData() {
   const { profile } = useAuth()
-  const projects = useProjects({ assignedOnly: true })
-  const certifications = useCertifications({ status: 'expiring_soon' })
+  const isManagement = profile?.role === 'admin' || profile?.role === 'project_manager'
+  const projects = useProjects({ assignedOnly: !isManagement })
+  const certifications = useCertifications()
+  const pendingApprovals = usePendingApprovals()
+  const employees = useProfiles({ role: 'employee' })
+  const subcontractors = useProfiles({ role: 'subcontractor' })
   const notifications = useQuery({
     queryKey: ['notifications', 'dashboard', profile?.id],
     enabled: Boolean(profile?.id),
@@ -368,7 +372,16 @@ export function useDashboardData() {
     },
   })
 
-  return { projects, certifications, notifications, profile }
+  return {
+    projects,
+    certifications,
+    notifications,
+    pendingApprovals,
+    employees,
+    subcontractors,
+    profile,
+    isManagement,
+  }
 }
 
 export function useAssignWorker() {
