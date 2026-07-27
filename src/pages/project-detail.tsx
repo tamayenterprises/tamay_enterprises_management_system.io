@@ -346,21 +346,21 @@ export function ProjectDetailPage() {
                         >
                           Download
                         </Button>
-                        {canManage || doc.uploaded_by === profile?.id ? (
+                        {canManage || doc.uploaded_by === profile?.id || doc.owner_id === profile?.id ? (
                           <Button
                             size="sm"
                             variant="destructive"
                             onClick={async () => {
-                              if (!confirmAction(`Delete "${doc.name}"? This cannot be undone.`)) return
+                              if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`)) return
                               try {
                                 await deleteDocument.mutateAsync(doc)
-                                toast.success('File deleted')
+                                toast.success('File removed')
                               } catch (error) {
-                                toast.error(error instanceof Error ? error.message : 'Delete failed')
+                                toast.error(error instanceof Error ? error.message : 'Remove failed')
                               }
                             }}
                           >
-                            Delete
+                            Remove
                           </Button>
                         ) : null}
                       </div>
