@@ -9,23 +9,31 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
-import { useProfiles, useUpdateProfile } from '@/features/data/hooks'
+import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { fullName } from '@/lib/utils'
+import { confirmAction } from '@/lib/uploads'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { profileSchema, type ProfileFormValues } from '@/lib/validations'
 import type { Profile } from '@/types/database'
-import { supabase } from '@/lib/supabase'
 
 export function SubcontractorsPage() {
   const [search, setSearch] = useState('')
   const { data, isLoading, isError } = useProfiles({ role: 'subcontractor', search })
   const updateProfile = useUpdateProfile()
+  const setAccess = useAdminSetUserAccess()
 
   const subcontractors = useMemo(() => data ?? [], [data])
 
   if (isLoading) return <LoadingState />
-  if (isError) return <EmptyState title="Unable to load subcontractors" />
+  if (isError) {
+    return (
+      <EmptyState
+        title="Unable to load subcontractors"
+        description="Check your connection and try again."
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -60,6 +68,25 @@ export function SubcontractorsPage() {
                   toast.error(error instanceof Error ? error.message : 'Update failed')
                 }
               }}
+              onToggleActive={async () => {
+                try {
+                  await setAccess.mutateAsync({ id: person.id, isActive: !person.is_active })
+                  toast.success(person.is_active ? 'Subcontractor deactivated' : 'Subcontractor activated')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Update failed')
+                }
+              }}
+              onArchive={async () => {
+                if (!confirmAction(`Archive ${person.company_name || fullName(person.first_name, person.last_name)}?`)) {
+                  return
+                }
+                try {
+                  await setAccess.mutateAsync({ id: person.id, archived: true })
+                  toast.success('Subcontractor archived')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Archive failed')
+                }
+              }}
             />
           ))}
         </div>
@@ -71,13 +98,17 @@ export function SubcontractorsPage() {
 function SubcontractorCard({
   person,
   onSave,
+  onToggleActive,
+  onArchive,
 }: {
   person: Profile
   onSave: (values: ProfileFormValues) => Promise<void>
+  onToggleActive: () => Promise<void>
+  onArchive: () => Promise<void>
 }) {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
+    values: {
       first_name: person.first_name,
       last_name: person.last_name,
       phone: person.phone,
@@ -106,7 +137,7 @@ function SubcontractorCard({
         <p>Trade: {person.trade_specialization || '—'}</p>
         <p>Insurance: {person.insurance_info || '—'}</p>
         <p>License: {person.license_info || '—'}</p>
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           <Dialog>
             <DialogTrigger asChild>
               <Button size="sm">Edit</Button>
@@ -146,19 +177,11 @@ function SubcontractorCard({
               </form>
             </DialogContent>
           </Dialog>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={async () => {
-              const { error } = await supabase
-                .from('profiles')
-                .update({ is_active: !person.is_active })
-                .eq('id', person.id)
-              if (error) toast.error(error.message)
-              else toast.success('Status updated')
-            }}
-          >
-            Toggle active
+          <Button size="sm" variant="outline" onClick={onToggleActive}>
+            {person.is_active ? 'Deactivate' : 'Activate'}
+          </Button>
+          <Button size="sm" variant="destructive" onClick={onArchive}>
+            Archive
           </Button>
         </div>
       </CardContent>

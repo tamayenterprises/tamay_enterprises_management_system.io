@@ -34,7 +34,7 @@ export function SignInPage() {
     const profile = profileData as { approval_status: string; is_active: boolean } | null
 
     if (!profile || profile.approval_status !== 'approved' || !profile.is_active) {
-      await supabase.auth.signOut({ scope: 'local' })
+      await supabase.auth.signOut({ scope: 'global' })
       toast.error('Your account is pending approval or inactive.')
       return
     }

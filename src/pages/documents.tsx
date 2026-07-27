@@ -24,6 +24,7 @@ import {
   fullName,
   isManagementRole,
 } from '@/lib/utils'
+import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
 
 const CATEGORIES: DocumentCategory[] = [
@@ -101,7 +102,11 @@ export function DocumentsPage() {
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label>File</Label>
-                <Input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                <Input
+                  type="file"
+                  accept={UPLOAD_ACCEPT}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Category</Label>
@@ -234,6 +239,7 @@ export function DocumentsPage() {
                 }
               }}
               onDelete={async () => {
+                if (!confirmAction(`Delete "${doc.name}"? This cannot be undone.`)) return
                 try {
                   await deleteDocument.mutateAsync(doc)
                   toast.success('Document deleted')

@@ -21,6 +21,7 @@ import {
   useUpdateCertification,
 } from '@/features/data/hooks'
 import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
+import { confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
 import type { Certification } from '@/types/database'
 
@@ -242,6 +243,7 @@ export function CertificationsPage() {
                 }
               }}
               onDelete={async () => {
+                if (!confirmAction(`Delete certification "${cert.name}"? This cannot be undone.`)) return
                 try {
                   await deleteCertification.mutateAsync(cert.id)
                   toast.success('Certification deleted')

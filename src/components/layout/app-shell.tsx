@@ -152,8 +152,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="border-border bg-[#fbfcff] pl-9"
               />
             </form>
-            <Button variant="outline" size="icon" onClick={() => navigate('/notifications')}>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Notifications"
+              onClick={() => navigate('/notifications')}
+            >
               <Bell className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/change-password')}>
+              Password
             </Button>
           </div>
         </header>

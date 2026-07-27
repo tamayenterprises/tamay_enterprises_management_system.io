@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/features/auth/auth-context'
 import { AdminRoute, GuestRoute, ManagementRoute, ProtectedRoute } from '@/features/auth/route-guards'
+import { AppErrorBoundary } from '@/components/app-error-boundary'
 import { AppShell } from '@/components/layout/app-shell'
 import { SignInPage } from '@/pages/sign-in'
 import { SignUpPage } from '@/pages/sign-up'
@@ -39,47 +40,49 @@ function AuthenticatedLayout() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<GuestRoute />}>
-              <Route path="/sign-in" element={<SignInPage />} />
-              <Route path="/sign-up" element={<SignUpPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-            </Route>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<GuestRoute />}>
+                <Route path="/sign-in" element={<SignInPage />} />
+                <Route path="/sign-up" element={<SignUpPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+              </Route>
 
-            <Route path="/pending-approval" element={<PendingApprovalPage />} />
+              <Route path="/pending-approval" element={<PendingApprovalPage />} />
 
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AuthenticatedLayout />}>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-                <Route path="/certifications" element={<CertificationsPage />} />
-                <Route path="/documents" element={<DocumentsPage />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/change-password" element={<ChangePasswordPage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AuthenticatedLayout />}>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="/certifications" element={<CertificationsPage />} />
+                  <Route path="/documents" element={<DocumentsPage />} />
+                  <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/change-password" element={<ChangePasswordPage />} />
 
-                <Route element={<ManagementRoute />}>
-                  <Route path="/employees" element={<EmployeesPage />} />
-                  <Route path="/subcontractors" element={<SubcontractorsPage />} />
-                </Route>
+                  <Route element={<ManagementRoute />}>
+                    <Route path="/employees" element={<EmployeesPage />} />
+                    <Route path="/subcontractors" element={<SubcontractorsPage />} />
+                  </Route>
 
-                <Route element={<AdminRoute />}>
-                  <Route path="/admin" element={<AdminPage />} />
+                  <Route element={<AdminRoute />}>
+                    <Route path="/admin" element={<AdminPage />} />
+                  </Route>
                 </Route>
               </Route>
-            </Route>
 
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </BrowserRouter>
-        <Toaster richColors position="top-right" />
-      </AuthProvider>
-    </QueryClientProvider>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </BrowserRouter>
+          <Toaster richColors position="top-right" />
+        </AuthProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
   )
 }

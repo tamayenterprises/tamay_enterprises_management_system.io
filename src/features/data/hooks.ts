@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket } from '@/lib/utils'
+import { validateUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
@@ -552,9 +553,13 @@ export function useUploadDocument() {
     }) => {
       if (!profile?.organization_id) throw new Error('Missing organization')
 
+      const validationError = validateUploadFile(file)
+      if (validationError) throw new Error(validationError)
+
+      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_')
       const path = projectId
-        ? `${profile.id}/${projectId}/${Date.now()}-${file.name}`
-        : `${profile.id}/${Date.now()}-${file.name}`
+        ? `${profile.id}/${projectId}/${Date.now()}-${safeName}`
+        : `${profile.id}/${Date.now()}-${safeName}`
 
       const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file)
       if (uploadError) throw uploadError
@@ -627,6 +632,21 @@ export async function createDocumentSignedUrl(doc: DocumentRecord) {
 export function useDashboardData() {
   const { profile } = useAuth()
   const isManagement = profile?.role === 'admin' || profile?.role === 'project_manager'
+  const queryClient = useQueryClient()
+
+  useQuery({
+    queryKey: ['certification-maintenance', profile?.id],
+    enabled: Boolean(profile?.id),
+    staleTime: 60 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('run_certification_maintenance')
+      if (error) throw error
+      await queryClient.invalidateQueries({ queryKey: ['certifications'] })
+      await queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      return data
+    },
+  })
+
   const projects = useProjects({ assignedOnly: !isManagement })
   const certifications = useCertifications()
   const pendingApprovals = usePendingApprovals()

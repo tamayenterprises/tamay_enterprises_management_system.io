@@ -31,8 +31,16 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
 
 export function GuestRoute() {
   const { session, profile, loading } = useAuth()
+  const location = useLocation()
+  const isPasswordRecovery =
+    location.pathname === '/reset-password' ||
+    location.hash.includes('type=recovery') ||
+    new URLSearchParams(location.search).get('type') === 'recovery'
 
   if (loading) return <LoadingState />
+
+  // Allow password recovery even if a session is present.
+  if (isPasswordRecovery) return <Outlet />
 
   if (session && profile?.approval_status === 'approved' && profile.is_active) {
     return <Navigate to="/dashboard" replace />

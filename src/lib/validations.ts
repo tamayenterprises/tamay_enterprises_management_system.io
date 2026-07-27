@@ -5,13 +5,20 @@ export const signInSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
+const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Include at least one uppercase letter')
+  .regex(/[a-z]/, 'Include at least one lowercase letter')
+  .regex(/[0-9]/, 'Include at least one number')
+
 export const signUpSchema = z
   .object({
     firstName: z.string().min(1, 'First name is required'),
     lastName: z.string().min(1, 'Last name is required'),
     email: z.string().email('Enter a valid email'),
     phone: z.string().min(7, 'Enter a valid phone number'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: passwordSchema,
     confirmPassword: z.string().min(8, 'Confirm your password'),
     role: z.enum(['employee', 'subcontractor']),
     companyName: z.string().optional(),
@@ -35,7 +42,7 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: passwordSchema,
     confirmPassword: z.string().min(8, 'Confirm your password'),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -45,7 +52,7 @@ export const resetPasswordSchema = z
 
 export const changePasswordSchema = z
   .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: passwordSchema,
     confirmPassword: z.string().min(8, 'Confirm your password'),
   })
   .refine((data) => data.password === data.confirmPassword, {
