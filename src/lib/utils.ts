@@ -29,6 +29,17 @@ export function formatRelative(value?: string | null) {
   return formatDistanceToNow(new Date(value), { addSuffix: true })
 }
 
+/** Format decimal hours (e.g. 8.72) as "8h 43m". */
+export function formatHoursDuration(totalHours?: number | string | null) {
+  if (totalHours == null || totalHours === '') return '—'
+  const hoursValue = typeof totalHours === 'string' ? Number(totalHours) : totalHours
+  if (!Number.isFinite(hoursValue) || hoursValue < 0) return '—'
+  const wholeHours = Math.floor(hoursValue)
+  const minutes = Math.round((hoursValue - wholeHours) * 60)
+  if (minutes === 60) return `${wholeHours + 1}h 0m`
+  return `${wholeHours}h ${minutes}m`
+}
+
 export function roleLabel(role: UserRole) {
   const labels: Record<UserRole, string> = {
     admin: 'Admin',
