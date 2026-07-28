@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useDashboardData } from '@/features/data/hooks'
+import { MyWorkStatusCard, WorkforceStatusPanel } from '@/features/workforce/status-cards'
 import {
   formatDate,
   formatRelative,
@@ -100,6 +101,12 @@ export function DashboardPage() {
           </Button>
         )}
       </div>
+
+      {profile?.role === 'employee' || profile?.role === 'subcontractor' || profile?.role === 'project_manager' ? (
+        <MyWorkStatusCard />
+      ) : null}
+
+      {isManagement ? <WorkforceStatusPanel /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {isManagement ? (

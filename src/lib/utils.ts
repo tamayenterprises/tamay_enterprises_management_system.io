@@ -8,6 +8,7 @@ import type {
   DocumentRecord,
   ProjectStatus,
   UserRole,
+  WorkforceStatus,
 } from '@/types/database'
 
 export function cn(...inputs: ClassValue[]) {
@@ -66,6 +67,42 @@ export function certificationStatusLabel(status: CertificationStatus) {
   }
   return labels[status]
 }
+
+export function workforceStatusLabel(status: WorkforceStatus) {
+  const labels: Record<WorkforceStatus, string> = {
+    active: 'Active',
+    on_site: 'On Site',
+    traveling_to_site: 'Traveling to Site',
+    on_break: 'On Break',
+    completed_for_day: 'Completed for Day',
+    off_site: 'Off Site',
+    inactive: 'Inactive',
+  }
+  return labels[status]
+}
+
+export function workforceStatusEmoji(status: WorkforceStatus) {
+  const icons: Record<WorkforceStatus, string> = {
+    active: '🟢',
+    on_site: '🟢',
+    traveling_to_site: '🟡',
+    on_break: '🟠',
+    completed_for_day: '🔵',
+    off_site: '⚪',
+    inactive: '⚫',
+  }
+  return icons[status]
+}
+
+export const WORKFORCE_STATUSES: WorkforceStatus[] = [
+  'active',
+  'on_site',
+  'traveling_to_site',
+  'on_break',
+  'completed_for_day',
+  'off_site',
+  'inactive',
+]
 
 export function documentCategoryLabel(category: DocumentCategory) {
   const labels: Record<DocumentCategory, string> = {

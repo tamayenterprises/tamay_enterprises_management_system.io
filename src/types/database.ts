@@ -3,6 +3,14 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
 export type ProjectStatus = 'not_started' | 'in_progress' | 'waiting' | 'completed'
 export type ProjectPriority = 'low' | 'medium' | 'high' | 'urgent'
 export type CertificationStatus = 'valid' | 'expiring_soon' | 'expired' | 'missing'
+export type WorkforceStatus =
+  | 'active'
+  | 'on_site'
+  | 'traveling_to_site'
+  | 'on_break'
+  | 'completed_for_day'
+  | 'off_site'
+  | 'inactive'
 export type DocumentCategory =
   | 'certification'
   | 'license'
@@ -160,6 +168,33 @@ export interface ActivityLog {
   metadata: Record<string, unknown>
   created_at: string
   actor?: Profile
+}
+
+export interface WorkerStatusUpdate {
+  id: string
+  organization_id: string
+  user_id: string
+  project_id: string | null
+  status: WorkforceStatus
+  note: string | null
+  created_at: string
+  project?: Project
+}
+
+export interface CurrentWorkerStatus {
+  id: string
+  organization_id: string
+  user_id: string
+  project_id: string | null
+  status: WorkforceStatus
+  note: string | null
+  updated_at: string
+  first_name: string
+  last_name: string
+  email: string
+  role: UserRole
+  company_name: string | null
+  project_name: string | null
 }
 
 export interface Database {
