@@ -15,6 +15,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useDashboardData } from '@/features/data/hooks'
 import { MyWorkStatusCard, WorkforceStatusPanel } from '@/features/workforce/status-cards'
+import { ClockInOutCard } from '@/features/attendance/clock-card'
+import { DailyAttendanceSummary } from '@/features/attendance/timesheets'
 import {
   formatDate,
   formatRelative,
@@ -103,10 +105,18 @@ export function DashboardPage() {
       </div>
 
       {profile?.role === 'employee' || profile?.role === 'subcontractor' || profile?.role === 'project_manager' ? (
-        <MyWorkStatusCard />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ClockInOutCard />
+          <MyWorkStatusCard />
+        </div>
       ) : null}
 
-      {isManagement ? <WorkforceStatusPanel /> : null}
+      {isManagement ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          <WorkforceStatusPanel />
+          <DailyAttendanceSummary />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {isManagement ? (
