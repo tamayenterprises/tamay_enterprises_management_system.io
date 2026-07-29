@@ -195,6 +195,7 @@ export interface CurrentWorkerStatus {
   role: UserRole
   company_name: string | null
   project_name: string | null
+  avatar_url: string | null
 }
 
 export interface AttendanceRecord {

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
+import { ProfileAvatar } from '@/features/profile/avatar'
 import { fullName } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
 import { useForm } from 'react-hook-form'
@@ -123,11 +124,20 @@ function SubcontractorCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
-        <div>
-          <CardTitle className="text-xl">{person.company_name || fullName(person.first_name, person.last_name)}</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {fullName(person.first_name, person.last_name)} · {person.email}
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <ProfileAvatar
+            firstName={person.first_name}
+            lastName={person.last_name}
+            avatarUrl={person.avatar_url}
+            className="mt-0.5 h-11 w-11"
+            fallbackClassName="bg-muted text-sm"
+          />
+          <div className="min-w-0">
+            <CardTitle className="text-xl">{person.company_name || fullName(person.first_name, person.last_name)}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {fullName(person.first_name, person.last_name)} · {person.email}
+            </p>
+          </div>
         </div>
         <Badge variant={person.is_active ? 'success' : 'destructive'}>
           {person.is_active ? 'Active' : 'Inactive'}
