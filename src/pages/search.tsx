@@ -4,24 +4,33 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import { supabase } from '@/lib/supabase'
-import { fullName } from '@/lib/utils'
+import { buildIlikeOrFilter, fullName, sanitizeSearchTerm } from '@/lib/utils'
 
 export function SearchPage() {
   const [params] = useSearchParams()
   const q = params.get('q')?.trim() ?? ''
+  const safeQ = sanitizeSearchTerm(q)
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['search', q],
-    enabled: q.length > 0,
+    queryKey: ['search', safeQ],
+    enabled: safeQ.length > 0,
     queryFn: async () => {
+      const peopleFilter = buildIlikeOrFilter(
+        ['first_name', 'last_name', 'email', 'company_name'],
+        safeQ,
+      )
+      if (!peopleFilter) {
+        return { employees: [], projects: [], documents: [] }
+      }
+
       const [employees, projects, documents] = await Promise.all([
         supabase
           .from('profiles')
           .select('id, first_name, last_name, email, role, company_name')
-          .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,company_name.ilike.%${q}%`)
+          .or(peopleFilter)
           .limit(10),
-        supabase.from('projects').select('id, name, location, status').ilike('name', `%${q}%`).limit(10),
-        supabase.from('documents').select('id, name, category').ilike('name', `%${q}%`).limit(10),
+        supabase.from('projects').select('id, name, location, status').ilike('name', `%${safeQ}%`).limit(10),
+        supabase.from('documents').select('id, name, category').ilike('name', `%${safeQ}%`).limit(10),
       ])
 
       if (employees.error) throw employees.error
@@ -52,8 +61,10 @@ export function SearchPage() {
     },
   })
 
-  if (!q) return <EmptyState title="Search the system" description="Enter a query in the header search bar." />
-  if (isLoading) return <LoadingState label={`Searching for “${q}”...`} />
+  if (!q || !safeQ) {
+    return <EmptyState title="Search the system" description="Enter a query in the header search bar." />
+  }
+  if (isLoading) return <LoadingState label={`Searching for “${safeQ}”...`} />
   if (isError || !data) return <EmptyState title="Search failed" description="Try again in a moment." />
 
   const empty =
@@ -63,7 +74,7 @@ export function SearchPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl font-semibold">Search results</h1>
-        <p className="text-sm text-muted-foreground">Results for “{q}”</p>
+        <p className="text-sm text-muted-foreground">Results for “{safeQ}”</p>
       </div>
 
       {empty ? (

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   approvalStatusLabel,
+  buildIlikeOrFilter,
   certificationStatusLabel,
   cn,
   deriveCertificationStatus,
@@ -12,6 +13,7 @@ import {
   isManagementRole,
   projectStatusLabel,
   roleLabel,
+  sanitizeSearchTerm,
 } from '@/lib/utils'
 
 describe('utils', () => {
@@ -50,5 +52,15 @@ describe('utils', () => {
   it('derives certification status from expiration dates', () => {
     expect(deriveCertificationStatus(null)).toBe('missing')
     expect(deriveCertificationStatus('2000-01-01')).toBe('expired')
+  })
+
+  it('sanitizes search terms for PostgREST filters', () => {
+    expect(sanitizeSearchTerm('Ada')).toBe('Ada')
+    expect(sanitizeSearchTerm('a%b_c,d.(e)')).toBe('a b c d e')
+    expect(sanitizeSearchTerm('   ')).toBe('')
+    expect(buildIlikeOrFilter(['first_name', 'email'], 'Ada,x')).toBe(
+      'first_name.ilike.%Ada x%,email.ilike.%Ada x%',
+    )
+    expect(buildIlikeOrFilter(['first_name'], ',,,')).toBeNull()
   })
 })

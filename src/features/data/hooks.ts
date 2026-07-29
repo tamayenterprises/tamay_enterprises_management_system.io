@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { documentStorageBucket } from '@/lib/utils'
+import { documentStorageBucket, buildIlikeOrFilter } from '@/lib/utils'
 import { validateUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
@@ -226,9 +226,11 @@ export function useProfiles(filters?: { role?: UserRole | UserRole[]; search?: s
       }
 
       if (filters?.search) {
-        query = query.or(
-          `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%`,
+        const peopleFilter = buildIlikeOrFilter(
+          ['first_name', 'last_name', 'email', 'company_name'],
+          filters.search,
         )
+        if (peopleFilter) query = query.or(peopleFilter)
       }
 
       const { data, error } = await query
