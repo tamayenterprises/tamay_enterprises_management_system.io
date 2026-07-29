@@ -19,7 +19,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SidebarProfileAvatar } from '@/features/profile/avatar'
-import { cn, fullName, isManagementRole, roleLabel } from '@/lib/utils'
+import { cn, isManagementRole } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
 
 const navItems = [
@@ -102,17 +102,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <div className="border-t border-white/10 p-4">
-            <div className="mb-3 flex items-center gap-3">
-              <SidebarProfileAvatar />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">
-                  {profile ? fullName(profile.first_name, profile.last_name) : 'User'}
-                </p>
-                <p className="truncate text-xs text-sidebar-muted">
-                  {profile ? roleLabel(profile.role) : ''}
-                </p>
-              </div>
-            </div>
+            <SidebarProfileAvatar />
             <Button
               variant="secondary"
               className="w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
