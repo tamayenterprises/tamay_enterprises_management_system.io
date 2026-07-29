@@ -197,6 +197,21 @@ export interface CurrentWorkerStatus {
   project_name: string | null
 }
 
+export interface AttendanceRecord {
+  id: string
+  organization_id: string
+  user_id: string
+  project_id: string | null
+  clock_in_time: string
+  clock_out_time: string | null
+  total_hours: number | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  project?: Project | null
+  profile?: Profile | null
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -218,6 +233,16 @@ export interface Database {
       documents: { Row: DocumentRecord; Insert: Partial<DocumentRecord>; Update: Partial<DocumentRecord> }
       notifications: { Row: Notification; Insert: Partial<Notification>; Update: Partial<Notification> }
       activity_log: { Row: ActivityLog; Insert: Partial<ActivityLog>; Update: Partial<ActivityLog> }
+      worker_status_updates: {
+        Row: WorkerStatusUpdate
+        Insert: Partial<WorkerStatusUpdate>
+        Update: Partial<WorkerStatusUpdate>
+      }
+      attendance_records: {
+        Row: AttendanceRecord
+        Insert: Partial<AttendanceRecord>
+        Update: Partial<AttendanceRecord>
+      }
     }
   }
 }

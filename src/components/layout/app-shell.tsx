@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Bell,
   Briefcase,
+  Clock3,
   FileText,
   HardHat,
   LayoutDashboard,
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/projects', label: 'Projects', icon: Briefcase },
   { to: '/employees', label: 'Employees', icon: Users, management: true },
   { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, management: true },
+  { to: '/timesheets', label: 'Timesheets', icon: Clock3, management: true },
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/notifications', label: 'Notifications', icon: Bell },
