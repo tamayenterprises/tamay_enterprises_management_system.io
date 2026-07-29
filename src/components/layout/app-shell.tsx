@@ -16,10 +16,10 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '@/features/auth/auth-context'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn, fullName, getInitials, isManagementRole, roleLabel } from '@/lib/utils'
+import { SidebarProfileAvatar } from '@/features/profile/avatar'
+import { cn, fullName, isManagementRole, roleLabel } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
 
 const navItems = [
@@ -103,12 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="border-t border-white/10 p-4">
             <div className="mb-3 flex items-center gap-3">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={profile?.avatar_url ?? undefined} />
-                <AvatarFallback className="rounded-full bg-white/15 text-white">
-                  {profile ? getInitials(profile.first_name, profile.last_name) : 'TE'}
-                </AvatarFallback>
-              </Avatar>
+              <SidebarProfileAvatar />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">
                   {profile ? fullName(profile.first_name, profile.last_name) : 'User'}

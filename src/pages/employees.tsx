@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
 import { useProfiles, useUpdateProfile, useAdminSetUserAccess } from '@/features/data/hooks'
+import { ProfileAvatar } from '@/features/profile/avatar'
 import { formatDate, fullName, roleLabel } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
 import { profileSchema, type ProfileFormValues } from '@/lib/validations'
@@ -136,9 +137,18 @@ function EmployeeCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-        <div>
-          <CardTitle className="text-xl">{fullName(employee.first_name, employee.last_name)}</CardTitle>
-          <p className="text-sm text-muted-foreground">{employee.email}</p>
+        <div className="flex min-w-0 items-start gap-3">
+          <ProfileAvatar
+            firstName={employee.first_name}
+            lastName={employee.last_name}
+            avatarUrl={employee.avatar_url}
+            className="mt-0.5 h-11 w-11"
+            fallbackClassName="bg-muted text-sm"
+          />
+          <div className="min-w-0">
+            <CardTitle className="text-xl">{fullName(employee.first_name, employee.last_name)}</CardTitle>
+            <p className="text-sm text-muted-foreground">{employee.email}</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Badge variant="secondary">{roleLabel(employee.role)}</Badge>
