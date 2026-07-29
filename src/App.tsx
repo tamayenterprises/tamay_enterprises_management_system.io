@@ -18,6 +18,7 @@ import { DocumentsPage } from '@/pages/documents'
 import { NotificationsPage } from '@/pages/notifications'
 import { AdminPage } from '@/pages/admin'
 import { SearchPage } from '@/pages/search'
+import { TimesheetsPage } from '@/pages/timesheets'
 import { NotFoundPage } from '@/pages/not-found'
 
 const queryClient = new QueryClient({
@@ -69,6 +70,7 @@ export default function App() {
                   <Route element={<ManagementRoute />}>
                     <Route path="/employees" element={<EmployeesPage />} />
                     <Route path="/subcontractors" element={<SubcontractorsPage />} />
+                    <Route path="/timesheets" element={<TimesheetsPage />} />
                   </Route>
 
                   <Route element={<AdminRoute />}>
