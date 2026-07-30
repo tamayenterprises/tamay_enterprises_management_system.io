@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -102,11 +103,18 @@ export function DocumentsPage() {
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label>File</Label>
-                <Input
-                  type="file"
-                  accept={UPLOAD_ACCEPT}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <FilePickerButton
+                    accept={UPLOAD_ACCEPT}
+                    label={file ? 'Change file' : 'Choose file'}
+                    size="sm"
+                    variant="outline"
+                    onFile={(selected) => setFile(selected)}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    {file ? file.name : 'No file selected yet'}
+                  </p>
+                </div>
               </div>
               <div className="space-y-1">
                 <Label>Category</Label>

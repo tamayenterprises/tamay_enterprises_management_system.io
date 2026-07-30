@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -219,11 +220,18 @@ export function CertificationsPage() {
                 </div>
                 <div className="space-y-1">
                   <Label>Proof file</Label>
-                  <Input
-                    type="file"
-                    accept={UPLOAD_ACCEPT}
-                    onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-                  />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <FilePickerButton
+                      accept={UPLOAD_ACCEPT}
+                      label={proofFile ? 'Change proof file' : 'Upload proof file'}
+                      size="sm"
+                      variant="outline"
+                      onFile={(selected) => setProofFile(selected)}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {proofFile ? proofFile.name : 'No file selected yet'}
+                    </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Required. Upload PDF or image proof of the certification.
                   </p>
@@ -467,11 +475,18 @@ function CertificationCard({
                 </div>
                 <div className="space-y-1">
                   <Label>Replace proof file (optional)</Label>
-                  <Input
-                    type="file"
-                    accept={UPLOAD_ACCEPT}
-                    onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
-                  />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <FilePickerButton
+                      accept={UPLOAD_ACCEPT}
+                      label={proofFile ? 'Change proof file' : 'Upload proof file'}
+                      size="sm"
+                      variant="outline"
+                      onFile={(selected) => setProofFile(selected)}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      {proofFile ? proofFile.name : 'No new file selected'}
+                    </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {cert.document_url
                       ? 'Leave empty to keep the current proof file.'
