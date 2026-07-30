@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -60,7 +61,6 @@ export function ProjectDetailPage() {
   const deleteDocument = useDeleteDocument()
   const [note, setNote] = useState('')
   const [selectedWorker, setSelectedWorker] = useState('')
-  const [file, setFile] = useState<File | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
   const editForm = useForm<ProjectFormValues>({
@@ -288,33 +288,31 @@ export function ProjectDetailPage() {
               <CardTitle>Files & work photos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <Input
-                  type="file"
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <FilePickerButton
                   accept={UPLOAD_ACCEPT}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file || !profile?.organization_id || uploadDocument.isPending}
-                  onClick={async () => {
-                    if (!file || !profile?.organization_id) return
+                  label="Upload file"
+                  loadingLabel="Uploading…"
+                  disabled={!profile?.organization_id}
+                  isLoading={uploadDocument.isPending}
+                  onFile={async (selected) => {
+                    if (!profile?.organization_id) return
                     try {
                       await uploadDocument.mutateAsync({
-                        file,
-                        category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
+                        file: selected,
+                        category: selected.type.startsWith('image/') ? 'work_photo' : 'project_file',
                         projectId: project.id,
                         bucket: 'project-files',
                       })
-                      setFile(null)
                       toast.success('File uploaded')
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Upload failed')
                     }
                   }}
-                >
-                  Upload file
-                </Button>
+                />
+                <p className="text-xs text-muted-foreground">
+                  Click Upload file to choose a photo or document from your device.
+                </p>
               </div>
               {documents.length === 0 ? (
                 <EmptyState title="No files uploaded" />
