@@ -167,6 +167,15 @@ export function useExceptionRequests(status?: 'pending' | 'all') {
   })
 }
 
+function asAppError(error: unknown, fallback = 'Attendance action failed'): Error {
+  if (error instanceof Error) return error
+  if (typeof error === 'object' && error && 'message' in error) {
+    const message = String((error as { message?: unknown }).message || fallback)
+    return new Error(message)
+  }
+  return new Error(typeof error === 'string' ? error : fallback)
+}
+
 export function useRecordAttendanceAction() {
   const queryClient = useQueryClient()
 
@@ -204,12 +213,13 @@ export function useRecordAttendanceAction() {
         p_session_id: null,
       })
 
-      if (error) throw error
+      if (error) throw asAppError(error, error.message || 'Attendance RPC failed')
+
       const result = data as AttendanceActionResult
-      if (!result.ok) {
-        const err = new Error(result.rejection_reason || 'Attendance action rejected') as Error & {
-          result?: AttendanceActionResult
-        }
+      if (!result?.ok) {
+        const err = asAppError(
+          result?.rejection_reason || 'Attendance action was rejected by location or status checks',
+        ) as Error & { result?: AttendanceActionResult }
         err.result = result
         throw err
       }

@@ -74,7 +74,13 @@ export function ClockInOutCard() {
     } catch (error) {
       const result = (error as Error & { result?: AttendanceActionResult }).result
       if (result) setLastResult(result)
-      toast.error(error instanceof Error ? error.message : 'Attendance action failed')
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : typeof error === 'object' && error && 'message' in error
+            ? String((error as { message: unknown }).message)
+            : 'Attendance action failed'
+      toast.error(message)
       if (result?.allow_exception_request) {
         setExceptionAction(action)
         setExceptionOpen(true)
