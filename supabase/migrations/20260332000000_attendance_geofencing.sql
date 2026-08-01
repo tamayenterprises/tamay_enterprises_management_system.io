@@ -4,11 +4,15 @@
 -- ---------------------------------------------------------------------------
 -- Projects: verified job-site coordinates
 -- ---------------------------------------------------------------------------
-create type public.location_verification_status as enum (
-  'unverified',
-  'needs_verification',
-  'verified'
-);
+do $$ begin
+  create type public.location_verification_status as enum (
+    'unverified',
+    'needs_verification',
+    'verified'
+  );
+exception
+  when duplicate_object then null;
+end $$;
 
 alter table public.projects
   add column if not exists job_site_address text,
@@ -20,6 +24,9 @@ alter table public.projects
   add column if not exists location_verified_at timestamptz,
   add column if not exists location_verified_by uuid references public.profiles (id) on delete set null;
 
+-- SQL Editor has no management JWT; disable worker-update guard for this backfill only
+alter table public.projects disable trigger projects_enforce_worker_update;
+
 -- Backfill address from free-text location; mark existing projects for admin verification
 update public.projects
 set
@@ -29,6 +36,47 @@ set
     else 'needs_verification'::public.location_verification_status
   end
 where true;
+
+alter table public.projects enable trigger projects_enforce_worker_update;
+
+-- Keep geo fields management-only for assigned workers
+create or replace function public.enforce_project_worker_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if public.has_management_role() then
+    return new;
+  end if;
+
+  if public.is_assigned_to_project(old.id) then
+    if new.name is distinct from old.name
+      or new.description is distinct from old.description
+      or new.location is distinct from old.location
+      or new.priority is distinct from old.priority
+      or new.start_date is distinct from old.start_date
+      or new.deadline is distinct from old.deadline
+      or new.created_by is distinct from old.created_by
+      or new.organization_id is distinct from old.organization_id
+      or new.archived_at is distinct from old.archived_at
+      or new.job_site_address is distinct from old.job_site_address
+      or new.latitude is distinct from old.latitude
+      or new.longitude is distinct from old.longitude
+      or new.geofence_radius_meters is distinct from old.geofence_radius_meters
+      or new.location_verification_status is distinct from old.location_verification_status
+      or new.location_verified_at is distinct from old.location_verified_at
+      or new.location_verified_by is distinct from old.location_verified_by
+    then
+      raise exception 'Assigned workers may only update project status';
+    end if;
+    return new;
+  end if;
+
+  raise exception 'Not allowed to update this project';
+end;
+$$;
 
 alter table public.projects
   drop constraint if exists projects_geofence_radius_positive;
