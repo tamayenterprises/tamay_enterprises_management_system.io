@@ -166,20 +166,38 @@ export function useCreateProjectUpdate() {
         if (uploadError) throw uploadError
       }
 
+      // Only send columns that are needed. Sending null parent_id/photo_path
+      // fails if the project_updates migration has not been applied yet.
+      const payload: {
+        project_id: string
+        author_id: string
+        content: string | null
+        parent_id?: string
+        photo_path?: string
+      } = {
+        project_id: projectId,
+        author_id: profile.id,
+        content: trimmed || null,
+      }
+      if (parentId) payload.parent_id = parentId
+      if (photoPath) payload.photo_path = photoPath
+
       const { data, error } = await supabase
         .from('project_notes')
-        .insert({
-          project_id: projectId,
-          author_id: profile.id,
-          parent_id: parentId || null,
-          content: trimmed || null,
-          photo_path: photoPath,
-        })
+        .insert(payload)
         .select('*, author:profiles(*)')
         .single()
 
       if (error) {
         if (photoPath) await supabase.storage.from('project-files').remove([photoPath])
+        const missingColumn =
+          /parent_id|photo_path|schema cache|PGRST204/i.test(error.message) ||
+          error.code === 'PGRST204'
+        if (missingColumn) {
+          throw new Error(
+            'Project Updates is not fully set up in the database yet. Run the project_updates SQL migration in Supabase, then try again.',
+          )
+        }
         throw error
       }
 
