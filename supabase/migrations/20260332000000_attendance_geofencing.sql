@@ -98,36 +98,48 @@ alter table public.projects
 -- ---------------------------------------------------------------------------
 -- Attendance session extensions (keep existing rows)
 -- ---------------------------------------------------------------------------
-create type public.attendance_workflow_status as enum (
-  'working',
-  'on_break',
-  'completed'
-);
+do $$ begin
+  create type public.attendance_workflow_status as enum (
+    'working',
+    'on_break',
+    'completed'
+  );
+exception when duplicate_object then null;
+end $$;
 
-create type public.attendance_action_type as enum (
-  'WORK_STARTED',
-  'BREAK_STARTED',
-  'BREAK_ENDED',
-  'WORK_ENDED'
-);
+do $$ begin
+  create type public.attendance_action_type as enum (
+    'WORK_STARTED',
+    'BREAK_STARTED',
+    'BREAK_ENDED',
+    'WORK_ENDED'
+  );
+exception when duplicate_object then null;
+end $$;
 
-create type public.attendance_validation_result as enum (
-  'approved',
-  'rejected_outside_geofence',
-  'rejected_poor_accuracy',
-  'rejected_location_unavailable',
-  'rejected_project_unverified',
-  'rejected_not_assigned',
-  'rejected_invalid_transition',
-  'rejected_duplicate',
-  'rejected_other'
-);
+do $$ begin
+  create type public.attendance_validation_result as enum (
+    'approved',
+    'rejected_outside_geofence',
+    'rejected_poor_accuracy',
+    'rejected_location_unavailable',
+    'rejected_project_unverified',
+    'rejected_not_assigned',
+    'rejected_invalid_transition',
+    'rejected_duplicate',
+    'rejected_other'
+  );
+exception when duplicate_object then null;
+end $$;
 
-create type public.exception_request_status as enum (
-  'pending',
-  'approved',
-  'rejected'
-);
+do $$ begin
+  create type public.exception_request_status as enum (
+    'pending',
+    'approved',
+    'rejected'
+  );
+exception when duplicate_object then null;
+end $$;
 
 alter table public.attendance_records
   add column if not exists workflow_status public.attendance_workflow_status,
@@ -136,6 +148,9 @@ alter table public.attendance_records
   add column if not exists active_break_started_at timestamptz,
   add column if not exists geofence_enforced boolean not null default false;
 
+-- SQL Editor has no management JWT; disable attendance guard for this backfill only
+alter table public.attendance_records disable trigger attendance_records_enforce_update;
+
 -- Legacy open rows → working; closed → completed
 update public.attendance_records
 set workflow_status = case
@@ -143,6 +158,8 @@ set workflow_status = case
   else 'completed'::public.attendance_workflow_status
 end
 where workflow_status is null;
+
+alter table public.attendance_records enable trigger attendance_records_enforce_update;
 
 -- ---------------------------------------------------------------------------
 -- Official attendance events (history preserved)
