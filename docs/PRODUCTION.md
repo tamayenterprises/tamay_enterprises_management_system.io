@@ -20,12 +20,15 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 8. `supabase/migrations/20260328000001_attendance_records.sql`
 9. `supabase/migrations/20260329000000_profile_avatars.sql`
 10. `supabase/migrations/20260331000000_project_updates.sql`
+11. `supabase/migrations/20260332000000_attendance_geofencing.sql`
 
 **Notes**
 
 - Migration `00004` requires **pg_cron**. Enable it first: Dashboard → **Database → Extensions → pg_cron**.
 - Migration `00001` (attendance) depends on workforce status (`00000` in the `20260328` series).
 - Migration `00000` (avatars / `20260329`) updates the workforce status view — run after workforce status.
+- Migration `20260332` (geofencing) adds project coordinates, breaks, location attempts, exceptions, and RPCs. After applying it, deploy Edge Function `geocode-address` (optional Mapbox secret `MAPBOX_ACCESS_TOKEN`; otherwise Nominatim).
+- Existing projects are marked `needs_verification` until an admin verifies coordinates on the project page.
 
 ### Verify cron job
 

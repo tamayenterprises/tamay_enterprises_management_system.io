@@ -1,106 +1,194 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useClockIn, useClockOut, useMyAttendanceHistory, useMyOpenAttendance } from '@/features/attendance/hooks'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  useMyAttendanceHistory,
+  useMyOpenAttendance,
+  useRecordAttendanceAction,
+  useSubmitExceptionRequest,
+} from '@/features/attendance/hooks'
 import { useProjects } from '@/features/data/hooks'
-import { confirmAction } from '@/lib/uploads'
+import {
+  actionButtonLabel,
+  formatBreakDuration,
+  formatDistance,
+  nextAttendanceActions,
+  type AttendanceActionType,
+} from '@/lib/geo'
+import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
 import { formatHoursDuration, formatRelative } from '@/lib/utils'
+import type { AttendanceActionResult } from '@/types/database'
 
 export function ClockInOutCard() {
   const { data: openRecord, isLoading, isError } = useMyOpenAttendance()
   const { data: history = [] } = useMyAttendanceHistory(5)
   const { data: projects = [] } = useProjects({ assignedOnly: true })
-  const clockIn = useClockIn()
-  const clockOut = useClockOut()
-  const [projectId, setProjectId] = useState<string>('none')
+  const recordAction = useRecordAttendanceAction()
+  const submitException = useSubmitExceptionRequest()
+
+  const [projectId, setProjectId] = useState<string>('')
+  const [busyAction, setBusyAction] = useState<AttendanceActionType | null>(null)
+  const [exceptionOpen, setExceptionOpen] = useState(false)
+  const [exceptionAction, setExceptionAction] = useState<AttendanceActionType>('WORK_STARTED')
+  const [exceptionText, setExceptionText] = useState('')
+  const [exceptionPhoto, setExceptionPhoto] = useState<File | null>(null)
+  const [lastResult, setLastResult] = useState<AttendanceActionResult | null>(null)
+
+  const activeProjectId = openRecord?.project_id || projectId
+  const workflowStatus = openRecord?.workflow_status ?? null
+  const actions = useMemo(() => nextAttendanceActions(workflowStatus), [workflowStatus])
+
+  const verifiedProjects = projects.filter(
+    (p) => p.location_verification_status === 'verified' && p.latitude != null && p.longitude != null,
+  )
 
   if (isLoading) return <LoadingState label="Loading time clock..." />
   if (isError) return <EmptyState title="Unable to load time clock" />
 
-  const isClockedIn = Boolean(openRecord)
+  async function runAction(action: AttendanceActionType) {
+    const pid = action === 'WORK_STARTED' ? projectId : openRecord?.project_id || projectId
+    if (!pid) {
+      toast.error('Select an assigned project first')
+      return
+    }
+    if (action === 'WORK_ENDED') {
+      if (!confirmAction('Clock out now? Paid hours will exclude break time.')) return
+    }
+
+    setBusyAction(action)
+    try {
+      const result = await recordAction.mutateAsync({ action, projectId: pid })
+      setLastResult(result)
+      toast.success(`${actionButtonLabel(action)} recorded`)
+      if (action === 'WORK_STARTED') setProjectId(pid)
+    } catch (error) {
+      const result = (error as Error & { result?: AttendanceActionResult }).result
+      if (result) setLastResult(result)
+      toast.error(error instanceof Error ? error.message : 'Attendance action failed')
+      if (result?.allow_exception_request) {
+        setExceptionAction(action)
+        setExceptionOpen(true)
+      }
+    } finally {
+      setBusyAction(null)
+    }
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Time clock</CardTitle>
-        <CardDescription>Clock in and out to track your working hours.</CardDescription>
+        <CardDescription>
+          Clock in, take breaks, and clock out at the job site. Location is checked for each action.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isClockedIn && openRecord ? (
+        <p className="rounded-lg border border-border bg-[#fbfcff] px-3 py-2 text-xs text-muted-foreground">
+          Your location is checked only when you record a work or break action. Tamay Enterprises does not
+          continuously track your location through this feature.
+        </p>
+
+        {openRecord ? (
           <div className="space-y-1 rounded-xl border border-border bg-[#fbfcff] px-3 py-3">
-            <Badge variant="secondary">Clocked in</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">
+                {workflowStatus === 'on_break' ? 'On break' : 'Working'}
+              </Badge>
+              {openRecord.geofence_enforced ? <Badge variant="outline">Geofenced</Badge> : null}
+            </div>
             <p className="font-display text-2xl font-semibold">
               {format(new Date(openRecord.clock_in_time), 'h:mm a')}
             </p>
             <p className="text-sm text-muted-foreground">
-              Project: {openRecord.project?.name || 'No project selected'}
+              Project: {openRecord.project?.name || 'Unknown project'}
             </p>
-            <p className="text-xs text-muted-foreground">{formatRelative(openRecord.clock_in_time)}</p>
+            <p className="text-xs text-muted-foreground">
+              Breaks so far: {formatBreakDuration(openRecord.break_seconds)} ·{' '}
+              {formatRelative(openRecord.clock_in_time)}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label>Assigned project (optional)</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
+              <Label>Assigned project (required)</Label>
+              <Select value={projectId || undefined} onValueChange={setProjectId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="No project" />
+                  <SelectValue placeholder="Select project" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No project</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
+                  {projects.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      No assigned projects
                     </SelectItem>
-                  ))}
+                  ) : (
+                    projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                        {project.location_verification_status !== 'verified'
+                          ? ' (location needs verification)'
+                          : ''}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-sm text-muted-foreground">You are currently clocked out.</p>
+            {verifiedProjects.length === 0 && projects.length > 0 ? (
+              <p className="text-xs text-amber-700">
+                Assigned projects need an administrator to verify job-site coordinates before normal
+                clock-in. You can still submit an exception request if needed.
+              </p>
+            ) : null}
+            <p className="text-sm text-muted-foreground">You are currently not working.</p>
           </div>
         )}
 
         <div className="flex flex-wrap gap-2">
+          {actions.map((action) => (
+            <Button
+              key={action}
+              variant={action === 'WORK_ENDED' || action === 'BREAK_STARTED' ? 'outline' : 'default'}
+              disabled={Boolean(busyAction) || (action === 'WORK_STARTED' && !projectId)}
+              onClick={() => void runAction(action)}
+            >
+              {busyAction === action ? 'Checking location…' : actionButtonLabel(action)}
+            </Button>
+          ))}
           <Button
-            disabled={isClockedIn || clockIn.isPending}
-            onClick={async () => {
-              try {
-                await clockIn.mutateAsync({
-                  projectId: projectId === 'none' ? null : projectId,
-                })
-                toast.success('Clocked in — status set to Active')
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'Clock in failed')
-              }
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setExceptionAction(actions[0] ?? 'WORK_STARTED')
+              setExceptionOpen(true)
             }}
           >
-            {clockIn.isPending ? 'Clocking in…' : 'Clock in'}
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!isClockedIn || clockOut.isPending || !openRecord}
-            onClick={async () => {
-              if (!openRecord) return
-              if (!confirmAction('Clock out now? Your hours will be calculated and status set to Completed for Day.')) {
-                return
-              }
-              try {
-                const record = await clockOut.mutateAsync({ recordId: openRecord.id })
-                toast.success(`Clocked out — ${formatHoursDuration(record.total_hours)}`)
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'Clock out failed')
-              }
-            }}
-          >
-            {clockOut.isPending ? 'Clocking out…' : 'Clock out'}
+            Request exception
           </Button>
         </div>
+
+        {lastResult && !lastResult.ok ? (
+          <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p className="font-medium">Location check needs attention</p>
+            <p>{lastResult.rejection_reason}</p>
+            {lastResult.distance_meters != null ? (
+              <p>Distance: {formatDistance(lastResult.distance_meters)}</p>
+            ) : null}
+            <p>
+              Tips: enable precise location, move near a window or open area, wait briefly, then retry.
+            </p>
+          </div>
+        ) : null}
 
         {history.length > 0 ? (
           <div className="space-y-2 border-t border-border pt-3">
@@ -116,12 +204,104 @@ export function ClockInOutCard() {
                     {format(new Date(row.clock_in_time), 'h:mm a')}
                     {row.clock_out_time ? ` – ${format(new Date(row.clock_out_time), 'h:mm a')}` : ' – open'}
                   </p>
-                  <p>{formatHoursDuration(row.total_hours)}</p>
+                  <p>
+                    Paid {formatHoursDuration(row.paid_hours ?? row.total_hours)}
+                    {row.break_seconds ? ` · break ${formatBreakDuration(row.break_seconds)}` : ''}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
         ) : null}
+
+        <Dialog open={exceptionOpen} onOpenChange={setExceptionOpen}>
+          <DialogContent className="max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Location exception request</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              This does not clock you in automatically. An administrator must review and approve.
+            </p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Action</Label>
+                <Select
+                  value={exceptionAction}
+                  onValueChange={(v) => setExceptionAction(v as AttendanceActionType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(['WORK_STARTED', 'BREAK_STARTED', 'BREAK_ENDED', 'WORK_ENDED'] as const).map((a) => (
+                      <SelectItem key={a} value={a}>
+                        {actionButtonLabel(a)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {!openRecord ? (
+                <div className="space-y-1">
+                  <Label>Project</Label>
+                  <Select value={projectId || undefined} onValueChange={setProjectId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+              <div className="space-y-1">
+                <Label>Explanation</Label>
+                <Textarea
+                  value={exceptionText}
+                  onChange={(e) => setExceptionText(e.target.value)}
+                  placeholder="Describe the legitimate location problem…"
+                  rows={4}
+                />
+              </div>
+              <FilePickerButton
+                accept={IMAGE_UPLOAD_ACCEPT}
+                label={exceptionPhoto ? 'Change photo' : 'Optional photo'}
+                variant="outline"
+                onFile={(file) => setExceptionPhoto(file)}
+              />
+              <Button
+                disabled={submitException.isPending || !exceptionText.trim() || !activeProjectId}
+                onClick={async () => {
+                  if (!activeProjectId) return
+                  try {
+                    await submitException.mutateAsync({
+                      projectId: activeProjectId,
+                      action: exceptionAction,
+                      explanation: exceptionText,
+                      latitude: null,
+                      longitude: null,
+                      accuracyMeters: null,
+                      distanceMeters: lastResult?.distance_meters ?? null,
+                      photo: exceptionPhoto,
+                    })
+                    toast.success('Exception request submitted for review')
+                    setExceptionOpen(false)
+                    setExceptionText('')
+                    setExceptionPhoto(null)
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Submit failed')
+                  }
+                }}
+              >
+                {submitException.isPending ? 'Submitting…' : 'Submit request'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   )

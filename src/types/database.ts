@@ -65,12 +65,34 @@ export interface Profile {
   updated_at: string
 }
 
+export type LocationVerificationStatus = 'unverified' | 'needs_verification' | 'verified'
+export type AttendanceWorkflowStatus = 'working' | 'on_break' | 'completed'
+export type AttendanceActionType = 'WORK_STARTED' | 'BREAK_STARTED' | 'BREAK_ENDED' | 'WORK_ENDED'
+export type AttendanceValidationResult =
+  | 'approved'
+  | 'rejected_outside_geofence'
+  | 'rejected_poor_accuracy'
+  | 'rejected_location_unavailable'
+  | 'rejected_project_unverified'
+  | 'rejected_not_assigned'
+  | 'rejected_invalid_transition'
+  | 'rejected_duplicate'
+  | 'rejected_other'
+export type ExceptionRequestStatus = 'pending' | 'approved' | 'rejected'
+
 export interface Project {
   id: string
   organization_id: string
   name: string
   description: string | null
   location: string | null
+  job_site_address: string | null
+  latitude: number | null
+  longitude: number | null
+  geofence_radius_meters: number
+  location_verification_status: LocationVerificationStatus
+  location_verified_at: string | null
+  location_verified_by: string | null
   status: ProjectStatus
   priority: ProjectPriority
   start_date: string | null
@@ -208,11 +230,117 @@ export interface AttendanceRecord {
   clock_in_time: string
   clock_out_time: string | null
   total_hours: number | null
+  paid_hours: number | null
+  break_seconds: number
+  workflow_status: AttendanceWorkflowStatus | null
+  active_break_started_at: string | null
+  geofence_enforced: boolean
   notes: string | null
   created_at: string
   updated_at: string
   project?: Project | null
   profile?: Profile | null
+}
+
+export interface AttendanceEvent {
+  id: string
+  organization_id: string
+  attendance_record_id: string
+  user_id: string
+  project_id: string | null
+  action: AttendanceActionType
+  server_timestamp: string
+  employee_latitude: number | null
+  employee_longitude: number | null
+  device_accuracy_meters: number | null
+  project_latitude: number | null
+  project_longitude: number | null
+  calculated_distance_meters: number | null
+  authorized_radius_meters: number | null
+  validation_result: AttendanceValidationResult
+  session_id: string | null
+  device_info: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface AttendanceAttempt {
+  id: string
+  organization_id: string
+  user_id: string
+  project_id: string | null
+  attendance_record_id: string | null
+  action: AttendanceActionType
+  server_timestamp: string
+  employee_latitude: number | null
+  employee_longitude: number | null
+  device_accuracy_meters: number | null
+  project_latitude: number | null
+  project_longitude: number | null
+  calculated_distance_meters: number | null
+  authorized_radius_meters: number | null
+  max_accuracy_meters: number | null
+  validation_result: AttendanceValidationResult
+  rejection_reason: string | null
+  session_id: string | null
+  device_info: Record<string, unknown> | null
+  idempotency_key: string | null
+  created_at: string
+  profile?: Profile | null
+  project?: Project | null
+}
+
+export interface AttendanceExceptionRequest {
+  id: string
+  organization_id: string
+  user_id: string
+  project_id: string
+  requested_action: AttendanceActionType
+  server_timestamp: string
+  employee_latitude: number | null
+  employee_longitude: number | null
+  device_accuracy_meters: number | null
+  calculated_distance_meters: number | null
+  explanation: string
+  photo_path: string | null
+  status: ExceptionRequestStatus
+  admin_decision_by: string | null
+  admin_note: string | null
+  decided_at: string | null
+  resulting_attendance_record_id: string | null
+  created_at: string
+  updated_at: string
+  profile?: Profile | null
+  project?: Project | null
+}
+
+export interface AttendanceCorrection {
+  id: string
+  organization_id: string
+  attendance_record_id: string
+  corrected_by: string
+  reason: string
+  original_values: Record<string, unknown>
+  corrected_values: Record<string, unknown>
+  created_at: string
+  corrector?: Profile | null
+}
+
+export interface AttendanceActionResult {
+  ok: boolean
+  validation_result: AttendanceValidationResult
+  rejection_reason?: string | null
+  attempt_id?: string
+  event_id?: string
+  attendance_record_id?: string
+  workflow_status?: AttendanceWorkflowStatus
+  server_timestamp?: string
+  distance_meters?: number | null
+  authorized_radius_meters?: number
+  max_accuracy_meters?: number
+  allow_exception_request?: boolean
+  paid_hours?: number | null
+  break_seconds?: number | null
+  total_hours?: number | null
 }
 
 export interface Database {
@@ -245,6 +373,26 @@ export interface Database {
         Row: AttendanceRecord
         Insert: Partial<AttendanceRecord>
         Update: Partial<AttendanceRecord>
+      }
+      attendance_events: {
+        Row: AttendanceEvent
+        Insert: Partial<AttendanceEvent>
+        Update: Partial<AttendanceEvent>
+      }
+      attendance_attempts: {
+        Row: AttendanceAttempt
+        Insert: Partial<AttendanceAttempt>
+        Update: Partial<AttendanceAttempt>
+      }
+      attendance_exception_requests: {
+        Row: AttendanceExceptionRequest
+        Insert: Partial<AttendanceExceptionRequest>
+        Update: Partial<AttendanceExceptionRequest>
+      }
+      attendance_corrections: {
+        Row: AttendanceCorrection
+        Insert: Partial<AttendanceCorrection>
+        Update: Partial<AttendanceCorrection>
       }
     }
   }

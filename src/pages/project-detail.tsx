@@ -29,6 +29,7 @@ import {
   useUploadDocument,
 } from '@/features/data/hooks'
 import { ProjectUpdates } from '@/features/projects/project-updates'
+import { ProjectLocationPanel } from '@/features/projects/project-location-panel'
 import {
   documentCategoryLabel,
   formatDate,
@@ -233,6 +234,8 @@ export function ProjectDetailPage() {
           </Card>
 
           <ProjectUpdates projectId={project.id} />
+
+          {canManage ? <ProjectLocationPanel project={project} /> : null}
 
           <Card>
             <CardHeader>
