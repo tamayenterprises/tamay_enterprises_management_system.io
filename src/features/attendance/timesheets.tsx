@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { format, startOfDay } from 'date-fns'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -99,6 +99,18 @@ export function TimesheetsPanel() {
   const { data: rejectedAttempts = [] } = useAttendanceAttempts({ onlyRejected: true })
   const { data: pendingExceptions = [] } = useExceptionRequests('pending')
   const resolveException = useResolveExceptionRequest()
+  const [params] = useSearchParams()
+  const focusExceptionId = params.get('exception')
+
+  useEffect(() => {
+    if (!focusExceptionId) return
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`exception-${focusExceptionId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [focusExceptionId, pendingExceptions])
 
   const workerOptions = useMemo(
     () =>
@@ -249,7 +261,15 @@ export function TimesheetsPanel() {
             <EmptyState title="No pending exceptions" />
           ) : (
             pendingExceptions.map((req) => (
-              <div key={req.id} className="space-y-2 rounded-md border border-border px-3 py-3 text-sm">
+              <div
+                key={req.id}
+                id={`exception-${req.id}`}
+                className={`space-y-2 rounded-md border px-3 py-3 text-sm ${
+                  focusExceptionId === req.id
+                    ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+                    : 'border-border'
+                }`}
+              >
                 <p className="font-medium">
                   {req.profile ? fullName(req.profile.first_name, req.profile.last_name) : 'Worker'} ·{' '}
                   {actionButtonLabel(req.requested_action)}

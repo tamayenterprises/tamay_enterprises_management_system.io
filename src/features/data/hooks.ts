@@ -142,11 +142,15 @@ export function useCreateProjectUpdate() {
       content,
       parentId,
       photo,
+      mentionedUserIds,
+      requiresAttention,
     }: {
       projectId: string
       content: string
       parentId?: string | null
       photo?: File | null
+      mentionedUserIds?: string[]
+      requiresAttention?: boolean
     }) => {
       if (!profile?.id) throw new Error('Missing profile')
 
@@ -174,6 +178,7 @@ export function useCreateProjectUpdate() {
         content: string | null
         parent_id?: string
         photo_path?: string
+        requires_attention?: boolean
       } = {
         project_id: projectId,
         author_id: profile.id,
@@ -181,6 +186,7 @@ export function useCreateProjectUpdate() {
       }
       if (parentId) payload.parent_id = parentId
       if (photoPath) payload.photo_path = photoPath
+      if (requiresAttention) payload.requires_attention = true
 
       const { data, error } = await supabase
         .from('project_notes')
@@ -191,20 +197,34 @@ export function useCreateProjectUpdate() {
       if (error) {
         if (photoPath) await supabase.storage.from('project-files').remove([photoPath])
         const missingColumn =
-          /parent_id|photo_path|schema cache|PGRST204/i.test(error.message) ||
+          /parent_id|photo_path|requires_attention|schema cache|PGRST204/i.test(error.message) ||
           error.code === 'PGRST204'
         if (missingColumn) {
           throw new Error(
-            'Project Updates is not fully set up in the database yet. Run the project_updates SQL migration in Supabase, then try again.',
+            'Project Updates / activity notifications are not fully set up in the database yet. Run the latest SQL migrations in Supabase, then try again.',
           )
         }
         throw error
       }
 
-      return data as ProjectNote
+      const note = data as ProjectNote
+      if (mentionedUserIds?.length) {
+        const { error: mentionError } = await supabase.rpc('register_project_note_mentions', {
+          p_note_id: note.id,
+          p_mentioned_user_ids: mentionedUserIds,
+        })
+        if (mentionError) {
+          // Note was saved; mention fan-out is best-effort until migration is applied
+          console.warn(mentionError.message)
+        }
+      }
+
+      return note
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['project-activity'] })
     },
   })
 }

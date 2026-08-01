@@ -24,6 +24,8 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 12. `supabase/migrations/20260332000001_geofencing_trigger_fix.sql` (only if needed during partial runs)
 13. `supabase/migrations/20260332000002_attendance_backfill_trigger_fix.sql` (only if needed during partial runs)
 14. `supabase/migrations/20260332000003_fix_attendance_format_messages.sql`
+15. `supabase/migrations/20260332000004_fix_project_coords_validation.sql`
+16. `supabase/migrations/20260333000000_project_activity_notifications.sql` (Notifications Center + Recent Activity)
 
 **Notes**
 
@@ -32,6 +34,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 - Migration `00000` (avatars / `20260329`) updates the workforce status view — run after workforce status.
 - Migration `20260332` (geofencing) adds project coordinates, breaks, location attempts, exceptions, and RPCs. After applying it, deploy Edge Function `geocode-address` (optional Mapbox secret `MAPBOX_ACCESS_TOKEN`; otherwise Nominatim).
 - Existing projects are marked `needs_verification` until an admin verifies coordinates on the project page.
+- Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
 
 ### Verify cron job
 

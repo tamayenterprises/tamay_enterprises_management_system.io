@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
+  Activity,
   Bell,
   Briefcase,
   Clock3,
@@ -19,6 +20,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SidebarProfileAvatar } from '@/features/profile/avatar'
+import { NotificationBell } from '@/features/notifications/notification-bell'
 import { cn, isManagementRole } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
 
@@ -28,6 +30,7 @@ const navItems = [
   { to: '/employees', label: 'Employees', icon: Users, management: true },
   { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, management: true },
   { to: '/timesheets', label: 'Timesheets', icon: Clock3, management: true },
+  { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/notifications', label: 'Notifications', icon: Bell },
@@ -139,14 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="border-border bg-[#fbfcff] pl-9"
               />
             </form>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Notifications"
-              onClick={() => navigate('/notifications')}
-            >
-              <Bell className="h-4 w-4" />
-            </Button>
+            <NotificationBell />
             <Button variant="outline" size="sm" onClick={() => navigate('/change-password')}>
               Password
             </Button>

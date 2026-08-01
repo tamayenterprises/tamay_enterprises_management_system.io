@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -45,6 +45,7 @@ import type { ProjectStatus } from '@/types/database'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
+  const [params] = useSearchParams()
   const { profile } = useAuth()
   const { data: project, isLoading, isError } = useProject(projectId)
   const { data: assignments = [] } = useProjectAssignments(projectId)
@@ -58,6 +59,19 @@ export function ProjectDetailPage() {
   const deleteDocument = useDeleteDocument()
   const [selectedWorker, setSelectedWorker] = useState('')
   const [editOpen, setEditOpen] = useState(false)
+  const focusDocId = params.get('doc')
+  const focusTab = params.get('tab')
+
+  useEffect(() => {
+    if (focusTab !== 'files' && !focusDocId) return
+    const timer = window.setTimeout(() => {
+      document.getElementById('project-files')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (focusDocId) {
+        document.getElementById(`doc-${focusDocId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [focusTab, focusDocId, documents])
 
   const editForm = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -237,7 +251,7 @@ export function ProjectDetailPage() {
 
           {canManage ? <ProjectLocationPanel project={project} /> : null}
 
-          <Card>
+          <Card id="project-files">
             <CardHeader>
               <CardTitle>Files & work photos</CardTitle>
             </CardHeader>
@@ -275,7 +289,12 @@ export function ProjectDetailPage() {
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                      id={`doc-${doc.id}`}
+                      className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between ${
+                        focusDocId === doc.id
+                          ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+                          : 'border-border'
+                      }`}
                     >
                       <div>
                         <p className="font-medium">{doc.name}</p>

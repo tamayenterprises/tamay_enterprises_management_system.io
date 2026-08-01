@@ -132,6 +132,7 @@ export interface ProjectNote {
   parent_id: string | null
   content: string | null
   photo_path: string | null
+  requires_attention?: boolean
   created_at: string
   updated_at: string
   author?: Profile
@@ -171,15 +172,98 @@ export interface DocumentRecord {
   project?: Project
 }
 
+export type ProjectActivityType =
+  | 'COMMENT_CREATED'
+  | 'COMMENT_REPLIED'
+  | 'USER_MENTIONED'
+  | 'PHOTO_UPLOADED'
+  | 'FILE_UPLOADED'
+  | 'PROJECT_STATUS_CHANGED'
+  | 'USER_ASSIGNED_TO_PROJECT'
+  | 'USER_REMOVED_FROM_PROJECT'
+  | 'ATTENDANCE_STARTED'
+  | 'BREAK_STARTED'
+  | 'BREAK_ENDED'
+  | 'ATTENDANCE_ENDED'
+  | 'ATTENDANCE_REJECTED'
+  | 'ATTENDANCE_EXCEPTION_SUBMITTED'
+  | 'ATTENDANCE_CORRECTED'
+  | 'ATTENTION_REQUESTED'
+  | 'ATTENTION_REVIEWED'
+  | 'ATTENTION_RESOLVED'
+  | 'GENERAL'
+
+export type NotificationRelevance =
+  | 'requires_attention'
+  | 'mentioned'
+  | 'reply_to_you'
+  | 'assigned_project'
+  | 'you_are_assigned'
+  | 'general'
+  | 'not_involved'
+
+export type AttentionReviewStatus = 'none' | 'new' | 'reviewed' | 'resolved'
+
 export interface Notification {
   id: string
   organization_id: string
   recipient_id: string
+  actor_id?: string | null
+  project_id?: string | null
+  activity_id?: string | null
+  activity_type?: ProjectActivityType | null
+  entity_type?: string | null
+  entity_id?: string | null
+  parent_entity_id?: string | null
+  relevance?: NotificationRelevance | null
+  priority?: number
   title: string
   message: string
+  preview_text?: string | null
   link: string | null
+  destination_route?: string | null
   is_read: boolean
+  read_at?: string | null
+  review_status?: AttentionReviewStatus
+  thumbnail_path?: string | null
+  metadata?: Record<string, unknown>
   created_at: string
+  updated_at?: string
+  actor?: Profile | null
+  project?: Project | null
+}
+
+export interface ProjectActivityEvent {
+  id: string
+  organization_id: string
+  project_id: string | null
+  actor_id: string | null
+  activity_type: ProjectActivityType
+  entity_type: string | null
+  entity_id: string | null
+  parent_entity_id: string | null
+  title: string
+  preview_text: string | null
+  destination_route: string | null
+  thumbnail_path: string | null
+  requires_attention: boolean
+  metadata: Record<string, unknown>
+  created_at: string
+  actor?: Profile | null
+  project?: Project | null
+}
+
+export interface NotificationPreferences {
+  user_id: string
+  mentions_enabled: boolean
+  replies_to_my_comments: boolean
+  assigned_project_comments: boolean
+  assigned_project_photos: boolean
+  general_project_activity: boolean
+  attendance_alerts: boolean
+  requires_attention_enabled: boolean
+  admin_feed_mode: 'all' | 'high_priority' | 'assigned_only'
+  updated_at: string
 }
 
 export interface ActivityLog {
@@ -363,6 +447,36 @@ export interface Database {
       certifications: { Row: Certification; Insert: Partial<Certification>; Update: Partial<Certification> }
       documents: { Row: DocumentRecord; Insert: Partial<DocumentRecord>; Update: Partial<DocumentRecord> }
       notifications: { Row: Notification; Insert: Partial<Notification>; Update: Partial<Notification> }
+      project_activity_events: {
+        Row: ProjectActivityEvent
+        Insert: Partial<ProjectActivityEvent>
+        Update: Partial<ProjectActivityEvent>
+      }
+      notification_preferences: {
+        Row: NotificationPreferences
+        Insert: Partial<NotificationPreferences>
+        Update: Partial<NotificationPreferences>
+      }
+      project_note_mentions: {
+        Row: {
+          id: string
+          note_id: string
+          mentioned_user_id: string
+          created_at: string
+        }
+        Insert: Partial<{
+          id: string
+          note_id: string
+          mentioned_user_id: string
+          created_at: string
+        }>
+        Update: Partial<{
+          id: string
+          note_id: string
+          mentioned_user_id: string
+          created_at: string
+        }>
+      }
       activity_log: { Row: ActivityLog; Insert: Partial<ActivityLog>; Update: Partial<ActivityLog> }
       worker_status_updates: {
         Row: WorkerStatusUpdate
