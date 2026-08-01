@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket, buildIlikeOrFilter } from '@/lib/utils'
-import { validateUploadFile } from '@/lib/uploads'
+import { validateUploadFile, validateImageUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
@@ -125,11 +125,76 @@ export function useProjectNotes(projectId?: string) {
         .from('project_notes')
         .select('*, author:profiles(*)')
         .eq('project_id', projectId!)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
       if (error) throw error
       return (data ?? []) as ProjectNote[]
     },
   })
+}
+
+export function useCreateProjectUpdate() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      content,
+      parentId,
+      photo,
+    }: {
+      projectId: string
+      content: string
+      parentId?: string | null
+      photo?: File | null
+    }) => {
+      if (!profile?.id) throw new Error('Missing profile')
+
+      const trimmed = content.trim()
+      if (!trimmed && !photo) throw new Error('Write an update or add a photo')
+
+      let photoPath: string | null = null
+
+      if (photo) {
+        const validationError = validateImageUploadFile(photo)
+        if (validationError) throw new Error(validationError)
+
+        const safeName = photo.name.replace(/[^\w.\-()+ ]+/g, '_')
+        photoPath = `${profile.id}/${projectId}/updates/${Date.now()}-${safeName}`
+
+        const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, photo)
+        if (uploadError) throw uploadError
+      }
+
+      const { data, error } = await supabase
+        .from('project_notes')
+        .insert({
+          project_id: projectId,
+          author_id: profile.id,
+          parent_id: parentId || null,
+          content: trimmed || null,
+          photo_path: photoPath,
+        })
+        .select('*, author:profiles(*)')
+        .single()
+
+      if (error) {
+        if (photoPath) await supabase.storage.from('project-files').remove([photoPath])
+        throw error
+      }
+
+      return data as ProjectNote
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+    },
+  })
+}
+
+export async function createUpdatePhotoSignedUrl(photoPath: string) {
+  const { data, error } = await supabase.storage.from('project-files').createSignedUrl(photoPath, 60 * 30)
+  if (error || !data?.signedUrl) throw error ?? new Error('Unable to open photo')
+  return data.signedUrl
 }
 
 export function useProjectDocuments(projectId?: string) {

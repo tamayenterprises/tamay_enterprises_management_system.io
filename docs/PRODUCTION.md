@@ -19,6 +19,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 7. `supabase/migrations/20260328000000_workforce_status.sql`
 8. `supabase/migrations/20260328000001_attendance_records.sql`
 9. `supabase/migrations/20260329000000_profile_avatars.sql`
+10. `supabase/migrations/20260331000000_project_updates.sql`
 
 **Notes**
 

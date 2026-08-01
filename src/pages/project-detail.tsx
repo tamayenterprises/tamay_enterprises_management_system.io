@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,11 +24,11 @@ import {
   useProject,
   useProjectAssignments,
   useProjectDocuments,
-  useProjectNotes,
   useRemoveAssignment,
   useUpdateProject,
   useUploadDocument,
 } from '@/features/data/hooks'
+import { ProjectUpdates } from '@/features/projects/project-updates'
 import {
   documentCategoryLabel,
   formatDate,
@@ -42,15 +41,12 @@ import {
 import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
-import { supabase } from '@/lib/supabase'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
   const { profile } = useAuth()
-  const queryClient = useQueryClient()
   const { data: project, isLoading, isError } = useProject(projectId)
   const { data: assignments = [] } = useProjectAssignments(projectId)
-  const { data: notes = [] } = useProjectNotes(projectId)
   const { data: documents = [] } = useProjectDocuments(projectId)
   const { data: history = [] } = useAssignmentHistory(projectId)
   const { data: workers = [] } = useProfiles({ role: ['employee', 'subcontractor', 'project_manager'] })
@@ -59,7 +55,6 @@ export function ProjectDetailPage() {
   const removeAssignment = useRemoveAssignment()
   const uploadDocument = useUploadDocument()
   const deleteDocument = useDeleteDocument()
-  const [note, setNote] = useState('')
   const [selectedWorker, setSelectedWorker] = useState('')
   const [editOpen, setEditOpen] = useState(false)
 
@@ -237,51 +232,7 @@ export function ProjectDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form
-                className="space-y-2"
-                onSubmit={async (event) => {
-                  event.preventDefault()
-                  if (!note.trim() || !profile) return
-                  const { error } = await supabase.from('project_notes').insert({
-                    project_id: project.id,
-                    author_id: profile.id,
-                    content: note.trim(),
-                  })
-                  if (error) toast.error(error.message)
-                  else {
-                    setNote('')
-                    toast.success('Note added')
-                    queryClient.invalidateQueries({ queryKey: ['project-notes', project.id] })
-                  }
-                }}
-              >
-                <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a project note..." />
-                <Button type="submit" size="sm">
-                  Add note
-                </Button>
-              </form>
-              <div className="space-y-3">
-                {notes.length === 0 ? (
-                  <EmptyState title="No notes yet" />
-                ) : (
-                  notes.map((item) => (
-                    <div key={item.id} className="rounded-md border border-border px-3 py-3 text-sm">
-                      <p>{item.content}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.author ? fullName(item.author.first_name, item.author.last_name) : 'Unknown'} ·{' '}
-                        {formatRelative(item.created_at)}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ProjectUpdates projectId={project.id} />
 
           <Card>
             <CardHeader>

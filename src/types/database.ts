@@ -107,7 +107,9 @@ export interface ProjectNote {
   id: string
   project_id: string
   author_id: string | null
-  content: string
+  parent_id: string | null
+  content: string | null
+  photo_path: string | null
   created_at: string
   updated_at: string
   author?: Profile

@@ -30,6 +30,19 @@ const ALLOWED_EXTENSIONS = new Set([
 export const UPLOAD_ACCEPT =
   '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,application/pdf,image/*'
 
+export const IMAGE_UPLOAD_ACCEPT = '.jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif'
+
+export function validateImageUploadFile(file: File): string | null {
+  const baseError = validateUploadFile(file)
+  if (baseError) return baseError
+
+  const extension = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`
+  const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'])
+  const isImage = file.type.startsWith('image/') || imageExtensions.has(extension)
+  if (!isImage) return 'Please choose a photo (JPG, PNG, WEBP, or HEIC).'
+  return null
+}
+
 export function validateUploadFile(file: File): string | null {
   if (file.size <= 0) return 'The selected file is empty.'
   if (file.size > MAX_UPLOAD_BYTES) return 'File must be 15 MB or smaller.'
