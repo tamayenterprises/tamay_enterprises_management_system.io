@@ -21,6 +21,9 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 9. `supabase/migrations/20260329000000_profile_avatars.sql`
 10. `supabase/migrations/20260331000000_project_updates.sql`
 11. `supabase/migrations/20260332000000_attendance_geofencing.sql`
+12. `supabase/migrations/20260332000001_geofencing_trigger_fix.sql` (only if needed during partial runs)
+13. `supabase/migrations/20260332000002_attendance_backfill_trigger_fix.sql` (only if needed during partial runs)
+14. `supabase/migrations/20260332000003_fix_attendance_format_messages.sql`
 
 **Notes**
 

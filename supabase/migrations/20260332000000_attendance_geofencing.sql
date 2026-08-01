@@ -490,21 +490,20 @@ begin
   elsif p_accuracy_meters is null or p_accuracy_meters > v_max_accuracy then
     -- Poor accuracy is NOT treated as outside — ask for better reading
     v_result := 'rejected_poor_accuracy';
-    v_reason := format(
-      'GPS accuracy is too low (%.0f m). Enable precise location, move near a window or open area, wait briefly, then retry. If the problem continues, submit an exception request.',
-      coalesce(p_accuracy_meters, -1)
-    );
+    v_reason :=
+      'GPS accuracy is too low (' ||
+      round(coalesce(p_accuracy_meters, -1))::text ||
+      ' m). Enable precise location, move near a window or open area, wait briefly, then retry. If the problem continues, submit an exception request.';
   else
     v_distance := public.haversine_meters(
       p_latitude, p_longitude, v_project.latitude, v_project.longitude
     );
     if v_distance is null or v_distance > v_radius then
       v_result := 'rejected_outside_geofence';
-      v_reason := format(
-        'You appear %.0f m from the job site (allowed %.0f m). Move closer to the project location, or submit an exception request if there is a legitimate problem.',
-        coalesce(v_distance, -1),
-        v_radius
-      );
+      v_reason :=
+        'You appear ' || round(coalesce(v_distance, -1))::text ||
+        ' m from the job site (allowed ' || round(v_radius)::text ||
+        ' m). Move closer to the project location, or submit an exception request if there is a legitimate problem.';
     else
       v_result := 'approved';
       v_reason := null;
