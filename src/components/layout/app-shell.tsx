@@ -122,15 +122,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [open])
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr] lg:items-start">
+    <div className="min-h-screen lg:flex">
       <aside
         id="app-sidebar"
         aria-label="Main navigation"
         className={cn(
-          'fixed left-0 top-0 z-40 w-[240px] border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
-          // Height follows menu content so profile sits directly under nav (no empty navy gap).
-          'h-fit max-h-[100dvh] overflow-y-auto overscroll-contain rounded-br-2xl shadow-lg',
-          'lg:sticky lg:top-0 lg:h-fit lg:max-h-[100dvh] lg:self-start lg:rounded-none lg:shadow-none lg:translate-x-0',
+          // Full viewport height on mobile + desktop; sticky so long pages never stretch empty navy.
+          'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[240px] shrink-0 flex-col border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
+          'overflow-hidden overscroll-contain shadow-lg lg:sticky lg:top-0 lg:shadow-none lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
         style={{
@@ -138,56 +137,57 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        <div className="flex flex-col">
-          <div className="border-b border-white/10 px-3 py-2.5">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white p-1.5 shadow-[0_0_0_2px_rgba(255,255,255,0.2)]">
-              <img
-                src="/tamay-logo.png"
-                alt="Tamay Enterprises"
-                className="h-full w-full rounded-full object-contain"
-              />
-            </div>
-            <p className="mt-1 text-center text-[11px] leading-tight text-sidebar-muted">
-              Workforce & field operations
-            </p>
+        <div className="shrink-0 border-b border-white/10 px-3 py-2.5">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white p-1.5 shadow-[0_0_0_2px_rgba(255,255,255,0.2)]">
+            <img
+              src="/tamay-logo.png"
+              alt="Tamay Enterprises"
+              className="h-full w-full rounded-full object-contain"
+            />
           </div>
+          <p className="mt-1 text-center text-[11px] leading-tight text-sidebar-muted">
+            Workforce & field operations
+          </p>
+        </div>
 
-          <nav className="space-y-0 p-1.5 pb-0" aria-label="Application sections">
-            {visibleNav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={closeMenu}
-                className={({ isActive }) =>
-                  cn(
-                    'group flex min-h-8 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/80 transition duration-150 hover:bg-white/10 hover:text-white',
-                    isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <span className="flex-1 font-medium leading-none">{item.label}</span>
-                {item.to === '/notifications' && unread > 0 ? (
-                  <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-accent-foreground">
-                    {unread}
-                  </span>
-                ) : null}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="border-t border-white/10 p-2">
-            <SidebarProfileAvatar />
-            <Button
-              variant="secondary"
-              size="sm"
-              className="min-h-8 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
-              onClick={handleSignOut}
+        <nav
+          className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain p-1.5"
+          aria-label="Application sections"
+        >
+          {visibleNav.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={closeMenu}
+              className={({ isActive }) =>
+                cn(
+                  'group flex min-h-8 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/80 transition duration-150 hover:bg-white/10 hover:text-white',
+                  isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
+                )
+              }
             >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </Button>
-          </div>
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1 font-medium leading-none">{item.label}</span>
+              {item.to === '/notifications' && unread > 0 ? (
+                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-accent-foreground">
+                  {unread}
+                </span>
+              ) : null}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="shrink-0 border-t border-white/10 p-2">
+          <SidebarProfileAvatar />
+          <Button
+            variant="secondary"
+            size="sm"
+            className="min-h-8 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
         </div>
       </aside>
 
@@ -200,7 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       ) : null}
 
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 border-b border-border/80 bg-white/95 backdrop-blur-md">
           <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
             <Button
