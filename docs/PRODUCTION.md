@@ -26,7 +26,8 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 14. `supabase/migrations/20260332000003_fix_attendance_format_messages.sql`
 15. `supabase/migrations/20260332000004_fix_project_coords_validation.sql`
 16. `supabase/migrations/20260333000000_project_activity_notifications.sql` (Notifications Center + Recent Activity)
-17. `supabase/migrations/20260334000000_company_updates.sql` (Company Updates + # project refs + Updates page)
+17. `supabase/migrations/20260334000000_company_updates.sql` (**enums only** — run this first and let it finish)
+18. `supabase/migrations/20260334000001_company_updates_schema.sql` (Company Updates tables/functions — run in a **second** SQL Editor execution after step 17)
 
 **Notes**
 
@@ -36,7 +37,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 - Migration `20260332` (geofencing) adds project coordinates, breaks, location attempts, exceptions, and RPCs. After applying it, deploy Edge Function `geocode-address` (optional Mapbox secret `MAPBOX_ACCESS_TOKEN`; otherwise Nominatim).
 - Existing projects are marked `needs_verification` until an admin verifies coordinates on the project page.
 - Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
-- Migration `20260334` adds `company_updates` (audience, replies toggle, notify project team), structured `#` project references, and keeps existing `project_notes` as Project Updates. Historical project notes are not exposed company-wide.
+- Migration `20260334` is split because Postgres cannot use new enum values in the same transaction that adds them. Always run `00000` then `00001` as two separate SQL Editor runs. Historical project notes are not exposed company-wide.
 
 ### Verify cron job
 
