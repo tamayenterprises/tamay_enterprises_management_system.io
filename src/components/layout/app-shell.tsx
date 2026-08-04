@@ -128,10 +128,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         aria-label="Main navigation"
         className={cn(
           'fixed left-0 top-0 z-40 w-[240px] border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
-          // Mobile drawer: height follows menu content; scroll only if taller than the viewport.
+          // Height follows menu content so profile sits directly under nav (no empty navy gap).
           'h-fit max-h-[100dvh] overflow-y-auto overscroll-contain rounded-br-2xl shadow-lg',
-          // Desktop: sticky viewport height — do not stretch with long page content (that left empty navy under Sign out).
-          'lg:sticky lg:top-0 lg:h-[100dvh] lg:max-h-[100dvh] lg:self-start lg:overflow-y-auto lg:rounded-none lg:shadow-none lg:translate-x-0',
+          'lg:sticky lg:top-0 lg:h-fit lg:max-h-[100dvh] lg:self-start lg:rounded-none lg:shadow-none lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
         style={{
@@ -139,8 +138,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        <div className="flex h-fit flex-col">
-          <div className="shrink-0 border-b border-white/10 px-3 py-2.5">
+        <div className="flex flex-col">
+          <div className="border-b border-white/10 px-3 py-2.5">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white p-1.5 shadow-[0_0_0_2px_rgba(255,255,255,0.2)]">
               <img
                 src="/tamay-logo.png"
@@ -153,7 +152,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
           </div>
 
-          <nav className="shrink-0 space-y-0 p-1.5" aria-label="Application sections">
+          <nav className="space-y-0 p-1.5 pb-0" aria-label="Application sections">
             {visibleNav.map((item) => (
               <NavLink
                 key={item.to}
@@ -177,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="shrink-0 border-t border-white/10 p-2">
+          <div className="border-t border-white/10 p-2">
             <SidebarProfileAvatar />
             <Button
               variant="secondary"
