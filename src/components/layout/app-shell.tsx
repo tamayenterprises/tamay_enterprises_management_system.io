@@ -127,35 +127,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         id="app-sidebar"
         aria-label="Main navigation"
         className={cn(
-          // Mobile: height follows content — no tall empty navy panel under Sign out.
-          // Desktop: full-height column beside the main app.
-          'fixed left-0 top-0 z-40 flex w-[240px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
-          'max-h-[100dvh] rounded-br-2xl shadow-lg',
-          'lg:static lg:inset-y-0 lg:h-auto lg:max-h-none lg:min-h-screen lg:rounded-none lg:shadow-none lg:translate-x-0',
+          // Content-sized panel. Desktop column stretches for background only — content does not scroll into empty space.
+          'fixed left-0 top-0 z-40 w-[240px] border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
+          'max-h-[100dvh] overflow-y-auto overscroll-contain rounded-br-2xl shadow-lg',
+          'lg:static lg:max-h-none lg:min-h-screen lg:overflow-visible lg:rounded-none lg:shadow-none lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
       >
-        <div
-          className="flex max-h-[100dvh] flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] lg:min-h-screen"
-          style={{
-            paddingTop: 'env(safe-area-inset-top, 0px)',
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-          }}
-        >
-          <div className="shrink-0 border-b border-white/10 px-3 py-3">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white p-1.5 shadow-[0_0_0_2px_rgba(255,255,255,0.2)]">
+        <div className="flex flex-col">
+          <div className="shrink-0 border-b border-white/10 px-3 py-2.5">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white p-1.5 shadow-[0_0_0_2px_rgba(255,255,255,0.2)]">
               <img
                 src="/tamay-logo.png"
                 alt="Tamay Enterprises"
                 className="h-full w-full rounded-full object-contain"
               />
             </div>
-            <p className="mt-1.5 text-center text-[11px] leading-tight text-sidebar-muted">
+            <p className="mt-1 text-center text-[11px] leading-tight text-sidebar-muted">
               Workforce & field operations
             </p>
           </div>
 
-          <nav className="shrink-0 space-y-0.5 p-2" aria-label="Application sections">
+          <nav className="shrink-0 space-y-0 p-1.5" aria-label="Application sections">
             {visibleNav.map((item) => (
               <NavLink
                 key={item.to}
@@ -163,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={closeMenu}
                 className={({ isActive }) =>
                   cn(
-                    'group flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-white/80 transition duration-150 hover:bg-white/10 hover:text-white',
+                    'group flex min-h-8 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/80 transition duration-150 hover:bg-white/10 hover:text-white',
                     isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
                   )
                 }
@@ -179,12 +176,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="mt-3 shrink-0 border-t border-white/10 p-2.5">
+          <div className="shrink-0 border-t border-white/10 p-2">
             <SidebarProfileAvatar />
             <Button
               variant="secondary"
               size="sm"
-              className="min-h-9 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
+              className="min-h-8 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
