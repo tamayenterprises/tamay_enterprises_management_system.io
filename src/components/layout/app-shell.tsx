@@ -184,7 +184,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Button
               variant="secondary"
               size="sm"
-              className="min-h-9 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
+              className="min-h-9 w-full justify-center gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
