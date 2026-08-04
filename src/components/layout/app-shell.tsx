@@ -130,21 +130,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         id="app-sidebar"
         aria-label="Main navigation"
         className={cn(
-          // Mobile: fixed full-height drawer; content scrolls inside. Desktop: static column with pinned footer.
+          // Mobile: fixed full-height drawer. Desktop: static column with pinned footer.
           'fixed inset-y-0 left-0 z-40 flex h-[100vh] h-[100dvh] max-h-[100dvh] w-[272px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:static lg:h-auto lg:max-h-none lg:min-h-screen lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
         {/*
-          Mobile: ONE continuous scroll (logo → nav → profile → Sign out → bottom spacer).
-          Desktop: flex column; nav grows/scrolls; account stays at bottom.
+          Mobile: content stacks from the top (logo → nav → profile) and scrolls if needed.
+          Desktop: nav grows; account stays pinned to the bottom.
         */}
         <div
           className={cn(
-            'flex h-full min-h-0 flex-col',
-            // Mobile: entire panel scrolls as one continuous area
+            'flex min-h-0 flex-col',
+            // Mobile: height follows content so profile sits under nav (not stuck at bottom)
             'overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]',
-            'pb-[calc(env(safe-area-inset-bottom,0px)+5rem)]',
+            'pb-[calc(env(safe-area-inset-bottom,0px)+1.25rem)]',
             // Desktop: fill column height; only nav scrolls; account stays pinned
             'lg:h-full lg:min-h-screen lg:overflow-hidden lg:pb-0',
           )}
@@ -152,15 +152,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             paddingTop: 'env(safe-area-inset-top, 0px)',
           }}
         >
-          <div className="shrink-0 border-b border-white/10 px-4 py-5">
-            <div className="mx-auto flex h-[148px] w-[148px] items-center justify-center rounded-full bg-white p-3 shadow-[0_0_0_3px_rgba(255,255,255,0.2)]">
+          <div className="shrink-0 border-b border-white/10 px-4 py-3 lg:py-5">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white p-2 shadow-[0_0_0_3px_rgba(255,255,255,0.2)] lg:h-[148px] lg:w-[148px] lg:p-3">
               <img
                 src="/tamay-logo.png"
                 alt="Tamay Enterprises"
                 className="h-full w-full rounded-full object-contain"
               />
             </div>
-            <p className="mt-3 text-center text-xs text-sidebar-muted">Workforce & field operations</p>
+            <p className="mt-2 text-center text-xs text-sidebar-muted lg:mt-3">Workforce & field operations</p>
           </div>
 
           <nav
@@ -190,8 +190,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          {/* Mobile: scrolls with nav. Desktop: pinned footer. Never fixed/absolute on mobile. */}
-          <div className="static shrink-0 border-t border-white/10 bg-sidebar p-4 lg:mt-auto">
+          {/* Mobile: directly under nav. Desktop: pinned footer. */}
+          <div className="static shrink-0 border-t border-white/10 bg-sidebar p-3 lg:mt-auto lg:p-4">
             <SidebarProfileAvatar />
             <Button
               variant="secondary"
