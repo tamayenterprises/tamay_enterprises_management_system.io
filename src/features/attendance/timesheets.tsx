@@ -122,13 +122,13 @@ export function TimesheetsPanel() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <Card>
         <CardHeader>
           <CardTitle>Timesheet filters</CardTitle>
-          <CardDescription>Filter attendance by worker, role, project, and date range.</CardDescription>
+          <CardDescription>Filter by worker, role, project, and date range.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           <div className="space-y-1">
             <Label>Worker</Label>
             <Select
@@ -523,7 +523,7 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
   const role = record.profile ? roleLabel(record.profile.role) : '—'
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2">
+    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-1.5">
       <div>
         <p className="font-medium">{name}</p>
         <p className="text-xs text-muted-foreground">

@@ -51,7 +51,7 @@ export function SidebarProfileAvatar() {
     <>
       <button
         type="button"
-        className="mb-3 flex w-full items-center gap-3 rounded-xl border border-dashed border-white/35 bg-white/5 px-2.5 py-2 text-left transition hover:border-accent hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="mb-2 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-white/35 bg-white/5 px-2 py-1.5 text-left transition hover:border-accent hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         onClick={() => setOpen(true)}
         aria-label={hasPhoto ? 'Change profile photo' : 'Add profile photo'}
       >
@@ -60,19 +60,21 @@ export function SidebarProfileAvatar() {
             firstName={profile.first_name}
             lastName={profile.last_name}
             avatarUrl={profile.avatar_url}
-            className="h-11 w-11"
+            className="h-9 w-9"
             fallbackClassName="bg-white/15 text-white"
           />
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-[#0B3C5D] bg-accent text-accent-foreground shadow-sm">
-            <Camera className="h-3 w-3" />
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-[#0B3C5D] bg-accent text-accent-foreground shadow-sm">
+            <Camera className="h-2.5 w-2.5" />
           </span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-white">
+          <span className="block truncate text-sm font-medium leading-tight text-white">
             {fullName(profile.first_name, profile.last_name)}
           </span>
-          <span className="block truncate text-xs text-sidebar-muted">{roleLabel(profile.role)}</span>
-          <span className="mt-0.5 block text-xs font-semibold text-accent">
+          <span className="block truncate text-[11px] leading-tight text-sidebar-muted">
+            {roleLabel(profile.role)}
+          </span>
+          <span className="mt-0.5 block text-[11px] font-semibold leading-tight text-accent">
             {hasPhoto ? 'Change photo' : 'Add profile photo'}
           </span>
         </span>
