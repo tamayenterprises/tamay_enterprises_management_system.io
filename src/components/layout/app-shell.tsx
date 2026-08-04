@@ -179,12 +179,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="shrink-0 border-t border-white/10 p-2.5">
+          <div className="mt-3 shrink-0 border-t border-white/10 p-2.5">
             <SidebarProfileAvatar />
             <Button
               variant="secondary"
               size="sm"
-              className="min-h-9 w-full justify-center gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
+              className="min-h-9 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />

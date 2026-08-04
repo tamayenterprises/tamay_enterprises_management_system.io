@@ -51,7 +51,7 @@ export function SidebarProfileAvatar() {
     <>
       <button
         type="button"
-        className="mb-2 flex w-full items-center justify-center gap-2.5 rounded-lg border border-dashed border-white/35 bg-white/5 px-2 py-2 text-center transition hover:border-accent hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="mb-2 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-white/35 bg-white/5 px-2 py-1.5 text-left transition hover:border-accent hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         onClick={() => setOpen(true)}
         aria-label={hasPhoto ? 'Change profile photo' : 'Add profile photo'}
       >
@@ -67,7 +67,7 @@ export function SidebarProfileAvatar() {
             <Camera className="h-2.5 w-2.5" />
           </span>
         </span>
-        <span className="min-w-0 text-left">
+        <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium leading-tight text-white">
             {fullName(profile.first_name, profile.last_name)}
           </span>
