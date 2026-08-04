@@ -108,6 +108,9 @@ grant select on public.suspicious_project_locations to authenticated;
 
 -- Targeted correction: CT-like lat + positive CT-magnitude lng + CT/Office address context
 -- Does NOT invert every positive longitude worldwide.
+-- SQL Editor has no management JWT, so this trigger blocks UPDATEs
+alter table public.projects disable trigger projects_enforce_worker_update;
+
 with candidates as (
   select
     p.id,
@@ -144,6 +147,8 @@ select
   'migration_sign_fix',
   'Corrected missing Connecticut minus sign on longitude (targeted)'
 from fixed;
+
+alter table public.projects enable trigger projects_enforce_worker_update;
 
 create or replace function public.verify_project_location(
   p_project_id uuid,
