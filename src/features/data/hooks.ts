@@ -144,6 +144,7 @@ export function useCreateProjectUpdate() {
       photo,
       mentionedUserIds,
       requiresAttention,
+      referencedProjectIds,
     }: {
       projectId: string
       content: string
@@ -151,6 +152,7 @@ export function useCreateProjectUpdate() {
       photo?: File | null
       mentionedUserIds?: string[]
       requiresAttention?: boolean
+      referencedProjectIds?: string[]
     }) => {
       if (!profile?.id) throw new Error('Missing profile')
 
@@ -214,15 +216,22 @@ export function useCreateProjectUpdate() {
           p_mentioned_user_ids: mentionedUserIds,
         })
         if (mentionError) {
-          // Note was saved; mention fan-out is best-effort until migration is applied
           console.warn(mentionError.message)
         }
+      }
+      if (referencedProjectIds?.length) {
+        const { error: refError } = await supabase.rpc('register_project_note_project_refs', {
+          p_note_id: note.id,
+          p_project_ids: referencedProjectIds,
+        })
+        if (refError) console.warn(refError.message)
       }
 
       return note
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['project-activity'] })
     },

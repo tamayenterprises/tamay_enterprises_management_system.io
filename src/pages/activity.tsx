@@ -39,6 +39,7 @@ const FILTERS: {
 }[] = [
   { value: 'all', label: 'All Activity', type: 'all' },
   { value: 'attention', label: 'Requires Attention', attention: true },
+  { value: 'company', label: 'Company Updates', type: 'COMPANY_UPDATE_CREATED' },
   { value: 'comments', label: 'Comments', type: 'COMMENT_CREATED' },
   { value: 'replies', label: 'Replies', type: 'COMMENT_REPLIED' },
   { value: 'mentions', label: 'Mentions', type: 'USER_MENTIONED' },

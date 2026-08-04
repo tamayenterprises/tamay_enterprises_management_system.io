@@ -248,6 +248,7 @@ export function NotificationsPage() {
                 ['assigned_project_comments', 'Assigned project comments'],
                 ['assigned_project_photos', 'Assigned project photo uploads'],
                 ['general_project_activity', 'General project activity'],
+                ['company_updates_enabled', 'Company update activity'],
                 ['attendance_alerts', 'Attendance alerts (role-based)'],
                 ['requires_attention_enabled', 'Requires attention'],
               ] as const
@@ -255,7 +256,7 @@ export function NotificationsPage() {
               <label key={key} className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={Boolean(prefs[key])}
+                  checked={Boolean(prefs[key as keyof typeof prefs] ?? (key === 'company_updates_enabled' ? true : false))}
                   disabled={updatePrefs.isPending}
                   onChange={async (e) => {
                     try {

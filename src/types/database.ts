@@ -191,16 +191,45 @@ export type ProjectActivityType =
   | 'ATTENTION_REQUESTED'
   | 'ATTENTION_REVIEWED'
   | 'ATTENTION_RESOLVED'
+  | 'COMPANY_UPDATE_CREATED'
+  | 'COMPANY_UPDATE_REPLIED'
+  | 'COMPANY_UPDATE_MENTIONED'
   | 'GENERAL'
 
 export type NotificationRelevance =
   | 'requires_attention'
   | 'mentioned'
   | 'reply_to_you'
+  | 'reply_to_your_update'
   | 'assigned_project'
   | 'you_are_assigned'
+  | 'company_update'
   | 'general'
   | 'not_involved'
+
+export type CompanyUpdateAudience =
+  | 'all_internal'
+  | 'employees'
+  | 'management'
+  | 'project_managers'
+  | 'selected_users'
+
+export interface CompanyUpdate {
+  id: string
+  organization_id: string
+  author_id: string | null
+  parent_id: string | null
+  content: string | null
+  photo_path: string | null
+  audience_type: CompanyUpdateAudience
+  replies_enabled: boolean
+  requires_attention: boolean
+  notify_project_team: boolean
+  created_at: string
+  updated_at: string
+  author?: Profile | null
+  project_refs?: Array<{ project_id: string; project?: Project | null }>
+}
 
 export type AttentionReviewStatus = 'none' | 'new' | 'reviewed' | 'resolved'
 
@@ -262,6 +291,7 @@ export interface NotificationPreferences {
   general_project_activity: boolean
   attendance_alerts: boolean
   requires_attention_enabled: boolean
+  company_updates_enabled?: boolean
   admin_feed_mode: 'all' | 'high_priority' | 'assigned_only'
   updated_at: string
 }
@@ -451,6 +481,11 @@ export interface Database {
         Row: ProjectActivityEvent
         Insert: Partial<ProjectActivityEvent>
         Update: Partial<ProjectActivityEvent>
+      }
+      company_updates: {
+        Row: CompanyUpdate
+        Insert: Partial<CompanyUpdate>
+        Update: Partial<CompanyUpdate>
       }
       notification_preferences: {
         Row: NotificationPreferences

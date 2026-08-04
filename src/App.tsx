@@ -17,6 +17,7 @@ import { CertificationsPage } from '@/pages/certifications'
 import { DocumentsPage } from '@/pages/documents'
 import { NotificationsPage } from '@/pages/notifications'
 import { RecentActivityPage } from '@/pages/activity'
+import { UpdatesPage } from '@/pages/updates'
 import { AdminPage } from '@/pages/admin'
 import { SearchPage } from '@/pages/search'
 import { TimesheetsPage } from '@/pages/timesheets'
@@ -66,6 +67,7 @@ export default function App() {
                   <Route path="/documents" element={<DocumentsPage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/activity" element={<RecentActivityPage />} />
+                  <Route path="/updates" element={<UpdatesPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/change-password" element={<ChangePasswordPage />} />
 

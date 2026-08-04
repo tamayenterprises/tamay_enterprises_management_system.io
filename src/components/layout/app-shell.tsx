@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareText,
   Search,
   ShieldCheck,
   Users,
@@ -27,6 +28,7 @@ import { useUnreadNotifications } from '@/features/notifications/hooks'
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: Briefcase },
+  { to: '/updates', label: 'Updates', icon: MessageSquareText },
   { to: '/employees', label: 'Employees', icon: Users, management: true },
   { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, management: true },
   { to: '/timesheets', label: 'Timesheets', icon: Clock3, management: true },

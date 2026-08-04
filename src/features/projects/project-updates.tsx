@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,11 +13,21 @@ import {
   createUpdatePhotoSignedUrl,
   useCreateProjectUpdate,
   useProfiles,
+  useProjectAssignments,
   useProjectNotes,
+  useProjects,
 } from '@/features/data/hooks'
-import { formatRelative, fullName } from '@/lib/utils'
+import {
+  filterMentionSuggestions,
+  filterProjectSuggestions,
+  insertAtTrigger,
+  mentionToken,
+  projectHashToken,
+} from '@/features/updates/mention-utils'
+import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
-import type { Profile, ProjectNote } from '@/types/database'
+import { useAuth } from '@/features/auth/auth-context'
+import type { Profile, Project, ProjectNote } from '@/types/database'
 
 function UpdatePhoto({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null)
@@ -47,16 +57,13 @@ function UpdatePhoto({ path }: { path: string }) {
   )
 }
 
-function mentionToken(profile: Profile) {
-  return `@${profile.first_name}${profile.last_name}`.replace(/\s+/g, '')
-}
-
 function UpdateComposer({
   projectId,
   parentId,
   placeholder,
   submitLabel,
   mentionCandidates,
+  projects,
   onDone,
 }: {
   projectId: string
@@ -64,6 +71,7 @@ function UpdateComposer({
   placeholder: string
   submitLabel: string
   mentionCandidates: Profile[]
+  projects: Project[]
   onDone?: () => void
 }) {
   const createUpdate = useCreateProjectUpdate()
@@ -71,29 +79,18 @@ function UpdateComposer({
   const [photo, setPhoto] = useState<File | null>(null)
   const [requiresAttention, setRequiresAttention] = useState(false)
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
+  const [projectIds, setProjectIds] = useState<string[]>([projectId])
   const [mentionPicker, setMentionPicker] = useState('')
+  const [projectPicker, setProjectPicker] = useState('')
 
-  const mentionSuggestions = useMemo(() => {
-    const at = content.lastIndexOf('@')
-    if (at < 0) return []
-    const fragment = content.slice(at + 1)
-    if (fragment.includes(' ') || fragment.length > 24) return []
-    const q = fragment.toLowerCase()
-    return mentionCandidates
-      .filter((person) => {
-        const label = `${person.first_name} ${person.last_name}`.toLowerCase()
-        return label.includes(q) || mentionToken(person).toLowerCase().includes(q)
-      })
-      .slice(0, 6)
-  }, [content, mentionCandidates])
-
-  function insertMention(person: Profile) {
-    const at = content.lastIndexOf('@')
-    const token = mentionToken(person)
-    const next = `${content.slice(0, at)}${token} `
-    setContent(next)
-    setMentionedIds((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]))
-  }
+  const mentionSuggestions = useMemo(
+    () => filterMentionSuggestions(content, mentionCandidates),
+    [content, mentionCandidates],
+  )
+  const projectSuggestions = useMemo(
+    () => filterProjectSuggestions(content, projects),
+    [content, projects],
+  )
 
   return (
     <form
@@ -108,11 +105,13 @@ function UpdateComposer({
             photo,
             mentionedUserIds: mentionedIds,
             requiresAttention,
+            referencedProjectIds: projectIds,
           })
           setContent('')
           setPhoto(null)
           setRequiresAttention(false)
           setMentionedIds([])
+          setProjectIds([projectId])
           toast.success(parentId ? 'Reply posted' : 'Update posted')
           onDone?.()
         } catch (error) {
@@ -123,7 +122,7 @@ function UpdateComposer({
       <Textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        placeholder={`${placeholder} Use @ to mention someone.`}
+        placeholder={`${placeholder} Use @ to mention someone or # to reference a project.`}
         rows={parentId ? 2 : 3}
       />
       {mentionSuggestions.length > 0 ? (
@@ -133,9 +132,29 @@ function UpdateComposer({
               key={person.id}
               type="button"
               className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[#fbfcff]"
-              onClick={() => insertMention(person)}
+              onClick={() => {
+                setContent((prev) => insertAtTrigger(prev, '@', mentionToken(person)))
+                setMentionedIds((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]))
+              }}
             >
               {fullName(person.first_name, person.last_name)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {projectSuggestions.length > 0 ? (
+        <div className="rounded-md border border-border bg-white p-1 shadow-sm">
+          {projectSuggestions.map((project) => (
+            <button
+              key={project.id}
+              type="button"
+              className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[#fbfcff]"
+              onClick={() => {
+                setContent((prev) => insertAtTrigger(prev, '#', projectHashToken(project)))
+                setProjectIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]))
+              }}
+            >
+              {project.name}
             </button>
           ))}
         </div>
@@ -163,6 +182,27 @@ function UpdateComposer({
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={projectPicker}
+          onValueChange={(value) => {
+            const project = projects.find((p) => p.id === value)
+            if (!project) return
+            setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${projectHashToken(project)} `)
+            setProjectIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]))
+            setProjectPicker('')
+          }}
+        >
+          <SelectTrigger className="w-[11rem]">
+            <SelectValue placeholder="Reference #" />
+          </SelectTrigger>
+          <SelectContent>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <input
             type="checkbox"
@@ -173,7 +213,7 @@ function UpdateComposer({
         </label>
       </div>
 
-      {mentionedIds.length > 0 ? (
+      {mentionedIds.length > 0 || projectIds.length > 1 ? (
         <div className="flex flex-wrap gap-1">
           {mentionedIds.map((id) => {
             const person = mentionCandidates.find((p) => p.id === id)
@@ -184,6 +224,17 @@ function UpdateComposer({
               </Badge>
             )
           })}
+          {projectIds
+            .filter((id) => id !== projectId)
+            .map((id) => {
+              const project = projects.find((p) => p.id === id)
+              if (!project) return null
+              return (
+                <Badge key={id} variant="outline">
+                  {projectHashToken(project)}
+                </Badge>
+              )
+            })}
         </div>
       ) : null}
 
@@ -216,12 +267,14 @@ function UpdateCard({
   replies,
   projectId,
   mentionCandidates,
+  projects,
   highlighted,
 }: {
   update: ProjectNote
   replies: ProjectNote[]
   projectId: string
   mentionCandidates: Profile[]
+  projects: Project[]
   highlighted?: boolean
 }) {
   const [replyOpen, setReplyOpen] = useState(false)
@@ -274,6 +327,7 @@ function UpdateCard({
           projectId={projectId}
           parentId={update.id}
           mentionCandidates={mentionCandidates}
+          projects={projects}
           placeholder={`Reply to ${authorName}…`}
           submitLabel="Post reply"
           onDone={() => setReplyOpen(false)}
@@ -288,20 +342,25 @@ function UpdateCard({
 }
 
 export function ProjectUpdates({ projectId }: { projectId: string }) {
+  const { profile } = useAuth()
+  const canManage = isManagementRole(profile?.role)
   const { data: notes = [], isLoading } = useProjectNotes(projectId)
+  const { data: assignments = [] } = useProjectAssignments(projectId)
   const { data: people = [] } = useProfiles({
     role: ['employee', 'subcontractor', 'project_manager', 'admin'],
   })
+  const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
   const [params] = useSearchParams()
   const focusId = params.get('update')
 
-  const mentionCandidates = useMemo(
-    () =>
-      people.filter(
-        (person) => person.approval_status === 'approved' && person.is_active && !person.archived_at,
-      ),
-    [people],
-  )
+  const mentionCandidates = useMemo(() => {
+    const assignedIds = new Set(assignments.map((item) => item.profile_id))
+    return people.filter((person) => {
+      if (person.approval_status !== 'approved' || !person.is_active || person.archived_at) return false
+      if (person.role === 'admin' || person.role === 'project_manager') return true
+      return assignedIds.has(person.id)
+    })
+  }, [people, assignments])
 
   const { roots, repliesByParent } = useMemo(() => {
     const rootsList = notes.filter((note) => !note.parent_id)
@@ -326,11 +385,22 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Project Updates</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Share what happened on site so everyone assigned to this project stays informed. Mentions and
-          replies create notifications automatically.
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Project Updates</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Project-only conversation for assigned workers and management. Company-wide project
+              discussions belong in{' '}
+              <Link className="underline" to="/updates?tab=company">
+                Company Updates
+              </Link>
+              .
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/updates">All Updates</Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1">
@@ -338,6 +408,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
           <UpdateComposer
             projectId={projectId}
             mentionCandidates={mentionCandidates}
+            projects={projects}
             placeholder="What did you do today? What’s next on this project?"
             submitLabel="Post update"
           />
@@ -359,6 +430,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
                 replies={repliesByParent.get(update.id) ?? []}
                 projectId={projectId}
                 mentionCandidates={mentionCandidates}
+                projects={projects}
                 highlighted={
                   focusId === update.id ||
                   (repliesByParent.get(update.id) ?? []).some((reply) => reply.id === focusId)
