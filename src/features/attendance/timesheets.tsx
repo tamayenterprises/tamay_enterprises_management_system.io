@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { format, startOfDay } from 'date-fns'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -12,11 +12,17 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
+  useAttendanceAttempts,
+  useAttendanceCorrections,
+  useAttendanceEvents,
   useAttendanceRecords,
   useCorrectAttendance,
+  useExceptionRequests,
+  useResolveExceptionRequest,
   type AttendanceFilters,
 } from '@/features/attendance/hooks'
 import { useProfiles, useProjects } from '@/features/data/hooks'
+import { actionButtonLabel, formatBreakDuration, formatDistance } from '@/lib/geo'
 import { confirmAction } from '@/lib/uploads'
 import { formatHoursDuration, fullName, roleLabel } from '@/lib/utils'
 import type { AttendanceRecord, UserRole } from '@/types/database'
@@ -86,6 +92,25 @@ export function TimesheetsPanel() {
   const [clockOut, setClockOut] = useState('')
   const [projectId, setProjectId] = useState('none')
   const [notes, setNotes] = useState('')
+  const [reason, setReason] = useState('')
+  const [breakMinutes, setBreakMinutes] = useState('0')
+  const { data: events = [] } = useAttendanceEvents(selected?.id)
+  const { data: corrections = [] } = useAttendanceCorrections(selected?.id)
+  const { data: rejectedAttempts = [] } = useAttendanceAttempts({ onlyRejected: true })
+  const { data: pendingExceptions = [] } = useExceptionRequests('pending')
+  const resolveException = useResolveExceptionRequest()
+  const [params] = useSearchParams()
+  const focusExceptionId = params.get('exception')
+
+  useEffect(() => {
+    if (!focusExceptionId) return
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`exception-${focusExceptionId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [focusExceptionId, pendingExceptions])
 
   const workerOptions = useMemo(
     () =>
@@ -214,6 +239,8 @@ export function TimesheetsPanel() {
                   setClockOut(row.clock_out_time ? toLocalInputValue(row.clock_out_time) : '')
                   setProjectId(row.project_id ?? 'none')
                   setNotes(row.notes ?? '')
+                  setReason('')
+                  setBreakMinutes(String(Math.round((row.break_seconds || 0) / 60)))
                 }}
               >
                 <AttendanceRow record={row} />
@@ -222,10 +249,142 @@ export function TimesheetsPanel() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Pending location exceptions</CardTitle>
+          <CardDescription>
+            Exception approval does not auto-create attendance unless you choose Create attendance.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {pendingExceptions.length === 0 ? (
+            <EmptyState title="No pending exceptions" />
+          ) : (
+            pendingExceptions.map((req) => (
+              <div
+                key={req.id}
+                id={`exception-${req.id}`}
+                className={`space-y-2 rounded-md border px-3 py-3 text-sm ${
+                  focusExceptionId === req.id
+                    ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+                    : 'border-border'
+                }`}
+              >
+                <p className="font-medium">
+                  {req.profile ? fullName(req.profile.first_name, req.profile.last_name) : 'Worker'} ·{' '}
+                  {actionButtonLabel(req.requested_action)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {req.project?.name} · {format(new Date(req.created_at), 'MMM d, h:mm a')}
+                </p>
+                <p>{req.explanation}</p>
+                {req.calculated_distance_meters != null ? (
+                  <p className="text-xs">Distance: {formatDistance(req.calculated_distance_meters)}</p>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={resolveException.isPending}
+                    onClick={async () => {
+                      try {
+                        await resolveException.mutateAsync({
+                          requestId: req.id,
+                          approve: true,
+                          createAttendance: true,
+                          adminNote: 'Approved with attendance created',
+                        })
+                        toast.success('Exception approved and attendance created')
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Failed')
+                      }
+                    }}
+                  >
+                    Approve + create attendance
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={resolveException.isPending}
+                    onClick={async () => {
+                      try {
+                        await resolveException.mutateAsync({
+                          requestId: req.id,
+                          approve: true,
+                          createAttendance: false,
+                          adminNote: 'Approved without creating attendance yet',
+                        })
+                        toast.success('Exception approved (no attendance created)')
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Failed')
+                      }
+                    }}
+                  >
+                    Approve only
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={resolveException.isPending}
+                    onClick={async () => {
+                      try {
+                        await resolveException.mutateAsync({
+                          requestId: req.id,
+                          approve: false,
+                          adminNote: 'Rejected',
+                        })
+                        toast.success('Exception rejected')
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Failed')
+                      }
+                    }}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rejected location attempts</CardTitle>
+          <CardDescription>Visible to management only — not to other employees.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {rejectedAttempts.length === 0 ? (
+            <EmptyState title="No rejected attempts" />
+          ) : (
+            rejectedAttempts.slice(0, 20).map((attempt) => (
+              <div key={attempt.id} className="rounded-md border border-border px-3 py-2 text-sm">
+                <p className="font-medium">
+                  {attempt.profile
+                    ? fullName(attempt.profile.first_name, attempt.profile.last_name)
+                    : 'Worker'}{' '}
+                  · {actionButtonLabel(attempt.action)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {attempt.project?.name || '—'} · {format(new Date(attempt.server_timestamp), 'MMM d, h:mm a')} ·{' '}
+                  {attempt.validation_result}
+                </p>
+                <p className="text-xs">{attempt.rejection_reason}</p>
+                <p className="text-xs text-muted-foreground">
+                  Distance {formatDistance(attempt.calculated_distance_meters)} · Accuracy{' '}
+                  {attempt.device_accuracy_meters != null
+                    ? formatDistance(Number(attempt.device_accuracy_meters))
+                    : '—'}
+                </p>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
       <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Correct attendance</DialogTitle>
+            <DialogTitle>Attendance detail & correction</DialogTitle>
           </DialogHeader>
           {selected ? (
             <div className="space-y-3">
@@ -234,6 +393,34 @@ export function TimesheetsPanel() {
                   ? fullName(selected.profile.first_name, selected.profile.last_name)
                   : 'Worker'}
               </p>
+              <div className="rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">
+                <p>Paid hours: {formatHoursDuration(selected.paid_hours ?? selected.total_hours)}</p>
+                <p>Break time: {formatBreakDuration(selected.break_seconds)}</p>
+                <p>Status: {selected.workflow_status || '—'}</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Event timeline</p>
+                {events.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No geofenced events (legacy record).</p>
+                ) : (
+                  events.map((event) => (
+                    <div key={event.id} className="rounded-md bg-muted/40 px-2 py-1 text-xs">
+                      <p>
+                        {actionButtonLabel(event.action)} ·{' '}
+                        {format(new Date(event.server_timestamp), 'MMM d, h:mm a')}
+                      </p>
+                      <p className="text-muted-foreground">
+                        Dist {formatDistance(event.calculated_distance_meters)} · Acc{' '}
+                        {event.device_accuracy_meters != null
+                          ? formatDistance(Number(event.device_accuracy_meters))
+                          : '—'}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
               <div className="space-y-1">
                 <Label>Clock in</Label>
                 <Input type="datetime-local" value={clockIn} onChange={(e) => setClockIn(e.target.value)} />
@@ -241,6 +428,15 @@ export function TimesheetsPanel() {
               <div className="space-y-1">
                 <Label>Clock out</Label>
                 <Input type="datetime-local" value={clockOut} onChange={(e) => setClockOut(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Total break minutes</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={breakMinutes}
+                  onChange={(e) => setBreakMinutes(e.target.value)}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Project</Label>
@@ -259,22 +455,34 @@ export function TimesheetsPanel() {
                 </Select>
               </div>
               <div className="space-y-1">
+                <Label>Correction reason (required)</Label>
+                <Input
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Why is this being corrected?"
+                />
+              </div>
+              <div className="space-y-1">
                 <Label>Notes</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Correction reason" />
+                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes" />
               </div>
               <Button
-                disabled={correct.isPending || !clockIn}
+                disabled={correct.isPending || !clockIn || reason.trim().length < 3}
                 onClick={async () => {
-                  if (!confirmAction('Save corrected attendance times for this worker?')) return
+                  if (!confirmAction('Save corrected attendance? Original values are kept in the audit trail.')) {
+                    return
+                  }
                   try {
                     await correct.mutateAsync({
                       id: selected.id,
                       clockInTime: fromLocalInputValue(clockIn),
                       clockOutTime: clockOut ? fromLocalInputValue(clockOut) : null,
                       projectId: projectId === 'none' ? null : projectId,
+                      breakSeconds: Number(breakMinutes || 0) * 60,
+                      reason,
                       notes: notes || null,
                     })
-                    toast.success('Attendance corrected')
+                    toast.success('Attendance corrected with audit trail')
                     setSelected(null)
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : 'Correction failed')
@@ -283,6 +491,23 @@ export function TimesheetsPanel() {
               >
                 {correct.isPending ? 'Saving…' : 'Save correction'}
               </Button>
+
+              {corrections.length > 0 ? (
+                <div className="space-y-1 border-t border-border pt-3">
+                  <p className="text-sm font-medium">Correction history</p>
+                  {corrections.map((c) => (
+                    <div key={c.id} className="rounded-md border border-border px-2 py-1 text-xs">
+                      <p>
+                        {c.corrector
+                          ? fullName(c.corrector.first_name, c.corrector.last_name)
+                          : 'Manager'}{' '}
+                        · {format(new Date(c.created_at), 'MMM d, h:mm a')}
+                      </p>
+                      <p className="text-muted-foreground">{c.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </DialogContent>
@@ -304,6 +529,7 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
         <p className="text-xs text-muted-foreground">
           {role}
           {record.project?.name ? ` · ${record.project.name}` : ''}
+          {record.workflow_status === 'on_break' ? ' · on break' : ''}
         </p>
         {!compact ? (
           <p className="mt-1 text-xs text-muted-foreground">
@@ -319,9 +545,14 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
             : null}
         </p>
         {record.clock_out_time ? (
-          <p className="text-xs text-muted-foreground">{formatHoursDuration(record.total_hours)}</p>
+          <p className="text-xs text-muted-foreground">
+            Paid {formatHoursDuration(record.paid_hours ?? record.total_hours)}
+            {record.break_seconds ? ` · break ${formatBreakDuration(record.break_seconds)}` : ''}
+          </p>
         ) : (
-          <Badge variant="secondary">On the clock</Badge>
+          <Badge variant="secondary">
+            {record.workflow_status === 'on_break' ? 'On break' : 'On the clock'}
+          </Badge>
         )}
       </div>
     </div>

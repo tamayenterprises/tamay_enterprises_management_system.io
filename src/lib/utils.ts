@@ -163,3 +163,23 @@ export function canAccessAdmin(role?: UserRole | null) {
 export function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 }
+
+/**
+ * Sanitize free-text search for PostgREST `ilike` / `.or()` filters.
+ * Strips filter metacharacters and escapes LIKE wildcards so user input
+ * cannot break or broaden the query.
+ */
+export function sanitizeSearchTerm(raw: string) {
+  return raw
+    .replace(/[%_,.()"'\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100)
+}
+
+/** Build a PostgREST `.or()` clause for ilike matches across columns. */
+export function buildIlikeOrFilter(columns: string[], term: string) {
+  const safe = sanitizeSearchTerm(term)
+  if (!safe) return null
+  return columns.map((column) => `${column}.ilike.%${safe}%`).join(',')
+}

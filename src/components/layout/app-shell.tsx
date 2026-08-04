@@ -1,5 +1,6 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
+  Activity,
   Bell,
   Briefcase,
   Clock3,
@@ -8,26 +9,30 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareText,
   Search,
   ShieldCheck,
   Users,
   UserCog,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/features/auth/auth-context'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn, fullName, getInitials, isManagementRole, roleLabel } from '@/lib/utils'
+import { SidebarProfileAvatar } from '@/features/profile/avatar'
+import { NotificationBell } from '@/features/notifications/notification-bell'
+import { cn, isManagementRole } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: Briefcase },
+  { to: '/updates', label: 'Updates', icon: MessageSquareText },
   { to: '/employees', label: 'Employees', icon: Users, management: true },
   { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, management: true },
   { to: '/timesheets', label: 'Timesheets', icon: Clock3, management: true },
+  { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/notifications', label: 'Notifications', icon: Bell },
@@ -37,11 +42,15 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const { data: unread = 0 } = useUnreadNotifications()
 
+  const closeMenu = () => setOpen(false)
+
   const handleSignOut = async () => {
+    closeMenu()
     await signOut()
     navigate('/sign-in', { replace: true })
   }
@@ -56,19 +65,94 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     event.preventDefault()
     if (!query.trim()) return
     navigate(`/search?q=${encodeURIComponent(query.trim())}`)
-    setOpen(false)
+    closeMenu()
   }
+
+  // Close drawer on route change and unlock body scroll
+  useEffect(() => {
+    setOpen(false)
+  }, [location.pathname])
+
+  // Lock background page scroll while the mobile sidebar is open
+  useEffect(() => {
+    if (!open) return
+
+    const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches
+    if (isDesktop()) return
+
+    const { style } = document.body
+    const previousOverflow = style.overflow
+    const previousPosition = style.position
+    const previousTop = style.top
+    const previousWidth = style.width
+    const scrollY = window.scrollY
+
+    style.overflow = 'hidden'
+    style.position = 'fixed'
+    style.top = `-${scrollY}px`
+    style.width = '100%'
+
+    const onResize = () => {
+      if (isDesktop()) {
+        style.overflow = previousOverflow
+        style.position = previousPosition
+        style.top = previousTop
+        style.width = previousWidth
+        window.scrollTo(0, scrollY)
+        setOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      style.overflow = previousOverflow
+      style.position = previousPosition
+      style.top = previousTop
+      style.width = previousWidth
+      window.scrollTo(0, scrollY)
+    }
+  }, [open])
+
+  // Escape closes the mobile menu
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [open])
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[272px_1fr]">
       <aside
+        id="app-sidebar"
+        aria-label="Main navigation"
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-[272px] border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:static lg:translate-x-0',
-          open ? 'translate-x-0' : '-translate-x-full',
+          // Mobile: fixed full-height drawer; content scrolls inside. Desktop: static column with pinned footer.
+          'fixed inset-y-0 left-0 z-40 flex h-[100vh] h-[100dvh] max-h-[100dvh] w-[272px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:static lg:h-auto lg:max-h-none lg:min-h-screen lg:translate-x-0',
+          open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
-        <div className="flex h-full flex-col">
-          <div className="border-b border-white/10 px-4 py-5">
+        {/*
+          Mobile: ONE continuous scroll (logo → nav → profile → Sign out → bottom spacer).
+          Desktop: flex column; nav grows/scrolls; account stays at bottom.
+        */}
+        <div
+          className={cn(
+            'flex h-full min-h-0 flex-col',
+            // Mobile: entire panel scrolls as one continuous area
+            'overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]',
+            'pb-[calc(env(safe-area-inset-bottom,0px)+5rem)]',
+            // Desktop: fill column height; only nav scrolls; account stays pinned
+            'lg:h-full lg:min-h-screen lg:overflow-hidden lg:pb-0',
+          )}
+          style={{
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+          }}
+        >
+          <div className="shrink-0 border-b border-white/10 px-4 py-5">
             <div className="mx-auto flex h-[148px] w-[148px] items-center justify-center rounded-full bg-white p-3 shadow-[0_0_0_3px_rgba(255,255,255,0.2)]">
               <img
                 src="/tamay-logo.png"
@@ -78,20 +162,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <p className="mt-3 text-center text-xs text-sidebar-muted">Workforce & field operations</p>
           </div>
-          <nav className="flex-1 space-y-1 p-3">
+
+          <nav
+            className="shrink-0 space-y-1 p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
+            aria-label="Application sections"
+          >
             {visibleNav.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                onClick={() => setOpen(false)}
+                onClick={closeMenu}
                 className={({ isActive }) =>
                   cn(
-                    'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 transition duration-200 hover:bg-white/10 hover:text-white',
+                    'group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 transition duration-200 hover:bg-white/10 hover:text-white',
                     isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
                   )
                 }
               >
-                <item.icon className="h-4 w-4 transition group-hover:scale-105" />
+                <item.icon className="h-4 w-4 shrink-0 transition group-hover:scale-105" />
                 <span className="flex-1 font-medium">{item.label}</span>
                 {item.to === '/notifications' && unread > 0 ? (
                   <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
@@ -101,26 +189,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </NavLink>
             ))}
           </nav>
-          <div className="border-t border-white/10 p-4">
-            <div className="mb-3 flex items-center gap-3">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={profile?.avatar_url ?? undefined} />
-                <AvatarFallback className="rounded-full bg-white/15 text-white">
-                  {profile ? getInitials(profile.first_name, profile.last_name) : 'TE'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">
-                  {profile ? fullName(profile.first_name, profile.last_name) : 'User'}
-                </p>
-                <p className="truncate text-xs text-sidebar-muted">
-                  {profile ? roleLabel(profile.role) : ''}
-                </p>
-              </div>
-            </div>
+
+          {/* Mobile: scrolls with nav. Desktop: pinned footer. Never fixed/absolute on mobile. */}
+          <div className="static shrink-0 border-t border-white/10 bg-sidebar p-4 lg:mt-auto">
+            <SidebarProfileAvatar />
             <Button
               variant="secondary"
-              className="w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
+              className="min-h-11 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
@@ -135,14 +210,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           type="button"
           aria-label="Close menu"
           className="fixed inset-0 z-30 bg-[#092e4c]/45 backdrop-blur-[2px] lg:hidden"
-          onClick={() => setOpen(false)}
+          onClick={closeMenu}
         />
       ) : null}
 
       <div className="min-w-0">
         <header className="sticky top-0 z-20 border-b border-border/80 bg-white/90 backdrop-blur-md">
           <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen((v) => !v)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={open}
+              aria-controls="app-sidebar"
+              onClick={() => setOpen((v) => !v)}
+            >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <form onSubmit={onSearch} className="relative flex-1">
@@ -154,14 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="border-border bg-[#fbfcff] pl-9"
               />
             </form>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Notifications"
-              onClick={() => navigate('/notifications')}
-            >
-              <Bell className="h-4 w-4" />
-            </Button>
+            <NotificationBell />
             <Button variant="outline" size="sm" onClick={() => navigate('/change-password')}>
               Password
             </Button>

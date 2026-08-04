@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,17 +14,22 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-context'
 import { useProfiles } from '@/features/data/hooks'
 import {
+  relevanceLabel,
   useCreateNotification,
   useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
+  useNotificationPreferences,
   useNotifications,
+  useReviewNotification,
+  useUpdateNotificationPreferences,
 } from '@/features/notifications/hooks'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
-import type { Notification } from '@/types/database'
+import type { Notification, NotificationPreferences } from '@/types/database'
 
 export function NotificationsPage() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const canManage = isManagementRole(profile?.role)
   const [status, setStatus] = useState<'all' | 'unread' | 'read'>('all')
   const [composeOpen, setComposeOpen] = useState(false)
@@ -34,14 +39,20 @@ export function NotificationsPage() {
   const [recipientMode, setRecipientMode] = useState<'one' | 'all'>('one')
   const [recipientId, setRecipientId] = useState('')
 
-  const { data: allNotifications = [], isLoading, isError } = useNotifications({ status: 'all' })
+  const { data: allNotifications = [], isLoading, isError, refetch } = useNotifications({
+    status: 'all',
+    limit: 80,
+  })
   const { data: profiles = [] } = useProfiles({
     role: ['employee', 'subcontractor', 'project_manager', 'admin'],
   })
+  const { data: prefs } = useNotificationPreferences()
+  const updatePrefs = useUpdateNotificationPreferences()
   const markRead = useMarkNotificationRead()
   const markAllRead = useMarkAllNotificationsRead()
   const deleteNotification = useDeleteNotification()
   const createNotification = useCreateNotification()
+  const reviewNotification = useReviewNotification()
 
   const counts = useMemo(() => {
     const unread = allNotifications.filter((item) => !item.is_read).length
@@ -71,7 +82,18 @@ export function NotificationsPage() {
   )
 
   if (isLoading) return <LoadingState />
-  if (isError) return <EmptyState title="Unable to load notifications" />
+  if (isError) {
+    return (
+      <EmptyState
+        title="We could not load your notifications. Please try again."
+        action={
+          <Button size="sm" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        }
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -79,10 +101,13 @@ export function NotificationsPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Notifications</h1>
           <p className="text-sm text-muted-foreground">
-            Assignments, approvals, document updates, and company alerts.
+            Mentions, replies, assigned project activity, and alerts that need your attention.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link to="/activity">Recent activity</Link>
+          </Button>
           <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -211,10 +236,78 @@ export function NotificationsPage() {
         <SummaryCard label="Read" value={counts.read} />
       </div>
 
+      {prefs ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Notification preferences</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ['replies_to_my_comments', 'Replies to my comments'],
+                ['assigned_project_comments', 'Assigned project comments'],
+                ['assigned_project_photos', 'Assigned project photo uploads'],
+                ['general_project_activity', 'General project activity'],
+                ['company_updates_enabled', 'Company update activity'],
+                ['attendance_alerts', 'Attendance alerts (role-based)'],
+                ['requires_attention_enabled', 'Requires attention'],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(prefs[key as keyof typeof prefs] ?? (key === 'company_updates_enabled' ? true : false))}
+                  disabled={updatePrefs.isPending}
+                  onChange={async (e) => {
+                    try {
+                      await updatePrefs.mutateAsync({ [key]: e.target.checked } as Partial<NotificationPreferences>)
+                      toast.success('Preferences saved')
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Could not save')
+                    }
+                  }}
+                />
+                {label}
+              </label>
+            ))}
+            {canManage ? (
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Administrator activity scope</Label>
+                <Select
+                  value={prefs.admin_feed_mode}
+                  onValueChange={async (value) => {
+                    try {
+                      await updatePrefs.mutateAsync({
+                        admin_feed_mode: value as NotificationPreferences['admin_feed_mode'],
+                      })
+                      toast.success('Preferences saved')
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Could not save')
+                    }
+                  }}
+                >
+                  <SelectTrigger className="max-w-md">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high_priority">Only high-priority activity</SelectItem>
+                    <SelectItem value="assigned_only">Only assigned project activity</SelectItem>
+                    <SelectItem value="all">All authorized project activity</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Mentions stay enabled in-app. Email/SMS delivery is not configured yet.
+                </p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {notifications.length === 0 ? (
         <EmptyState
-          title={status === 'unread' ? 'No unread notifications' : 'No notifications yet'}
-          description="Assignment changes, approvals, and company alerts will show up here."
+          title={status === 'unread' ? 'You have no new notifications.' : 'You have no new notifications.'}
+          description="Mentions, replies, and assigned project updates will appear here."
         />
       ) : (
         <div className="space-y-3">
@@ -222,6 +315,7 @@ export function NotificationsPage() {
             <NotificationCard
               key={item.id}
               item={item}
+              canReview={canManage && (item.review_status === 'new' || item.relevance === 'requires_attention')}
               onMarkRead={async () => {
                 try {
                   await markRead.mutateAsync({ id: item.id, isRead: true })
@@ -244,6 +338,14 @@ export function NotificationsPage() {
                   toast.error(error instanceof Error ? error.message : 'Delete failed')
                 }
               }}
+              onReview={async (reviewStatus) => {
+                try {
+                  await reviewNotification.mutateAsync({ id: item.id, reviewStatus })
+                  toast.success(reviewStatus === 'resolved' ? 'Marked resolved' : 'Marked reviewed')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Update failed')
+                }
+              }}
               onOpen={async () => {
                 if (!item.is_read) {
                   try {
@@ -252,6 +354,12 @@ export function NotificationsPage() {
                     // Still allow navigation even if mark-read fails.
                   }
                 }
+                const destination = item.destination_route || item.link
+                if (!destination) {
+                  toast.message('This activity is no longer available.')
+                  return
+                }
+                navigate(destination)
               }}
             />
           ))}
@@ -284,43 +392,83 @@ function SummaryCard({
 
 function NotificationCard({
   item,
+  canReview,
   onMarkRead,
   onMarkUnread,
   onDelete,
+  onReview,
   onOpen,
 }: {
   item: Notification
+  canReview: boolean
   onMarkRead: () => Promise<void>
   onMarkUnread: () => Promise<void>
   onDelete: () => Promise<void>
+  onReview: (status: 'reviewed' | 'resolved') => Promise<void>
   onOpen: () => Promise<void>
 }) {
+  const actorName = item.actor ? fullName(item.actor.first_name, item.actor.last_name) : null
+  const destination = item.destination_route || item.link
+
   return (
-    <Card className={item.is_read ? 'opacity-80' : 'border-accent/40'}>
+    <Card className={item.is_read ? 'opacity-90' : 'border-accent/40'}>
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg">{item.title}</CardTitle>
-        <Badge variant={item.is_read ? 'secondary' : 'accent'}>{item.is_read ? 'Read' : 'Unread'}</Badge>
+        <div className="space-y-1">
+          <CardTitle className="text-lg">{item.title}</CardTitle>
+          {item.project?.name ? (
+            <p className="text-sm text-muted-foreground">{item.project.name}</p>
+          ) : null}
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Badge variant={item.is_read ? 'secondary' : 'accent'}>{item.is_read ? 'Read' : 'Unread'}</Badge>
+          {item.relevance ? (
+            <Badge variant="outline" className="text-[10px]">
+              {relevanceLabel(item.relevance)}
+            </Badge>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
-        <p>{item.message}</p>
-        <p className="text-xs text-muted-foreground">{formatRelative(item.created_at)}</p>
+        <p>{item.preview_text || item.message}</p>
+        <p className="text-xs text-muted-foreground">
+          {actorName ? `${actorName} · ` : ''}
+          {formatRelative(item.created_at)}
+          {item.activity_type ? ` · ${item.activity_type.replaceAll('_', ' ')}` : ''}
+          {item.review_status && item.review_status !== 'none' ? ` · ${item.review_status}` : ''}
+        </p>
         <div className="flex flex-wrap gap-2">
-          {item.link ? (
-            <Button asChild size="sm" variant="outline">
-              <Link to={item.link} onClick={() => void onOpen()}>
-                Open
-              </Link>
+          {destination ? (
+            <Button size="sm" onClick={() => void onOpen()}>
+              View activity
             </Button>
-          ) : null}
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => toast.message('This activity is no longer available.')}
+            >
+              Unavailable
+            </Button>
+          )}
           {item.is_read ? (
             <Button size="sm" variant="outline" onClick={onMarkUnread}>
               Mark unread
             </Button>
           ) : (
-            <Button size="sm" onClick={onMarkRead}>
+            <Button size="sm" variant="outline" onClick={onMarkRead}>
               Mark read
             </Button>
           )}
+          {canReview ? (
+            <>
+              <Button size="sm" variant="outline" onClick={() => void onReview('reviewed')}>
+                Mark reviewed
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void onReview('resolved')}>
+                Mark resolved
+              </Button>
+            </>
+          ) : null}
           <Button size="sm" variant="destructive" onClick={onDelete}>
             Delete
           </Button>

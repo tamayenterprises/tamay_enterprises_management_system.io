@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -24,11 +24,12 @@ import {
   useProject,
   useProjectAssignments,
   useProjectDocuments,
-  useProjectNotes,
   useRemoveAssignment,
   useUpdateProject,
   useUploadDocument,
 } from '@/features/data/hooks'
+import { ProjectUpdates } from '@/features/projects/project-updates'
+import { ProjectLocationPanel } from '@/features/projects/project-location-panel'
 import {
   documentCategoryLabel,
   formatDate,
@@ -41,15 +42,13 @@ import {
 import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
-import { supabase } from '@/lib/supabase'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
+  const [params] = useSearchParams()
   const { profile } = useAuth()
-  const queryClient = useQueryClient()
   const { data: project, isLoading, isError } = useProject(projectId)
   const { data: assignments = [] } = useProjectAssignments(projectId)
-  const { data: notes = [] } = useProjectNotes(projectId)
   const { data: documents = [] } = useProjectDocuments(projectId)
   const { data: history = [] } = useAssignmentHistory(projectId)
   const { data: workers = [] } = useProfiles({ role: ['employee', 'subcontractor', 'project_manager'] })
@@ -58,10 +57,21 @@ export function ProjectDetailPage() {
   const removeAssignment = useRemoveAssignment()
   const uploadDocument = useUploadDocument()
   const deleteDocument = useDeleteDocument()
-  const [note, setNote] = useState('')
   const [selectedWorker, setSelectedWorker] = useState('')
-  const [file, setFile] = useState<File | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const focusDocId = params.get('doc')
+  const focusTab = params.get('tab')
+
+  useEffect(() => {
+    if (focusTab !== 'files' && !focusDocId) return
+    const timer = window.setTimeout(() => {
+      document.getElementById('project-files')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (focusDocId) {
+        document.getElementById(`doc-${focusDocId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [focusTab, focusDocId, documents])
 
   const editForm = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -237,84 +247,40 @@ export function ProjectDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form
-                className="space-y-2"
-                onSubmit={async (event) => {
-                  event.preventDefault()
-                  if (!note.trim() || !profile) return
-                  const { error } = await supabase.from('project_notes').insert({
-                    project_id: project.id,
-                    author_id: profile.id,
-                    content: note.trim(),
-                  })
-                  if (error) toast.error(error.message)
-                  else {
-                    setNote('')
-                    toast.success('Note added')
-                    queryClient.invalidateQueries({ queryKey: ['project-notes', project.id] })
-                  }
-                }}
-              >
-                <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a project note..." />
-                <Button type="submit" size="sm">
-                  Add note
-                </Button>
-              </form>
-              <div className="space-y-3">
-                {notes.length === 0 ? (
-                  <EmptyState title="No notes yet" />
-                ) : (
-                  notes.map((item) => (
-                    <div key={item.id} className="rounded-md border border-border px-3 py-3 text-sm">
-                      <p>{item.content}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.author ? fullName(item.author.first_name, item.author.last_name) : 'Unknown'} ·{' '}
-                        {formatRelative(item.created_at)}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ProjectUpdates projectId={project.id} />
 
-          <Card>
+          {canManage ? <ProjectLocationPanel project={project} /> : null}
+
+          <Card id="project-files">
             <CardHeader>
               <CardTitle>Files & work photos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                <Input
-                  type="file"
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <FilePickerButton
                   accept={UPLOAD_ACCEPT}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-                <Button
-                  size="sm"
-                  disabled={!file || !profile?.organization_id || uploadDocument.isPending}
-                  onClick={async () => {
-                    if (!file || !profile?.organization_id) return
+                  label="Upload file"
+                  loadingLabel="Uploading…"
+                  disabled={!profile?.organization_id}
+                  isLoading={uploadDocument.isPending}
+                  onFile={async (selected) => {
+                    if (!profile?.organization_id) return
                     try {
                       await uploadDocument.mutateAsync({
-                        file,
-                        category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
+                        file: selected,
+                        category: selected.type.startsWith('image/') ? 'work_photo' : 'project_file',
                         projectId: project.id,
                         bucket: 'project-files',
                       })
-                      setFile(null)
                       toast.success('File uploaded')
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Upload failed')
                     }
                   }}
-                >
-                  Upload file
-                </Button>
+                />
+                <p className="text-xs text-muted-foreground">
+                  Click Upload file to choose a photo or document from your device.
+                </p>
               </div>
               {documents.length === 0 ? (
                 <EmptyState title="No files uploaded" />
@@ -323,7 +289,12 @@ export function ProjectDetailPage() {
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                      id={`doc-${doc.id}`}
+                      className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between ${
+                        focusDocId === doc.id
+                          ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+                          : 'border-border'
+                      }`}
                     >
                       <div>
                         <p className="font-medium">{doc.name}</p>

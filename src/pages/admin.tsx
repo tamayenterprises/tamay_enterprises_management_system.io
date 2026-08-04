@@ -24,6 +24,7 @@ import {
   fullName,
   roleLabel,
 } from '@/lib/utils'
+import { ProfileAvatar } from '@/features/profile/avatar'
 import type { ApprovalStatus, Profile, UserRole } from '@/types/database'
 
 export function AdminPage() {
@@ -120,11 +121,20 @@ export function AdminPage() {
                 key={user.id}
                 className="flex flex-col gap-3 rounded-md border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div>
-                  <p className="font-medium">{fullName(user.first_name, user.last_name)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {user.email} · {roleLabel(user.role)} · {formatRelative(user.created_at)}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <ProfileAvatar
+                    firstName={user.first_name}
+                    lastName={user.last_name}
+                    avatarUrl={user.avatar_url}
+                    className="h-10 w-10"
+                    fallbackClassName="bg-muted text-sm"
+                  />
+                  <div className="min-w-0">
+                    <p className="font-medium">{fullName(user.first_name, user.last_name)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {user.email} · {roleLabel(user.role)} · {formatRelative(user.created_at)}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -333,32 +343,41 @@ function UserRow({
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border p-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <p className="font-medium">
-          {fullName(user.first_name, user.last_name)}
-          {isSelf ? ' (you)' : ''}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {user.email}
-          {user.company_name ? ` · ${user.company_name}` : ''}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Badge variant="secondary">{roleLabel(user.role)}</Badge>
-          <Badge
-            variant={
-              user.approval_status === 'approved'
-                ? 'success'
-                : user.approval_status === 'pending'
-                  ? 'warning'
-                  : 'destructive'
-            }
-          >
-            {approvalStatusLabel(user.approval_status as ApprovalStatus)}
-          </Badge>
-          <Badge variant={user.is_active ? 'success' : 'destructive'}>
-            {user.is_active ? 'Active' : 'Inactive'}
-          </Badge>
-          {user.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
+      <div className="flex min-w-0 items-start gap-3">
+        <ProfileAvatar
+          firstName={user.first_name}
+          lastName={user.last_name}
+          avatarUrl={user.avatar_url}
+          className="mt-0.5 h-11 w-11"
+          fallbackClassName="bg-muted text-sm"
+        />
+        <div className="min-w-0">
+          <p className="font-medium">
+            {fullName(user.first_name, user.last_name)}
+            {isSelf ? ' (you)' : ''}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {user.email}
+            {user.company_name ? ` · ${user.company_name}` : ''}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge variant="secondary">{roleLabel(user.role)}</Badge>
+            <Badge
+              variant={
+                user.approval_status === 'approved'
+                  ? 'success'
+                  : user.approval_status === 'pending'
+                    ? 'warning'
+                    : 'destructive'
+              }
+            >
+              {approvalStatusLabel(user.approval_status as ApprovalStatus)}
+            </Badge>
+            <Badge variant={user.is_active ? 'success' : 'destructive'}>
+              {user.is_active ? 'Active' : 'Inactive'}
+            </Badge>
+            {user.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">

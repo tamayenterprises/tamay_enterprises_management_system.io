@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { documentStorageBucket } from '@/lib/utils'
-import { validateUploadFile } from '@/lib/uploads'
+import { documentStorageBucket, buildIlikeOrFilter } from '@/lib/utils'
+import { validateUploadFile, validateImageUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
@@ -125,11 +125,123 @@ export function useProjectNotes(projectId?: string) {
         .from('project_notes')
         .select('*, author:profiles(*)')
         .eq('project_id', projectId!)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
       if (error) throw error
       return (data ?? []) as ProjectNote[]
     },
   })
+}
+
+export function useCreateProjectUpdate() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      content,
+      parentId,
+      photo,
+      mentionedUserIds,
+      requiresAttention,
+      referencedProjectIds,
+    }: {
+      projectId: string
+      content: string
+      parentId?: string | null
+      photo?: File | null
+      mentionedUserIds?: string[]
+      requiresAttention?: boolean
+      referencedProjectIds?: string[]
+    }) => {
+      if (!profile?.id) throw new Error('Missing profile')
+
+      const trimmed = content.trim()
+      if (!trimmed && !photo) throw new Error('Write an update or add a photo')
+
+      let photoPath: string | null = null
+
+      if (photo) {
+        const validationError = validateImageUploadFile(photo)
+        if (validationError) throw new Error(validationError)
+
+        const safeName = photo.name.replace(/[^\w.\-()+ ]+/g, '_')
+        photoPath = `${profile.id}/${projectId}/updates/${Date.now()}-${safeName}`
+
+        const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, photo)
+        if (uploadError) throw uploadError
+      }
+
+      // Only send columns that are needed. Sending null parent_id/photo_path
+      // fails if the project_updates migration has not been applied yet.
+      const payload: {
+        project_id: string
+        author_id: string
+        content: string | null
+        parent_id?: string
+        photo_path?: string
+        requires_attention?: boolean
+      } = {
+        project_id: projectId,
+        author_id: profile.id,
+        content: trimmed || null,
+      }
+      if (parentId) payload.parent_id = parentId
+      if (photoPath) payload.photo_path = photoPath
+      if (requiresAttention) payload.requires_attention = true
+
+      const { data, error } = await supabase
+        .from('project_notes')
+        .insert(payload)
+        .select('*, author:profiles(*)')
+        .single()
+
+      if (error) {
+        if (photoPath) await supabase.storage.from('project-files').remove([photoPath])
+        const missingColumn =
+          /parent_id|photo_path|requires_attention|schema cache|PGRST204/i.test(error.message) ||
+          error.code === 'PGRST204'
+        if (missingColumn) {
+          throw new Error(
+            'Project Updates / activity notifications are not fully set up in the database yet. Run the latest SQL migrations in Supabase, then try again.',
+          )
+        }
+        throw error
+      }
+
+      const note = data as ProjectNote
+      if (mentionedUserIds?.length) {
+        const { error: mentionError } = await supabase.rpc('register_project_note_mentions', {
+          p_note_id: note.id,
+          p_mentioned_user_ids: mentionedUserIds,
+        })
+        if (mentionError) {
+          console.warn(mentionError.message)
+        }
+      }
+      if (referencedProjectIds?.length) {
+        const { error: refError } = await supabase.rpc('register_project_note_project_refs', {
+          p_note_id: note.id,
+          p_project_ids: referencedProjectIds,
+        })
+        if (refError) console.warn(refError.message)
+      }
+
+      return note
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['project-activity'] })
+    },
+  })
+}
+
+export async function createUpdatePhotoSignedUrl(photoPath: string) {
+  const { data, error } = await supabase.storage.from('project-files').createSignedUrl(photoPath, 60 * 30)
+  if (error || !data?.signedUrl) throw error ?? new Error('Unable to open photo')
+  return data.signedUrl
 }
 
 export function useProjectDocuments(projectId?: string) {
@@ -226,9 +338,11 @@ export function useProfiles(filters?: { role?: UserRole | UserRole[]; search?: s
       }
 
       if (filters?.search) {
-        query = query.or(
-          `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%`,
+        const peopleFilter = buildIlikeOrFilter(
+          ['first_name', 'last_name', 'email', 'company_name'],
+          filters.search,
         )
+        if (peopleFilter) query = query.or(peopleFilter)
       }
 
       const { data, error } = await query

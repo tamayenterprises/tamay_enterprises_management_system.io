@@ -22,6 +22,7 @@ import {
   workforceStatusEmoji,
   workforceStatusLabel,
 } from '@/lib/utils'
+import { ProfileAvatar } from '@/features/profile/avatar'
 import type { CurrentWorkerStatus, WorkforceStatus } from '@/types/database'
 import { format } from 'date-fns'
 
@@ -201,12 +202,20 @@ export function WorkforceStatusPanel() {
               className="flex w-full items-center justify-between rounded-xl border border-border px-3 py-2 text-left transition hover:bg-muted/50"
               onClick={() => setSelected(worker)}
             >
-              <div>
-                <p className="font-medium">{fullName(worker.first_name, worker.last_name)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {roleLabel(worker.role)}
-                  {worker.project_name ? ` · ${worker.project_name}` : ''}
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <ProfileAvatar
+                  firstName={worker.first_name}
+                  lastName={worker.last_name}
+                  avatarUrl={worker.avatar_url}
+                  fallbackClassName="bg-muted text-xs"
+                />
+                <div className="min-w-0">
+                  <p className="font-medium">{fullName(worker.first_name, worker.last_name)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {roleLabel(worker.role)}
+                    {worker.project_name ? ` · ${worker.project_name}` : ''}
+                  </p>
+                </div>
               </div>
               <Badge variant="secondary">
                 {workforceStatusEmoji(worker.status)} {workforceStatusLabel(worker.status)}
@@ -223,7 +232,16 @@ export function WorkforceStatusPanel() {
           </DialogHeader>
           {selected ? (
             <div className="space-y-2 text-sm">
-              <p className="font-medium">{fullName(selected.first_name, selected.last_name)}</p>
+              <div className="flex items-center gap-3">
+                <ProfileAvatar
+                  firstName={selected.first_name}
+                  lastName={selected.last_name}
+                  avatarUrl={selected.avatar_url}
+                  className="h-12 w-12"
+                  fallbackClassName="bg-muted"
+                />
+                <p className="font-medium">{fullName(selected.first_name, selected.last_name)}</p>
+              </div>
               <p>Role: {roleLabel(selected.role)}</p>
               <p>
                 Status: {workforceStatusEmoji(selected.status)} {workforceStatusLabel(selected.status)}

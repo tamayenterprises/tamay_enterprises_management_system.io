@@ -1,6 +1,6 @@
 # Tamay Enterprises Management System
 
-Private internal employee and subcontractor management platform for **Tamay Enterprises**.
+Private internal employee and subcontractor management platform for **Tamay Enterprises** (single company — not multi-tenant SaaS).
 
 ## Stack
 
@@ -27,7 +27,7 @@ cp .env.example .env
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-4. Apply the SQL migration in `supabase/migrations/20260327000000_initial_schema.sql` from the Supabase SQL editor (or via Supabase CLI).
+4. Apply **all** SQL migrations in `supabase/migrations/` **in filename order** from the Supabase SQL editor (or via Supabase CLI). See [docs/PRODUCTION.md](docs/PRODUCTION.md) for the full ordered list and go-live checklist.
 
 5. Install and run locally:
 
@@ -57,9 +57,23 @@ npm run dev
 ## Roles
 
 - **Admin** — full access, approvals, role assignment, settings
-- **Project Manager** — projects, assignments, documents
-- **Employee** — assigned projects, progress updates, personal docs/certs
+- **Project Manager** — projects, assignments, documents, timesheets
+- **Employee** — assigned projects, clock in/out, work status, personal docs/certs
 - **Subcontractor** — same operational access as employees, plus trade/company fields
+
+## Core features
+
+- Dashboard (role-aware)
+- Employees & subcontractors directory
+- Projects, assignments, notes, and history
+- Certifications with proof uploads + expiry maintenance
+- Documents & secure storage
+- In-app notifications
+- Admin approvals and role management
+- Workforce status tracking
+- Clock in / clock out + timesheets
+- Profile photos
+- Global search
 
 ## Deployment
 
@@ -75,6 +89,8 @@ npm run dev
 
 `vercel.json` already configures SPA rewrites for client-side routing.
 
+Before calling the site production, complete [docs/PRODUCTION.md](docs/PRODUCTION.md).
+
 ### GitHub Actions
 
 `.github/workflows/ci.yml` runs on pushes and pull requests to `main`/`develop`:
@@ -85,28 +101,12 @@ npm run dev
 - test
 - build
 
-## Feature branches
-
-Recommended workflow:
-
-- `feature/authentication`
-- `feature/user-roles`
-- `feature/employee-management`
-- `feature/subcontractor-management`
-- `feature/project-management`
-- `feature/project-assignment`
-- `feature/dashboard`
-- `feature/certification-management`
-- `feature/document-management`
-- `feature/notifications`
-- `feature/admin-panel`
-
 ## Architecture notes
 
-- Organization-scoped schema supports future multi-tenant SaaS conversion
+- Single-organization deployment for Tamay Enterprises
 - Authorization is enforced with Supabase Row Level Security
 - Frontend route guards are convenience only; RLS is the source of truth
-- Document/file uploads use private Supabase Storage buckets
+- Document/project file uploads use private Supabase Storage buckets; avatars use the public `avatars` bucket
 
 ## First admin bootstrap
 
