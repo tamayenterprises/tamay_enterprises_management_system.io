@@ -127,13 +127,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         id="app-sidebar"
         aria-label="Main navigation"
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex h-[100dvh] max-h-[100dvh] w-[240px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:static lg:h-auto lg:max-h-none lg:min-h-screen lg:translate-x-0',
+          // Mobile: height follows content — no tall empty navy panel under Sign out.
+          // Desktop: full-height column beside the main app.
+          'fixed left-0 top-0 z-40 flex w-[240px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
+          'max-h-[100dvh] rounded-br-2xl shadow-lg',
+          'lg:static lg:inset-y-0 lg:h-auto lg:max-h-none lg:min-h-screen lg:rounded-none lg:shadow-none lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
-        {/* Pack from the top on every breakpoint — no empty gap above the account block. */}
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
+          className="flex max-h-[100dvh] flex-col overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] lg:min-h-screen"
           style={{
             paddingTop: 'env(safe-area-inset-top, 0px)',
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
