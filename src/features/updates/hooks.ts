@@ -33,9 +33,11 @@ export function useCompanyUpdates(limit = 40) {
       const byUpdate = new Map<string, CompanyUpdateWithMeta['refs']>()
       for (const ref of refs ?? []) {
         const list = byUpdate.get(ref.update_id) ?? []
+        const projectValue = (ref as { project?: Project | Project[] | null }).project
+        const project = Array.isArray(projectValue) ? (projectValue[0] ?? null) : (projectValue ?? null)
         list.push({
           project_id: ref.project_id,
-          project: (ref as { project?: Project | null }).project ?? null,
+          project,
         })
         byUpdate.set(ref.update_id, list)
       }
