@@ -130,69 +130,78 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         id="app-sidebar"
         aria-label="Main navigation"
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex h-[100vh] h-[100dvh] max-h-[100dvh] w-[272px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:static lg:h-auto lg:min-h-screen lg:max-h-none lg:translate-x-0',
+          // Mobile: fixed full-height drawer; content scrolls inside. Desktop: static column with pinned footer.
+          'fixed inset-y-0 left-0 z-40 flex h-[100vh] h-[100dvh] max-h-[100dvh] w-[272px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:static lg:h-auto lg:max-h-none lg:min-h-screen lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-        }}
       >
-        {/* Fixed header */}
-        <div className="shrink-0 border-b border-white/10 px-4 py-5">
-          <div className="mx-auto flex h-[148px] w-[148px] items-center justify-center rounded-full bg-white p-3 shadow-[0_0_0_3px_rgba(255,255,255,0.2)]">
-            <img
-              src="/tamay-logo.png"
-              alt="Tamay Enterprises"
-              className="h-full w-full rounded-full object-contain"
-            />
-          </div>
-          <p className="mt-3 text-center text-xs text-sidebar-muted">Workforce & field operations</p>
-        </div>
-
-        {/* Independently scrollable navigation */}
-        <nav
-          className="min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3 pb-4 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
-          aria-label="Application sections"
-        >
-          {visibleNav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                cn(
-                  'group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 transition duration-200 hover:bg-white/10 hover:text-white',
-                  isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
-                )
-              }
-            >
-              <item.icon className="h-4 w-4 shrink-0 transition group-hover:scale-105" />
-              <span className="flex-1 font-medium">{item.label}</span>
-              {item.to === '/notifications' && unread > 0 ? (
-                <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
-                  {unread}
-                </span>
-              ) : null}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Fixed account / Sign Out footer */}
+        {/*
+          Mobile: ONE continuous scroll (logo → nav → profile → Sign out → bottom spacer).
+          Desktop: flex column; nav grows/scrolls; account stays at bottom.
+        */}
         <div
-          className="shrink-0 border-t border-white/10 bg-sidebar p-4"
+          className={cn(
+            'flex h-full min-h-0 flex-col',
+            // Mobile: entire panel scrolls as one continuous area
+            'overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]',
+            'pb-[calc(env(safe-area-inset-bottom,0px)+5rem)]',
+            // Desktop: fill column height; only nav scrolls; account stays pinned
+            'lg:h-full lg:min-h-screen lg:overflow-hidden lg:pb-0',
+          )}
           style={{
-            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+            paddingTop: 'env(safe-area-inset-top, 0px)',
           }}
         >
-          <SidebarProfileAvatar />
-          <Button
-            variant="secondary"
-            className="min-h-11 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
-            onClick={handleSignOut}
+          <div className="shrink-0 border-b border-white/10 px-4 py-5">
+            <div className="mx-auto flex h-[148px] w-[148px] items-center justify-center rounded-full bg-white p-3 shadow-[0_0_0_3px_rgba(255,255,255,0.2)]">
+              <img
+                src="/tamay-logo.png"
+                alt="Tamay Enterprises"
+                className="h-full w-full rounded-full object-contain"
+              />
+            </div>
+            <p className="mt-3 text-center text-xs text-sidebar-muted">Workforce & field operations</p>
+          </div>
+
+          <nav
+            className="shrink-0 space-y-1 p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
+            aria-label="Application sections"
           >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </Button>
+            {visibleNav.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={closeMenu}
+                className={({ isActive }) =>
+                  cn(
+                    'group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 transition duration-200 hover:bg-white/10 hover:text-white',
+                    isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
+                  )
+                }
+              >
+                <item.icon className="h-4 w-4 shrink-0 transition group-hover:scale-105" />
+                <span className="flex-1 font-medium">{item.label}</span>
+                {item.to === '/notifications' && unread > 0 ? (
+                  <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
+                    {unread}
+                  </span>
+                ) : null}
+              </NavLink>
+            ))}
+          </nav>
+
+          {/* Mobile: scrolls with nav. Desktop: pinned footer. Never fixed/absolute on mobile. */}
+          <div className="static shrink-0 border-t border-white/10 bg-sidebar p-4 lg:mt-auto">
+            <SidebarProfileAvatar />
+            <Button
+              variant="secondary"
+              className="min-h-11 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
         </div>
       </aside>
 
