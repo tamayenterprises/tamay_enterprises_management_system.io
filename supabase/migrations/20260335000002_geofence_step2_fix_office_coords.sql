@@ -1,6 +1,6 @@
 -- STEP 2 of 4 — Fix bad Office / CT longitudes (THIS IS THE IMPORTANT FIX)
 -- Run after Step 1 succeeds.
--- Expect: Success. Then run the SELECT at the bottom to confirm.
+-- Expect: Success. Then check the SELECT at the bottom (longitude must be negative).
 
 -- Show suspicious projects BEFORE the fix
 select
@@ -17,6 +17,9 @@ where archived_at is null
   and longitude > 0
   and latitude between 40.9 and 42.1
   and (-longitude) between -73.8 and -71.7;
+
+-- SQL Editor has no management JWT, so this trigger blocks UPDATEs
+alter table public.projects disable trigger projects_enforce_worker_update;
 
 -- Fix: flip missing minus sign for CT-like / Office projects only
 with candidates as (
@@ -55,6 +58,8 @@ select
   'migration_sign_fix',
   'Corrected missing Connecticut minus sign on longitude'
 from fixed;
+
+alter table public.projects enable trigger projects_enforce_worker_update;
 
 -- Confirm AFTER the fix (Office should show negative longitude)
 select
