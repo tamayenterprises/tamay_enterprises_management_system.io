@@ -28,6 +28,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 16. `supabase/migrations/20260333000000_project_activity_notifications.sql` (Notifications Center + Recent Activity)
 17. `supabase/migrations/20260334000000_company_updates.sql` (**enums only** — run this first and let it finish)
 18. `supabase/migrations/20260334000001_company_updates_schema.sql` (Company Updates tables/functions — run in a **second** SQL Editor execution after step 17)
+19. `supabase/migrations/20260335000000_fix_geofence_longitude_sanity.sql` (Connecticut longitude sanity + Office sign fix)
 
 **Notes**
 
@@ -38,6 +39,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 - Existing projects are marked `needs_verification` until an admin verifies coordinates on the project page.
 - Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
 - Migration `20260334` is split because Postgres cannot use new enum values in the same transaction that adds them. Always run `00000` then `00001` as two separate SQL Editor runs. Historical project notes are not exposed company-wide.
+- Migration `20260335` corrects targeted Connecticut projects that were saved with a missing longitude minus sign, adds `suspicious_project_locations` for admin review, and blocks re-saving positive CT longitudes.
 
 ### Verify cron job
 

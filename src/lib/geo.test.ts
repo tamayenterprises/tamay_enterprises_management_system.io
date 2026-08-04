@@ -28,6 +28,20 @@ describe('geo helpers', () => {
     expect(d).toBeLessThan(100)
   })
 
+  it('computes ~16m for the West Haven office phone vs corrected project GPS', () => {
+    const phoneLat = 41.26219
+    const phoneLng = -72.95257
+    const projectLat = 41.26208
+    const projectLng = -72.95269
+    const d = haversineMeters(phoneLat, phoneLng, projectLat, projectLng)
+    expect(d).toBeGreaterThan(10)
+    expect(d).toBeLessThan(25)
+    expect(d).toBeLessThan(DEFAULT_GEOFENCE_RADIUS_METERS)
+
+    const wrongLng = haversineMeters(phoneLat, phoneLng, projectLat, 72.95269)
+    expect(wrongLng).toBeGreaterThan(1_000_000)
+  })
+
   it('returns correct workflow next actions', () => {
     expect(nextAttendanceActions(null)).toEqual(['WORK_STARTED'])
     expect(nextAttendanceActions('working')).toEqual(['BREAK_STARTED', 'WORK_ENDED'])
