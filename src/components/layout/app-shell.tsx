@@ -151,7 +151,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav
-          className="min-h-0 flex-1 space-y-0 overflow-y-auto overscroll-contain p-1.5"
+          className="flex min-h-0 flex-1 flex-col justify-evenly overflow-y-auto overscroll-contain px-1.5 py-1"
           aria-label="Application sections"
         >
           {visibleNav.map((item) => (
@@ -161,7 +161,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={closeMenu}
               className={({ isActive }) =>
                 cn(
-                  'group flex min-h-8 items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/80 transition duration-150 hover:bg-white/10 hover:text-white',
+                  'group flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-white/80 transition duration-150 hover:bg-white/10 hover:text-white',
                   isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
                 )
               }
