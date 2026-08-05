@@ -78,7 +78,13 @@ export type AttendanceValidationResult =
   | 'rejected_invalid_transition'
   | 'rejected_duplicate'
   | 'rejected_other'
-export type ExceptionRequestStatus = 'pending' | 'approved' | 'rejected'
+export type ExceptionRequestStatus =
+  | 'pending'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'cancelled'
+  | 'resolved'
 
 export interface Project {
   id: string
@@ -421,6 +427,14 @@ export interface AttendanceExceptionRequest {
   admin_note: string | null
   decided_at: string | null
   resulting_attendance_record_id: string | null
+  attendance_record_id?: string | null
+  work_date?: string | null
+  idempotency_key?: string | null
+  correction_id?: string | null
+  duplicate_of_request_id?: string | null
+  follow_up_note?: string | null
+  review_started_at?: string | null
+  revision?: number
   created_at: string
   updated_at: string
   profile?: Profile | null
@@ -435,6 +449,17 @@ export interface AttendanceCorrection {
   reason: string
   original_values: Record<string, unknown>
   corrected_values: Record<string, unknown>
+  exception_request_id?: string | null
+  correction_mode?: string | null
+  correction_reason_code?: string | null
+  administrative_notes?: string | null
+  original_timeline?: unknown
+  corrected_timeline?: unknown
+  original_totals?: Record<string, unknown> | null
+  corrected_totals?: Record<string, unknown> | null
+  revision?: number
+  creation_source?: string | null
+  idempotency_key?: string | null
   created_at: string
   corrector?: Profile | null
 }
