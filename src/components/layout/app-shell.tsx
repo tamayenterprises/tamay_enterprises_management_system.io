@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
+  NotebookPen,
   Search,
   ShieldCheck,
   Users,
@@ -35,6 +36,7 @@ const navItems = [
   { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/drafts', label: 'Drafts', icon: NotebookPen },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/admin', label: 'Admin', icon: UserCog, admin: true },
 ]

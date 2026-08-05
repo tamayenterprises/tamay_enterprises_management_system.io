@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useArchiveProject, useCreateProject, useProjects } from '@/features/data/hooks'
+import { useCreateProject, useArchiveProject, useProjects } from '@/features/data/hooks'
+import { useFormDraft } from '@/features/drafts/use-form-draft'
 import { useAuth } from '@/features/auth/auth-context'
 import { formatDate, isManagementRole, projectStatusLabel } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
@@ -53,8 +54,42 @@ export function ProjectsPage() {
       deadline: '',
     },
   })
-
+  const draft = useFormDraft<ProjectFormValues>({
+    draftType: 'NEW_PROJECT',
+    contextKey: 'new-project',
+    enabled: createOpen && isManagementRole(profile?.role),
+    isMeaningful: (payload) =>
+      Boolean(payload.name?.trim() || payload.location?.trim() || payload.description?.trim()),
+  })
+  const watched = form.watch()
+  const restoredRef = useRef(false)
   const projects = useMemo(() => data ?? [], [data])
+
+  useEffect(() => {
+    if (!createOpen) return
+    draft.scheduleSave(watched)
+  }, [watched, createOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!createOpen) {
+      restoredRef.current = false
+      return
+    }
+    if (restoredRef.current || !draft.draft?.payload) return
+    const payload = draft.draft.payload as Partial<ProjectFormValues>
+    if (!payload.name && !payload.location && !payload.description) return
+    form.reset({
+      name: payload.name || '',
+      description: payload.description || '',
+      location: payload.location || '',
+      status: payload.status || 'not_started',
+      priority: payload.priority || 'medium',
+      start_date: payload.start_date || '',
+      deadline: payload.deadline || '',
+    })
+    restoredRef.current = true
+    toast.message('Draft restored.')
+  }, [createOpen, draft.draft, form])
 
   if (isLoading) return <LoadingState />
   if (isError) return <EmptyState title="Unable to load projects" />
@@ -91,6 +126,9 @@ export function ProjectsPage() {
                   onSubmit={form.handleSubmit(async (values) => {
                     try {
                       const project = await createProject.mutateAsync(values)
+                      if (draft.draft?.id) {
+                        await draft.publishDraft({ draftId: draft.draft.id, publishedEntityId: project.id })
+                      }
                       toast.success('Project created')
                       form.reset()
                       setCreateOpen(false)
@@ -100,6 +138,29 @@ export function ProjectsPage() {
                     }
                   })}
                 >
+                  {draft.draft ? (
+                    <div className="flex items-center justify-between rounded-md border border-border bg-[#fbfcff] px-3 py-2 text-xs">
+                      <span>
+                        Unfinished draft saved{' '}
+                        {draft.lastSavedAt
+                          ? `at ${new Date(draft.lastSavedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                          : ''}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          if (!confirmAction('Delete this unfinished draft? This action cannot be undone.')) return
+                          await draft.discardDraft(draft.draft!.id)
+                          form.reset()
+                          toast.success('Draft deleted.')
+                        }}
+                      >
+                        Delete draft
+                      </Button>
+                    </div>
+                  ) : null}
                   <div className="space-y-1">
                     <Label>Name</Label>
                     <Input {...form.register('name')} />

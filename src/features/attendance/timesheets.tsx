@@ -21,7 +21,7 @@ import {
   useResolveExceptionRequest,
   type AttendanceFilters,
 } from '@/features/attendance/hooks'
-import { useProfiles, useProjects } from '@/features/data/hooks'
+import { useProfiles, useProjects, useSetWorkerStatus, useWorkerEligibility } from '@/features/data/hooks'
 import {
   CORRECTION_REASON_OPTIONS,
   buildDetailedCorrectionPreview,
@@ -368,129 +368,49 @@ export function TimesheetsPanel() {
                     !row.clock_out_time),
               )
               return (
-                <div
+                <ExceptionRequestCard
                   key={req.id}
-                  id={`exception-${req.id}`}
-                  className={`space-y-2 rounded-md border px-3 py-3 text-sm ${
-                    focusExceptionId === req.id
-                      ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
-                      : 'border-border'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium">
-                      {req.profile ? fullName(req.profile.first_name, req.profile.last_name) : 'Worker'} ·{' '}
-                      {actionButtonLabel(req.requested_action)}
-                    </p>
-                    <Badge variant="secondary">{req.status}</Badge>
-                    {req.profile?.role ? <Badge variant="outline">{roleLabel(req.profile.role)}</Badge> : null}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {req.project?.name} · {format(new Date(req.created_at), 'MMM d, h:mm a')}
-                    {req.work_date ? ` · work date ${req.work_date}` : ''}
-                  </p>
-                  <p>{req.explanation}</p>
-                  {req.follow_up_note ? (
-                    <p className="text-xs text-muted-foreground">Follow-up: {req.follow_up_note}</p>
-                  ) : null}
-                  {req.calculated_distance_meters != null ? (
-                    <p className="text-xs">Distance: {formatDistance(req.calculated_distance_meters)}</p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      disabled={correct.isPending}
-                      onClick={async () => {
-                        if (related) {
-                          openCorrection(related, req)
-                          return
-                        }
-                        const recordId = req.attendance_record_id || req.resulting_attendance_record_id
-                        if (recordId) {
-                          const { data: fetched, error } = await supabase
-                            .from('attendance_records')
-                            .select('*, project:projects(*), profile:profiles!user_id(*)')
-                            .eq('id', recordId)
-                            .maybeSingle()
-                          if (!error && fetched) {
-                            openCorrection(fetched as AttendanceRecord, req)
-                            return
-                          }
-                        }
-                        const { data: openRows } = await supabase
-                          .from('attendance_records')
-                          .select('*, project:projects(*), profile:profiles!user_id(*)')
-                          .eq('user_id', req.user_id)
-                          .eq('project_id', req.project_id)
-                          .is('clock_out_time', null)
-                          .order('clock_in_time', { ascending: false })
-                          .limit(1)
-                        if (openRows?.[0]) {
-                          openCorrection(openRows[0] as AttendanceRecord, req)
-                          return
-                        }
-                        toast.error(
-                          'Could not find the related attendance session. Widen the date filter or open the worker timesheet row, then try again.',
-                        )
-                      }}
-                    >
-                      Approve and Correct Attendance
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={resolveException.isPending}
-                      onClick={async () => {
-                        try {
-                          await resolveException.mutateAsync({
-                            requestId: req.id,
-                            approve: true,
-                            createAttendance: false,
-                            adminNote: 'Placed under review',
-                          })
-                          toast.success('Exception placed under review')
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : 'Failed')
-                        }
-                      }}
-                    >
-                      Mark under review
-                    </Button>
-                    <div className="flex min-w-[220px] flex-1 flex-col gap-1">
-                      <Input
-                        placeholder="Rejection reason (required)"
-                        value={rejectNote}
-                        onChange={(e) => setRejectNote(e.target.value)}
-                      />
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={resolveException.isPending || rejectNote.trim().length < 3}
-                        onClick={async () => {
-                          try {
-                            await resolveException.mutateAsync({
-                              requestId: req.id,
-                              approve: false,
-                              adminNote: rejectNote.trim(),
-                            })
-                            toast.success('Exception rejected')
-                            setRejectNote('')
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : 'Failed')
-                          }
-                        }}
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
-                  {!related && !req.attendance_record_id ? (
-                    <p className="text-xs text-amber-700">
-                      No linked attendance session yet. Approve and Correct will look up the worker’s open
-                      session for this project.
-                    </p>
-                  ) : null}
-                </div>
+                  req={req}
+                  related={related}
+                  focusExceptionId={focusExceptionId}
+                  rejectNote={rejectNote}
+                  setRejectNote={setRejectNote}
+                  resolveException={resolveException}
+                  correctPending={correct.isPending}
+                  onApproveAndCorrect={async () => {
+                    if (related) {
+                      openCorrection(related, req)
+                      return
+                    }
+                    const recordId = req.attendance_record_id || req.resulting_attendance_record_id
+                    if (recordId) {
+                      const { data: fetched, error } = await supabase
+                        .from('attendance_records')
+                        .select('*, project:projects(*), profile:profiles!user_id(*)')
+                        .eq('id', recordId)
+                        .maybeSingle()
+                      if (!error && fetched) {
+                        openCorrection(fetched as AttendanceRecord, req)
+                        return
+                      }
+                    }
+                    const { data: openRows } = await supabase
+                      .from('attendance_records')
+                      .select('*, project:projects(*), profile:profiles!user_id(*)')
+                      .eq('user_id', req.user_id)
+                      .eq('project_id', req.project_id)
+                      .is('clock_out_time', null)
+                      .order('clock_in_time', { ascending: false })
+                      .limit(1)
+                    if (openRows?.[0]) {
+                      openCorrection(openRows[0] as AttendanceRecord, req)
+                      return
+                    }
+                    toast.error(
+                      'Could not find the related attendance session. Widen the date filter or open the worker timesheet row, then try again.',
+                    )
+                  }}
+                />
               )
             })
           )}
@@ -876,6 +796,160 @@ export function TimesheetsPanel() {
           ) : null}
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function ExceptionRequestCard({
+  req,
+  related,
+  focusExceptionId,
+  rejectNote,
+  setRejectNote,
+  resolveException,
+  correctPending,
+  onApproveAndCorrect,
+}: {
+  req: AttendanceExceptionRequest
+  related?: AttendanceRecord
+  focusExceptionId: string | null
+  rejectNote: string
+  setRejectNote: (value: string) => void
+  resolveException: ReturnType<typeof useResolveExceptionRequest>
+  correctPending: boolean
+  onApproveAndCorrect: () => Promise<void>
+}) {
+  const { data: eligibility } = useWorkerEligibility(req.user_id)
+  const setStatus = useSetWorkerStatus()
+  const [activateReason, setActivateReason] = useState('')
+  const inactive = eligibility && !eligibility.can_submit_attendance
+
+  return (
+    <div
+      id={`exception-${req.id}`}
+      className={`space-y-2 rounded-md border px-3 py-3 text-sm ${
+        focusExceptionId === req.id ? 'border-accent bg-accent/5 ring-2 ring-accent/30' : 'border-border'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="font-medium">
+          {req.profile ? fullName(req.profile.first_name, req.profile.last_name) : 'Worker'} ·{' '}
+          {actionButtonLabel(req.requested_action)}
+        </p>
+        <Badge variant="secondary">{req.status}</Badge>
+        {req.profile?.role ? <Badge variant="outline">{roleLabel(req.profile.role)}</Badge> : null}
+        {eligibility ? (
+          <Badge variant={eligibility.can_submit_attendance ? 'success' : 'destructive'}>
+            {eligibility.derived_status}
+          </Badge>
+        ) : null}
+      </div>
+      {inactive ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 space-y-2">
+          <p className="font-medium">
+            {req.profile
+              ? `${fullName(req.profile.first_name, req.profile.last_name)}’s employee profile is inactive.`
+              : 'This worker profile is inactive.'}{' '}
+            Review and activate the worker before creating attendance. The exception remains reviewable.
+          </p>
+          <p>{eligibility?.blocking_reason}</p>
+          <Input
+            placeholder="Activation reason (required)"
+            value={activateReason}
+            onChange={(e) => setActivateReason(e.target.value)}
+          />
+          <Button
+            size="sm"
+            disabled={setStatus.isPending || activateReason.trim().length < 3}
+            onClick={async () => {
+              try {
+                await setStatus.mutateAsync({
+                  workerId: req.user_id,
+                  action: 'activate',
+                  reason: activateReason.trim(),
+                })
+                toast.success('Worker activated. Continue with Approve and Correct Attendance — activation alone does not create attendance.')
+                setActivateReason('')
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Activation failed')
+              }
+            }}
+          >
+            Activate Worker and Continue Review
+          </Button>
+        </div>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        {req.project?.name} · {format(new Date(req.created_at), 'MMM d, h:mm a')}
+        {req.work_date ? ` · work date ${req.work_date}` : ''}
+      </p>
+      <p>{req.explanation}</p>
+      {req.follow_up_note ? (
+        <p className="text-xs text-muted-foreground">Follow-up: {req.follow_up_note}</p>
+      ) : null}
+      {req.calculated_distance_meters != null ? (
+        <p className="text-xs">Distance: {formatDistance(req.calculated_distance_meters)}</p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={correctPending} onClick={() => void onApproveAndCorrect()}>
+          Approve and Correct Attendance
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={resolveException.isPending}
+          onClick={async () => {
+            try {
+              const result = await resolveException.mutateAsync({
+                requestId: req.id,
+                approve: true,
+                createAttendance: false,
+                adminNote: 'Placed under review',
+              })
+              toast.success(
+                (result as { message?: string })?.message || 'Exception placed under review',
+              )
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : 'Failed')
+            }
+          }}
+        >
+          Mark under review
+        </Button>
+        <div className="flex min-w-[220px] flex-1 flex-col gap-1">
+          <Input
+            placeholder="Rejection reason (required)"
+            value={rejectNote}
+            onChange={(e) => setRejectNote(e.target.value)}
+          />
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={resolveException.isPending || rejectNote.trim().length < 3}
+            onClick={async () => {
+              try {
+                await resolveException.mutateAsync({
+                  requestId: req.id,
+                  approve: false,
+                  adminNote: rejectNote.trim(),
+                })
+                toast.success('Exception rejected')
+                setRejectNote('')
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Failed')
+              }
+            }}
+          >
+            Reject
+          </Button>
+        </div>
+      </div>
+      {!related && !req.attendance_record_id ? (
+        <p className="text-xs text-amber-700">
+          No linked attendance session yet. Approve and Correct will look up the worker’s open session for this
+          project.
+        </p>
+      ) : null}
     </div>
   )
 }

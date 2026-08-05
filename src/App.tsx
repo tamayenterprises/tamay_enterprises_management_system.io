@@ -21,6 +21,7 @@ import { UpdatesPage } from '@/pages/updates'
 import { AdminPage } from '@/pages/admin'
 import { SearchPage } from '@/pages/search'
 import { TimesheetsPage } from '@/pages/timesheets'
+import { DraftsPage } from '@/pages/drafts'
 import { NotFoundPage } from '@/pages/not-found'
 
 const queryClient = new QueryClient({
@@ -68,6 +69,7 @@ export default function App() {
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/activity" element={<RecentActivityPage />} />
                   <Route path="/updates" element={<UpdatesPage />} />
+                  <Route path="/drafts" element={<DraftsPage />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/change-password" element={<ChangePasswordPage />} />
 

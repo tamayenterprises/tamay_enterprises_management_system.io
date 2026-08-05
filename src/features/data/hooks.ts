@@ -511,6 +511,72 @@ export function useAdminSetUserAccess() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-eligibility'] })
+    },
+  })
+}
+
+export function useWorkerEligibility(workerId?: string | null) {
+  return useQuery({
+    queryKey: ['worker-eligibility', workerId],
+    enabled: Boolean(workerId),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_worker_eligibility', {
+        p_user_id: workerId!,
+      })
+      if (error) throw error
+      return data as import('@/lib/worker-eligibility').WorkerEligibility
+    },
+  })
+}
+
+export function useSetWorkerStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      workerId,
+      action,
+      reason,
+    }: {
+      workerId: string
+      action: 'activate' | 'deactivate' | 'suspend' | 'archive' | 'restore' | 'approve'
+      reason: string
+    }) => {
+      const { data, error } = await supabase.rpc('set_worker_status', {
+        p_worker_id: workerId,
+        p_action: action,
+        p_reason: reason,
+      })
+      if (error) throw error
+      return data as {
+        ok: boolean
+        message?: string
+        eligibility?: import('@/lib/worker-eligibility').WorkerEligibility
+        profile?: Profile
+      }
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-eligibility', vars.workerId] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-status-history'] })
+    },
+  })
+}
+
+export function useWorkerStatusHistory(workerId?: string | null) {
+  return useQuery({
+    queryKey: ['worker-status-history', workerId],
+    enabled: Boolean(workerId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('worker_status_history')
+        .select('*, changer:profiles!changed_by(*)')
+        .eq('worker_id', workerId!)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      return data ?? []
     },
   })
 }

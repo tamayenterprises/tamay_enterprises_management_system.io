@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -11,8 +12,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
-import { useProfiles, useUpdateProfile, useAdminSetUserAccess } from '@/features/data/hooks'
+import {
+  useProfiles,
+  useUpdateProfile,
+  useAdminSetUserAccess,
+  useSetWorkerStatus,
+  useWorkerEligibility,
+  useWorkerStatusHistory,
+} from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
+import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
 import { formatDate, fullName, roleLabel } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
 import { profileSchema, type ProfileFormValues } from '@/lib/validations'
@@ -30,7 +39,7 @@ export function EmployeesPage() {
 
   const employees = useMemo(() => {
     const rows = data ?? []
-    return rows.filter((row) => (activeOnly ? row.is_active : true))
+    return rows.filter((row) => (activeOnly ? row.is_active && !row.archived_at : true))
   }, [data, activeOnly])
 
   if (isLoading) return <LoadingState />
@@ -44,7 +53,8 @@ export function EmployeesPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Employees</h1>
           <p className="text-sm text-muted-foreground">
-            Edit, activate, and archive approved employees. New accounts come from sign-up + admin approval.
+            Edit, activate, and archive approved employees. Attendance eligibility follows Active worker
+            status — project assignment alone is not enough.
           </p>
         </div>
         <div className="flex gap-2">
@@ -76,21 +86,6 @@ export function EmployeesPage() {
                   toast.error(error instanceof Error ? error.message : 'Update failed')
                 }
               }}
-              onToggleActive={async () => {
-                try {
-                  await updateProfile.mutateAsync({
-                    id: employee.id,
-                    values: {
-                      first_name: employee.first_name,
-                      last_name: employee.last_name,
-                      is_active: !employee.is_active,
-                    },
-                  })
-                  toast.success(employee.is_active ? 'Employee deactivated' : 'Employee activated')
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Action failed')
-                }
-              }}
               onArchive={async () => {
                 if (!confirmAction(`Archive ${fullName(employee.first_name, employee.last_name)}?`)) return
                 try {
@@ -111,14 +106,19 @@ export function EmployeesPage() {
 function EmployeeCard({
   employee,
   onSave,
-  onToggleActive,
   onArchive,
 }: {
   employee: Profile
   onSave: (values: ProfileFormValues) => Promise<void>
-  onToggleActive: () => Promise<void>
   onArchive: () => Promise<void>
 }) {
+  const setStatus = useSetWorkerStatus()
+  const { data: eligibilityRpc } = useWorkerEligibility(employee.id)
+  const { data: history = [] } = useWorkerStatusHistory(employee.id)
+  const [statusReason, setStatusReason] = useState('')
+  const [statusOpen, setStatusOpen] = useState(false)
+
+  const eligibility = eligibilityRpc ?? deriveWorkerEligibility(employee)
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -150,18 +150,38 @@ function EmployeeCard({
             <p className="text-sm text-muted-foreground">{employee.email}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Badge variant="secondary">{roleLabel(employee.role)}</Badge>
-          <Badge variant={employee.is_active ? 'success' : 'destructive'}>
-            {employee.is_active ? 'Active' : 'Inactive'}
+          <Badge variant={eligibility.derived_status === 'ACTIVE' ? 'success' : 'destructive'}>
+            {eligibility.derived_status}
           </Badge>
+          {employee.approval_status === 'pending' ? <Badge variant="outline">Pending Activation</Badge> : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
+        <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2 text-xs space-y-1">
+          <p>
+            <span className="text-muted-foreground">Approval:</span> {employee.approval_status}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Worker profile:</span>{' '}
+            {employee.is_active ? 'Active' : 'Inactive'}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Attendance eligibility:</span>{' '}
+            {eligibility.can_submit_attendance ? 'Allowed' : 'Blocked'}
+          </p>
+          {eligibility.blocking_reason ? (
+            <p className="text-amber-800">Reason: {eligibility.blocking_reason}</p>
+          ) : null}
+          {eligibility.required_administrative_action ? (
+            <p className="text-muted-foreground">Action: {eligibility.required_administrative_action}</p>
+          ) : null}
+        </div>
         <p>Position: {employee.position || '—'}</p>
         <p>Hire date: {formatDate(employee.hire_date)}</p>
         <p>Phone: {employee.phone || '—'}</p>
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           <Dialog>
             <DialogTrigger asChild>
               <Button size="sm">Edit profile</Button>
@@ -209,9 +229,134 @@ function EmployeeCard({
               </form>
             </DialogContent>
           </Dialog>
-          <Button size="sm" variant="outline" onClick={onToggleActive}>
-            {employee.is_active ? 'Deactivate' : 'Activate'}
-          </Button>
+
+          <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline">
+                {employee.is_active ? 'Deactivate / Suspend' : 'Activate Worker'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Change worker status</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Activation alone does not create attendance. After activating, review any open exception and
+                use Approve and Correct Attendance.
+              </p>
+              <div className="space-y-1">
+                <Label>Reason (required)</Label>
+                <Textarea
+                  value={statusReason}
+                  onChange={(e) => setStatusReason(e.target.value)}
+                  placeholder="Why is this status changing?"
+                  rows={3}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {!employee.is_active ? (
+                  <Button
+                    disabled={setStatus.isPending || statusReason.trim().length < 3}
+                    onClick={async () => {
+                      try {
+                        await setStatus.mutateAsync({
+                          workerId: employee.id,
+                          action: 'activate',
+                          reason: statusReason.trim(),
+                        })
+                        toast.success('Worker activated')
+                        setStatusOpen(false)
+                        setStatusReason('')
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Activation failed')
+                      }
+                    }}
+                  >
+                    Activate Worker
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      disabled={setStatus.isPending || statusReason.trim().length < 3}
+                      onClick={async () => {
+                        try {
+                          await setStatus.mutateAsync({
+                            workerId: employee.id,
+                            action: 'deactivate',
+                            reason: statusReason.trim(),
+                          })
+                          toast.success('Worker deactivated')
+                          setStatusOpen(false)
+                          setStatusReason('')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Failed')
+                        }
+                      }}
+                    >
+                      Deactivate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={setStatus.isPending || statusReason.trim().length < 3}
+                      onClick={async () => {
+                        try {
+                          await setStatus.mutateAsync({
+                            workerId: employee.id,
+                            action: 'suspend',
+                            reason: statusReason.trim(),
+                          })
+                          toast.success('Worker suspended')
+                          setStatusOpen(false)
+                          setStatusReason('')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Failed')
+                        }
+                      }}
+                    >
+                      Suspend
+                    </Button>
+                  </>
+                )}
+                {employee.archived_at ? (
+                  <Button
+                    variant="secondary"
+                    disabled={setStatus.isPending || statusReason.trim().length < 3}
+                    onClick={async () => {
+                      try {
+                        await setStatus.mutateAsync({
+                          workerId: employee.id,
+                          action: 'restore',
+                          reason: statusReason.trim(),
+                        })
+                        toast.success('Worker restored from archive')
+                        setStatusOpen(false)
+                        setStatusReason('')
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Failed')
+                      }
+                    }}
+                  >
+                    Restore
+                  </Button>
+                ) : null}
+              </div>
+              {history.length > 0 ? (
+                <div className="space-y-1 border-t border-border pt-3">
+                  <p className="text-sm font-medium">Status history</p>
+                  {history.slice(0, 5).map((row: { id: string; action: string; reason: string; created_at: string }) => (
+                    <div key={row.id} className="rounded-md border border-border px-2 py-1 text-xs">
+                      <p>
+                        {row.action} · {format(new Date(row.created_at), 'MMM d, h:mm a')}
+                      </p>
+                      <p className="text-muted-foreground">{row.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </DialogContent>
+          </Dialog>
+
           <Button size="sm" variant="destructive" onClick={onArchive}>
             Archive
           </Button>
