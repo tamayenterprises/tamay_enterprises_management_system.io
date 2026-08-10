@@ -29,6 +29,11 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 17. `supabase/migrations/20260334000000_company_updates.sql` (**enums only** — run this first and let it finish)
 18. `supabase/migrations/20260334000001_company_updates_schema.sql` (Company Updates tables/functions — run in a **second** SQL Editor execution after step 17)
 19. `supabase/migrations/20260335000000_fix_geofence_longitude_sanity.sql` (Connecticut longitude sanity + Office sign fix)
+20. `supabase/migrations/20260336000000_attendance_exception_status_enums.sql`
+21. `supabase/migrations/20260336000001_attendance_repair_workflow.sql`
+22. `supabase/migrations/20260337000000_worker_eligibility_and_form_drafts.sql`
+23. `supabase/migrations/20260338000000_client_portal.sql` (client role, project requests, convert RPC)
+24. `supabase/migrations/20260338000001_client_portal_polish.sql` (client-visible project updates)
 
 **Notes**
 
@@ -40,6 +45,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 - Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
 - Migration `20260334` is split because Postgres cannot use new enum values in the same transaction that adds them. Always run `00000` then `00001` as two separate SQL Editor runs. Historical project notes are not exposed company-wide.
 - Migration `20260335` corrects targeted Connecticut projects that were saved with a missing longitude minus sign, adds `suspicious_project_locations` for admin review, and blocks re-saving positive CT longitudes.
+- Migration `20260338` adds the client portal (`client` role, project requests, request files) and client-visible project update controls. After applying, clients only see project notes marked **Visible to client**.
 
 ### Verify cron job
 

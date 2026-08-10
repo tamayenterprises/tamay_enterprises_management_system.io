@@ -65,6 +65,7 @@ function UpdateComposer({
   submitLabel,
   mentionCandidates,
   projects,
+  defaultVisibleToClient = false,
   onDone,
 }: {
   projectId: string
@@ -73,12 +74,16 @@ function UpdateComposer({
   submitLabel: string
   mentionCandidates: Profile[]
   projects: Project[]
+  defaultVisibleToClient?: boolean
   onDone?: () => void
 }) {
+  const { profile } = useAuth()
+  const canManage = isManagementRole(profile?.role)
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
   const [requiresAttention, setRequiresAttention] = useState(false)
+  const [visibleToClient, setVisibleToClient] = useState(defaultVisibleToClient)
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
   const [projectIds, setProjectIds] = useState<string[]>([projectId])
   const [mentionPicker, setMentionPicker] = useState('')
@@ -136,11 +141,13 @@ function UpdateComposer({
             mentionedUserIds: mentionedIds,
             requiresAttention,
             referencedProjectIds: projectIds,
+            visibleToClient: canManage ? visibleToClient : undefined,
           })
           if (draft.draft?.id) await draft.publishDraft({ draftId: draft.draft.id })
           setContent('')
           setPhoto(null)
           setRequiresAttention(false)
+          setVisibleToClient(defaultVisibleToClient)
           setMentionedIds([])
           setProjectIds([projectId])
           setDraftBanner(null)
@@ -284,6 +291,16 @@ function UpdateComposer({
           />
           Requires attention
         </label>
+        {canManage ? (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={visibleToClient}
+              onChange={(e) => setVisibleToClient(e.target.checked)}
+            />
+            Visible to client
+          </label>
+        ) : null}
       </div>
 
       {mentionedIds.length > 0 || projectIds.length > 1 ? (
@@ -364,6 +381,7 @@ function UpdateCard({
     >
       <div className="space-y-2">
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
+        {update.visible_to_client ? <Badge variant="secondary">Visible to client</Badge> : null}
         {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
         {update.photo_path ? <UpdatePhoto path={update.photo_path} /> : null}
         <p className="text-xs text-muted-foreground">
@@ -401,6 +419,7 @@ function UpdateCard({
           parentId={update.id}
           mentionCandidates={mentionCandidates}
           projects={projects}
+          defaultVisibleToClient={Boolean(update.visible_to_client)}
           placeholder={`Reply to ${authorName}…`}
           submitLabel="Post reply"
           onDone={() => setReplyOpen(false)}
@@ -409,8 +428,7 @@ function UpdateCard({
         <Button type="button" size="sm" variant="outline" onClick={() => setReplyOpen(true)}>
           Reply
         </Button>
-      )}
-    </div>
+      )}    </div>
   )
 }
 

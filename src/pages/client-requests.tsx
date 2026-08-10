@@ -14,11 +14,12 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  createProjectRequestFileSignedUrl,
   useCreateProjectRequest,
   useMyProjectRequests,
   useUploadProjectRequestFile,
 } from '@/features/client/hooks'
-import { formatRelative } from '@/lib/utils'
+import { formatFileSize, formatRelative } from '@/lib/utils'
 import { IMAGE_UPLOAD_ACCEPT, UPLOAD_ACCEPT } from '@/lib/uploads'
 import { projectRequestSchema, type ProjectRequestFormValues } from '@/lib/validations'
 import type { ProjectRequest } from '@/types/database'
@@ -162,12 +163,74 @@ export function ClientRequestsPage() {
                   {request.location || 'No location'} · {formatRelative(request.created_at)}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+              <CardContent className="space-y-3 text-sm">
                 <p className="whitespace-pre-wrap text-muted-foreground">{request.description}</p>
                 {request.files && request.files.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Attachments: {request.files.map((f) => f.name).join(', ')}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-foreground">Attachments</p>
+                    {request.files.map((file) => (
+                      <button
+                        key={file.id}
+                        type="button"
+                        className="block w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs hover:bg-muted/40"
+                        onClick={async () => {
+                          try {
+                            const url = await createProjectRequestFileSignedUrl(file.storage_path)
+                            window.open(url, '_blank', 'noopener,noreferrer')
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Unable to open file')
+                          }
+                        }}
+                      >
+                        {file.name}
+                        <span className="ml-2 text-muted-foreground">
+                          {file.file_kind} · {formatFileSize(file.file_size ?? 0)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {request.status === 'pending' || request.status === 'under_review' ? (
+                  <div className="flex flex-wrap gap-2">
+                    <FilePickerButton
+                      accept={IMAGE_UPLOAD_ACCEPT}
+                      label="Add photo"
+                      size="sm"
+                      variant="outline"
+                      isLoading={uploadFile.isPending}
+                      onFile={async (selected) => {
+                        try {
+                          await uploadFile.mutateAsync({
+                            requestId: request.id,
+                            file: selected,
+                            fileKind: 'photo',
+                          })
+                          toast.success('Photo added')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Upload failed')
+                        }
+                      }}
+                    />
+                    <FilePickerButton
+                      accept={UPLOAD_ACCEPT}
+                      label="Add document"
+                      size="sm"
+                      variant="outline"
+                      isLoading={uploadFile.isPending}
+                      onFile={async (selected) => {
+                        try {
+                          await uploadFile.mutateAsync({
+                            requestId: request.id,
+                            file: selected,
+                            fileKind: 'document',
+                          })
+                          toast.success('Document added')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Upload failed')
+                        }
+                      }}
+                    />
+                  </div>
                 ) : null}
                 {request.converted_project_id ? (
                   <Button asChild variant="outline" size="sm">

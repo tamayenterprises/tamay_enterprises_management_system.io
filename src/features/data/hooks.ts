@@ -145,6 +145,7 @@ export function useCreateProjectUpdate() {
       mentionedUserIds,
       requiresAttention,
       referencedProjectIds,
+      visibleToClient,
     }: {
       projectId: string
       content: string
@@ -153,6 +154,7 @@ export function useCreateProjectUpdate() {
       mentionedUserIds?: string[]
       requiresAttention?: boolean
       referencedProjectIds?: string[]
+      visibleToClient?: boolean
     }) => {
       if (!profile?.id) throw new Error('Missing profile')
 
@@ -181,6 +183,7 @@ export function useCreateProjectUpdate() {
         parent_id?: string
         photo_path?: string
         requires_attention?: boolean
+        visible_to_client?: boolean
       } = {
         project_id: projectId,
         author_id: profile.id,
@@ -189,6 +192,7 @@ export function useCreateProjectUpdate() {
       if (parentId) payload.parent_id = parentId
       if (photoPath) payload.photo_path = photoPath
       if (requiresAttention) payload.requires_attention = true
+      if (visibleToClient) payload.visible_to_client = true
 
       const { data, error } = await supabase
         .from('project_notes')
