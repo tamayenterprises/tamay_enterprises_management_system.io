@@ -59,6 +59,8 @@ function ClientReplyComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
+          // Keep the written reply with the first photo; extra photos nest as replies
+          // under the same parent so the caption is not lost among empty photo posts.
           if (photos.length === 0) {
             await createUpdate.mutateAsync({
               projectId,
@@ -178,11 +180,13 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
   const [content, setContent] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
 
+  // RLS already limits clients to client-visible notes (+ their own). Do not
+  // re-filter with === true — that hides every message when the column is
+  // missing from the API response, which looks like comments vanish after submit.
   const { roots, repliesByParent } = useMemo(() => {
-    const list = notes.filter((note) => note.visible_to_client === true)
-    const rootsList = list.filter((note) => !note.parent_id)
+    const rootsList = notes.filter((note) => !note.parent_id)
     const map = new Map<string, ProjectNote[]>()
-    for (const note of list) {
+    for (const note of notes) {
       if (!note.parent_id) continue
       const replies = map.get(note.parent_id) ?? []
       replies.push(note)
@@ -213,10 +217,19 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
                   visibleToClient: true,
                 })
               } else {
-                for (let index = 0; index < photos.length; index += 1) {
+                // Caption stays on the root message; extra photos attach as replies
+                // so the description remains visible with the whole upload.
+                const root = await createUpdate.mutateAsync({
+                  projectId,
+                  content,
+                  photo: photos[0],
+                  visibleToClient: true,
+                })
+                for (let index = 1; index < photos.length; index += 1) {
                   await createUpdate.mutateAsync({
                     projectId,
-                    content: index === 0 ? content : '',
+                    parentId: root.id,
+                    content: '',
                     photo: photos[index],
                     visibleToClient: true,
                   })
