@@ -139,6 +139,7 @@ export interface ProjectNote {
   content: string | null
   photo_path: string | null
   requires_attention?: boolean
+  visible_to_client?: boolean
   created_at: string
   updated_at: string
   author?: Profile

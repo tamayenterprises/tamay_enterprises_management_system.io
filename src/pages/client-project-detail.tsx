@@ -8,7 +8,7 @@ import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ProjectUpdates } from '@/features/projects/project-updates'
+import { ClientProjectUpdates } from '@/features/client/project-updates'
 import {
   createDocumentSignedUrl,
   useDocuments,
@@ -184,7 +184,7 @@ export function ClientProjectDetailPage() {
         </CardContent>
       </Card>
 
-      <ProjectUpdates projectId={project.id} />
+      <ClientProjectUpdates projectId={project.id} />
     </div>
   )
 }

@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import {
+  createProjectRequestFileSignedUrl,
   useConvertProjectRequest,
   useManagementProjectRequests,
   useReviewProjectRequest,
 } from '@/features/client/hooks'
-import { formatRelative, fullName } from '@/lib/utils'
+import { formatFileSize, formatRelative, fullName } from '@/lib/utils'
 
 export function ProjectRequestsAdminPage() {
   const { data: requests = [], isLoading, isError } = useManagementProjectRequests('open')
@@ -50,9 +51,29 @@ export function ProjectRequestsAdminPage() {
               <CardContent className="space-y-3">
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">{request.description}</p>
                 {request.files && request.files.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Attachments: {request.files.map((f) => `${f.name} (${f.file_kind})`).join(', ')}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium">Attachments</p>
+                    {request.files.map((file) => (
+                      <button
+                        key={file.id}
+                        type="button"
+                        className="block w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs hover:bg-muted/40"
+                        onClick={async () => {
+                          try {
+                            const url = await createProjectRequestFileSignedUrl(file.storage_path)
+                            window.open(url, '_blank', 'noopener,noreferrer')
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Unable to open file')
+                          }
+                        }}
+                      >
+                        {file.name}
+                        <span className="ml-2 text-muted-foreground">
+                          {file.file_kind} · {formatFileSize(file.file_size ?? 0)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
                   {request.status === 'pending' ? (

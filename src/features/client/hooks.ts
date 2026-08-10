@@ -199,3 +199,9 @@ export function useConvertProjectRequest() {
     },
   })
 }
+
+export async function createProjectRequestFileSignedUrl(storagePath: string) {
+  const { data, error } = await supabase.storage.from('project-files').createSignedUrl(storagePath, 60 * 10)
+  if (error || !data?.signedUrl) throw error ?? new Error('Unable to open file')
+  return data.signedUrl
+}
