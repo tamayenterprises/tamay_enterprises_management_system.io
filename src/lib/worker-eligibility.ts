@@ -24,7 +24,7 @@ export type WorkerEligibility = {
     email: string
     first_name: string
     last_name: string
-    organization_id: string
+    organization_id: string | null
     updated_at: string
   } | null
 }
