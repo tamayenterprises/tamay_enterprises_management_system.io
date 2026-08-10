@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Textarea } from '@/components/ui/textarea'
 import {
   createUpdatePhotoSignedUrl,
@@ -51,7 +51,7 @@ function ClientReplyComposer({
 }) {
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
-  const [photo, setPhoto] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
 
   return (
     <form
@@ -59,15 +59,26 @@ function ClientReplyComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
-          await createUpdate.mutateAsync({
-            projectId,
-            parentId,
-            content,
-            photo,
-            visibleToClient: true,
-          })
+          if (photos.length === 0) {
+            await createUpdate.mutateAsync({
+              projectId,
+              parentId,
+              content,
+              visibleToClient: true,
+            })
+          } else {
+            for (let index = 0; index < photos.length; index += 1) {
+              await createUpdate.mutateAsync({
+                projectId,
+                parentId,
+                content: index === 0 ? content : '',
+                photo: photos[index],
+                visibleToClient: true,
+              })
+            }
+          }
           setContent('')
-          setPhoto(null)
+          setPhotos([])
           toast.success('Reply sent to Tamay')
           onDone()
         } catch (error) {
@@ -84,12 +95,21 @@ function ClientReplyComposer({
       <div className="flex flex-wrap items-center gap-2">
         <FilePickerButton
           accept={IMAGE_UPLOAD_ACCEPT}
-          label={photo ? 'Change photo' : 'Add photo'}
+          label={selectedFilesLabel(photos, 'Add photos')}
           variant="outline"
-          onFile={setPhoto}
+          multiple
+          onFiles={setPhotos}
         />
-        {photo ? <span className="truncate text-xs text-muted-foreground">{photo.name}</span> : null}
-        <Button type="submit" size="sm" disabled={createUpdate.isPending || (!content.trim() && !photo)}>
+        {photos.length > 0 ? (
+          <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
+            Clear photos
+          </Button>
+        ) : null}
+        <Button
+          type="submit"
+          size="sm"
+          disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
+        >
           {createUpdate.isPending ? 'Sending…' : 'Send reply'}
         </Button>
       </div>
@@ -156,7 +176,7 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
   const { data: notes = [], isLoading } = useProjectNotes(projectId)
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
-  const [photo, setPhoto] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
 
   const { roots, repliesByParent } = useMemo(() => {
     const list = notes.filter((note) => note.visible_to_client === true)
@@ -185,15 +205,26 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
           onSubmit={async (event) => {
             event.preventDefault()
             try {
-              await createUpdate.mutateAsync({
-                projectId,
-                content,
-                photo,
-                visibleToClient: true,
-              })
+              const photoCount = photos.length
+              if (photos.length === 0) {
+                await createUpdate.mutateAsync({
+                  projectId,
+                  content,
+                  visibleToClient: true,
+                })
+              } else {
+                for (let index = 0; index < photos.length; index += 1) {
+                  await createUpdate.mutateAsync({
+                    projectId,
+                    content: index === 0 ? content : '',
+                    photo: photos[index],
+                    visibleToClient: true,
+                  })
+                }
+              }
               setContent('')
-              setPhoto(null)
-              toast.success('Message sent')
+              setPhotos([])
+              toast.success(photoCount > 1 ? 'Message and photos sent' : 'Message sent')
             } catch (error) {
               toast.error(error instanceof Error ? error.message : 'Could not send message')
             }
@@ -208,12 +239,21 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <FilePickerButton
               accept={IMAGE_UPLOAD_ACCEPT}
-              label={photo ? 'Change photo' : 'Add photo'}
+              label={selectedFilesLabel(photos, 'Add photos')}
               variant="outline"
-              onFile={setPhoto}
+              multiple
+              onFiles={setPhotos}
             />
-            {photo ? <span className="truncate text-xs text-muted-foreground">{photo.name}</span> : null}
-            <Button type="submit" size="sm" disabled={createUpdate.isPending || (!content.trim() && !photo)}>
+            {photos.length > 0 ? (
+              <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
+                Clear photos
+              </Button>
+            ) : null}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
+            >
               {createUpdate.isPending ? 'Sending…' : 'Send message'}
             </Button>
           </div>

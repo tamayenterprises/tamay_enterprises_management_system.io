@@ -11,10 +11,13 @@ type FilePickerButtonProps = {
   className?: string
   size?: 'default' | 'sm' | 'lg' | 'icon'
   variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive'
-  onFile: (file: File) => void | Promise<void>
+  /** Allow selecting more than one file (photos/docs), like an email attachment picker. */
+  multiple?: boolean
+  onFile?: (file: File) => void | Promise<void>
+  onFiles?: (files: File[]) => void | Promise<void>
 }
 
-/** Single button that opens the system file picker (hides the native Choose File control). */
+/** Button that opens the system file picker (hides the native Choose File control). */
 export function FilePickerButton({
   accept,
   label = 'Upload file',
@@ -24,7 +27,9 @@ export function FilePickerButton({
   className,
   size = 'sm',
   variant = 'default',
+  multiple = false,
   onFile,
+  onFiles,
 }: FilePickerButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -34,13 +39,32 @@ export function FilePickerButton({
         ref={inputRef}
         type="file"
         accept={accept}
+        multiple={multiple}
         className="sr-only"
         tabIndex={-1}
         onChange={async (event) => {
-          const file = event.target.files?.[0]
+          const selected = Array.from(event.target.files ?? [])
           event.target.value = ''
-          if (!file) return
-          await onFile(file)
+          if (selected.length === 0) return
+
+          if (multiple || selected.length > 1) {
+            if (onFiles) {
+              await onFiles(selected)
+              return
+            }
+            if (onFile) {
+              for (const file of selected) {
+                await onFile(file)
+              }
+            }
+            return
+          }
+
+          if (onFiles) {
+            await onFiles(selected)
+            return
+          }
+          if (onFile) await onFile(selected[0]!)
         }}
       />
       <Button
@@ -55,4 +79,10 @@ export function FilePickerButton({
       </Button>
     </>
   )
+}
+
+export function selectedFilesLabel(files: File[], emptyLabel = 'No files selected') {
+  if (files.length === 0) return emptyLabel
+  if (files.length === 1) return files[0]!.name
+  return `${files.length} files selected`
 }

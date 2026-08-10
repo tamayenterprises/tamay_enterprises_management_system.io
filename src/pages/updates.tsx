@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -68,7 +68,7 @@ function CompanyComposer({
   const canPublish = isManagementRole(profile?.role)
   const create = useCreateCompanyUpdate()
   const [content, setContent] = useState('')
-  const [photo, setPhoto] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
   const [audienceType, setAudienceType] = useState<CompanyUpdateAudience>('all_internal')
   const [audienceUserIds, setAudienceUserIds] = useState<string[]>([])
   const [repliesEnabled, setRepliesEnabled] = useState(true)
@@ -111,20 +111,36 @@ function CompanyComposer({
           }
         }
         try {
-          await create.mutateAsync({
-            content,
-            parentId,
-            photo,
-            audienceType,
-            audienceUserIds,
-            repliesEnabled,
-            requiresAttention,
-            notifyProjectTeam: notifyProjectTeam && projectIds.length > 0,
-            mentionedUserIds: mentionedIds,
-            projectIds,
-          })
+          if (photos.length === 0) {
+            await create.mutateAsync({
+              content,
+              parentId,
+              audienceType,
+              audienceUserIds,
+              repliesEnabled,
+              requiresAttention,
+              notifyProjectTeam: notifyProjectTeam && projectIds.length > 0,
+              mentionedUserIds: mentionedIds,
+              projectIds,
+            })
+          } else {
+            for (let index = 0; index < photos.length; index += 1) {
+              await create.mutateAsync({
+                content: index === 0 ? content : '',
+                parentId,
+                photo: photos[index],
+                audienceType,
+                audienceUserIds: index === 0 ? audienceUserIds : [],
+                repliesEnabled,
+                requiresAttention: index === 0 ? requiresAttention : false,
+                notifyProjectTeam: index === 0 && notifyProjectTeam && projectIds.length > 0,
+                mentionedUserIds: index === 0 ? mentionedIds : [],
+                projectIds: index === 0 ? projectIds : [],
+              })
+            }
+          }
           setContent('')
-          setPhoto(null)
+          setPhotos([])
           setRequiresAttention(false)
           setNotifyProjectTeam(false)
           setMentionedIds([])
@@ -329,17 +345,22 @@ function CompanyComposer({
       <div className="flex flex-wrap items-center gap-2">
         <FilePickerButton
           accept={IMAGE_UPLOAD_ACCEPT}
-          label={photo ? 'Change photo' : 'Add photo'}
+          label={photos.length > 0 ? selectedFilesLabel(photos, 'Add photos') : 'Add photos'}
           variant="outline"
           disabled={create.isPending}
-          onFile={(file) => setPhoto(file)}
+          multiple
+          onFiles={setPhotos}
         />
-        {photo ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPhoto(null)}>
-            Remove photo
+        {photos.length > 0 ? (
+          <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
+            Clear photos
           </Button>
         ) : null}
-        <Button type="submit" size="sm" disabled={create.isPending || (!content.trim() && !photo)}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={create.isPending || (!content.trim() && photos.length === 0)}
+        >
           {create.isPending ? 'Posting…' : parentId ? 'Post reply' : 'Add Update'}
         </Button>
       </div>
