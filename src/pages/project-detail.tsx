@@ -259,27 +259,34 @@ export function ProjectDetailPage() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <FilePickerButton
                   accept={UPLOAD_ACCEPT}
-                  label="Upload file"
+                  label="Upload files"
                   loadingLabel="Uploading…"
                   disabled={!profile?.organization_id}
                   isLoading={uploadDocument.isPending}
-                  onFile={async (selected) => {
+                  multiple
+                  onFiles={async (selected) => {
                     if (!profile?.organization_id) return
                     try {
-                      await uploadDocument.mutateAsync({
-                        file: selected,
-                        category: selected.type.startsWith('image/') ? 'work_photo' : 'project_file',
-                        projectId: project.id,
-                        bucket: 'project-files',
-                      })
-                      toast.success('File uploaded')
+                      for (const file of selected) {
+                        await uploadDocument.mutateAsync({
+                          file,
+                          category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
+                          projectId: project.id,
+                          bucket: 'project-files',
+                        })
+                      }
+                      toast.success(
+                        selected.length === 1
+                          ? 'File uploaded'
+                          : `${selected.length} files uploaded`,
+                      )
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Upload failed')
                     }
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Click Upload file to choose a photo or document from your device.
+                  Choose one or many photos or documents from your device.
                 </p>
               </div>
               {documents.length === 0 ? (

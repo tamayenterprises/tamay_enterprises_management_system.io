@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -36,8 +36,8 @@ export function ClientRequestsPage() {
   const createRequest = useCreateProjectRequest()
   const uploadFile = useUploadProjectRequestFile()
   const [open, setOpen] = useState(false)
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [document, setDocument] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
+  const [documents, setDocuments] = useState<File[]>([])
 
   const form = useForm<ProjectRequestFormValues>({
     resolver: zodResolver(projectRequestSchema),
@@ -55,16 +55,16 @@ export function ClientRequestsPage() {
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       const request = await createRequest.mutateAsync(values)
-      if (photo) {
+      for (const photo of photos) {
         await uploadFile.mutateAsync({ requestId: request.id, file: photo, fileKind: 'photo' })
       }
-      if (document) {
+      for (const document of documents) {
         await uploadFile.mutateAsync({ requestId: request.id, file: document, fileKind: 'document' })
       }
       toast.success('Project request submitted')
       form.reset()
-      setPhoto(null)
-      setDocument(null)
+      setPhotos([])
+      setDocuments([])
       setOpen(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to submit request')
@@ -120,22 +120,30 @@ export function ClientRequestsPage() {
                 <Input id="preferred_start_date" type="date" {...form.register('preferred_start_date')} />
               </div>
               <div className="space-y-1">
-                <Label>Space photo (optional)</Label>
+                <Label>Space photos (optional)</Label>
                 <FilePickerButton
                   accept={IMAGE_UPLOAD_ACCEPT}
-                  label={photo ? photo.name : 'Choose photo'}
+                  label={selectedFilesLabel(photos, 'Choose photos')}
                   variant="outline"
-                  onFile={setPhoto}
+                  multiple
+                  onFiles={setPhotos}
                 />
+                {photos.length > 1 ? (
+                  <p className="text-xs text-muted-foreground">{photos.length} photos selected</p>
+                ) : null}
               </div>
               <div className="space-y-1">
-                <Label>Document (optional)</Label>
+                <Label>Documents (optional)</Label>
                 <FilePickerButton
                   accept={UPLOAD_ACCEPT}
-                  label={document ? document.name : 'Choose file'}
+                  label={selectedFilesLabel(documents, 'Choose files')}
                   variant="outline"
-                  onFile={setDocument}
+                  multiple
+                  onFiles={setDocuments}
                 />
+                {documents.length > 1 ? (
+                  <p className="text-xs text-muted-foreground">{documents.length} files selected</p>
+                ) : null}
               </div>
               <Button className="w-full" disabled={createRequest.isPending || uploadFile.isPending}>
                 {createRequest.isPending || uploadFile.isPending ? 'Submitting…' : 'Submit request'}
@@ -194,18 +202,23 @@ export function ClientRequestsPage() {
                   <div className="flex flex-wrap gap-2">
                     <FilePickerButton
                       accept={IMAGE_UPLOAD_ACCEPT}
-                      label="Add photo"
+                      label="Add photos"
                       size="sm"
                       variant="outline"
+                      multiple
                       isLoading={uploadFile.isPending}
-                      onFile={async (selected) => {
+                      onFiles={async (selected) => {
                         try {
-                          await uploadFile.mutateAsync({
-                            requestId: request.id,
-                            file: selected,
-                            fileKind: 'photo',
-                          })
-                          toast.success('Photo added')
+                          for (const file of selected) {
+                            await uploadFile.mutateAsync({
+                              requestId: request.id,
+                              file,
+                              fileKind: 'photo',
+                            })
+                          }
+                          toast.success(
+                            selected.length === 1 ? 'Photo added' : `${selected.length} photos added`,
+                          )
                         } catch (error) {
                           toast.error(error instanceof Error ? error.message : 'Upload failed')
                         }
@@ -213,18 +226,25 @@ export function ClientRequestsPage() {
                     />
                     <FilePickerButton
                       accept={UPLOAD_ACCEPT}
-                      label="Add document"
+                      label="Add documents"
                       size="sm"
                       variant="outline"
+                      multiple
                       isLoading={uploadFile.isPending}
-                      onFile={async (selected) => {
+                      onFiles={async (selected) => {
                         try {
-                          await uploadFile.mutateAsync({
-                            requestId: request.id,
-                            file: selected,
-                            fileKind: 'document',
-                          })
-                          toast.success('Document added')
+                          for (const file of selected) {
+                            await uploadFile.mutateAsync({
+                              requestId: request.id,
+                              file,
+                              fileKind: 'document',
+                            })
+                          }
+                          toast.success(
+                            selected.length === 1
+                              ? 'Document added'
+                              : `${selected.length} documents added`,
+                          )
                         } catch (error) {
                           toast.error(error instanceof Error ? error.message : 'Upload failed')
                         }

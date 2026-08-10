@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -29,7 +29,7 @@ export function ClientDocumentsPage() {
 
   const [category, setCategory] = useState<DocumentCategory>('work_photo')
   const [projectId, setProjectId] = useState<string>('none')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
 
   const clientDocs = useMemo(() => {
     const mine = documents.filter(
@@ -49,16 +49,20 @@ export function ClientDocumentsPage() {
   if (isError) return <EmptyState title="Unable to load documents" />
 
   const onUpload = async () => {
-    if (!file) return
+    if (files.length === 0) return
     try {
-      await uploadDocument.mutateAsync({
-        file,
-        category,
-        projectId: projectId === 'none' ? null : projectId,
-        bucket: projectId === 'none' ? 'documents' : 'project-files',
-      })
-      toast.success('File uploaded')
-      setFile(null)
+      const bucket = projectId === 'none' ? 'documents' : 'project-files'
+      const linkedProjectId = projectId === 'none' ? null : projectId
+      for (const file of files) {
+        await uploadDocument.mutateAsync({
+          file,
+          category,
+          projectId: linkedProjectId,
+          bucket,
+        })
+      }
+      toast.success(files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`)
+      setFiles([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed')
     }
@@ -76,7 +80,9 @@ export function ClientDocumentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Upload</CardTitle>
-          <CardDescription>Attach a file to one of your projects, or keep it in your personal files.</CardDescription>
+          <CardDescription>
+            Attach one or many files to a project, or keep them in your personal files.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
@@ -112,17 +118,29 @@ export function ClientDocumentsPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>File</Label>
+              <Label>Files</Label>
               <FilePickerButton
                 accept={category === 'work_photo' ? IMAGE_UPLOAD_ACCEPT : UPLOAD_ACCEPT}
-                label={file ? file.name : 'Choose file'}
+                label={selectedFilesLabel(files, 'Choose files')}
                 variant="outline"
-                onFile={setFile}
+                multiple
+                onFiles={setFiles}
               />
             </div>
           </div>
-          <Button disabled={!file || uploadDocument.isPending} onClick={() => void onUpload()}>
-            {uploadDocument.isPending ? 'Uploading…' : 'Upload'}
+          {files.length > 1 ? (
+            <ul className="max-h-28 overflow-y-auto text-xs text-muted-foreground">
+              {files.map((item) => (
+                <li key={`${item.name}-${item.size}-${item.lastModified}`}>{item.name}</li>
+              ))}
+            </ul>
+          ) : null}
+          <Button disabled={files.length === 0 || uploadDocument.isPending} onClick={() => void onUpload()}>
+            {uploadDocument.isPending
+              ? 'Uploading…'
+              : files.length > 1
+                ? `Upload ${files.length} files`
+                : 'Upload'}
           </Button>
         </CardContent>
       </Card>

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
@@ -81,7 +81,7 @@ function UpdateComposer({
   const canManage = isManagementRole(profile?.role)
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
-  const [photo, setPhoto] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
   const [requiresAttention, setRequiresAttention] = useState(false)
   const [visibleToClient, setVisibleToClient] = useState(defaultVisibleToClient)
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
@@ -133,19 +133,33 @@ function UpdateComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
-          await createUpdate.mutateAsync({
-            projectId,
-            content,
-            parentId,
-            photo,
-            mentionedUserIds: mentionedIds,
-            requiresAttention,
-            referencedProjectIds: projectIds,
-            visibleToClient: canManage ? visibleToClient : undefined,
-          })
+          if (photos.length === 0) {
+            await createUpdate.mutateAsync({
+              projectId,
+              content,
+              parentId,
+              mentionedUserIds: mentionedIds,
+              requiresAttention,
+              referencedProjectIds: projectIds,
+              visibleToClient: canManage ? visibleToClient : undefined,
+            })
+          } else {
+            for (let index = 0; index < photos.length; index += 1) {
+              await createUpdate.mutateAsync({
+                projectId,
+                content: index === 0 ? content : '',
+                parentId,
+                photo: photos[index],
+                mentionedUserIds: index === 0 ? mentionedIds : undefined,
+                requiresAttention: index === 0 ? requiresAttention : false,
+                referencedProjectIds: index === 0 ? projectIds : undefined,
+                visibleToClient: canManage ? visibleToClient : undefined,
+              })
+            }
+          }
           if (draft.draft?.id) await draft.publishDraft({ draftId: draft.draft.id })
           setContent('')
-          setPhoto(null)
+          setPhotos([])
           setRequiresAttention(false)
           setVisibleToClient(defaultVisibleToClient)
           setMentionedIds([])
@@ -331,20 +345,27 @@ function UpdateComposer({
       <div className="flex flex-wrap items-center gap-2">
         <FilePickerButton
           accept={IMAGE_UPLOAD_ACCEPT}
-          label={photo ? 'Change photo' : 'Add photo'}
+          label={selectedFilesLabel(photos, 'Add photos')}
           variant="outline"
+          multiple
           disabled={createUpdate.isPending}
-          onFile={(file) => setPhoto(file)}
+          onFiles={setPhotos}
         />
-        {photo ? (
-          <span className="max-w-[12rem] truncate text-xs text-muted-foreground">{photo.name}</span>
+        {photos.length > 0 ? (
+          <span className="max-w-[14rem] truncate text-xs text-muted-foreground">
+            {selectedFilesLabel(photos)}
+          </span>
         ) : null}
-        {photo ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPhoto(null)}>
-            Remove photo
+        {photos.length > 0 ? (
+          <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
+            Clear photos
           </Button>
         ) : null}
-        <Button type="submit" size="sm" disabled={createUpdate.isPending || (!content.trim() && !photo)}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
+        >
           {createUpdate.isPending ? 'Posting…' : submitLabel}
         </Button>
       </div>
