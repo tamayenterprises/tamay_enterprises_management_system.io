@@ -46,6 +46,7 @@ export function roleLabel(role: UserRole) {
     project_manager: 'Project Manager',
     employee: 'Employee',
     subcontractor: 'Subcontractor',
+    client: 'Client',
   }
   return labels[role]
 }
@@ -154,6 +155,14 @@ export function deriveCertificationStatus(expirationDate?: string | null): Certi
 
 export function isManagementRole(role?: UserRole | null) {
   return role === 'admin' || role === 'project_manager'
+}
+
+export function isClientRole(role?: UserRole | null) {
+  return role === 'client'
+}
+
+export function homePathForRole(role?: UserRole | null) {
+  return isClientRole(role) ? '/portal' : '/dashboard'
 }
 
 export function canAccessAdmin(role?: UserRole | null) {

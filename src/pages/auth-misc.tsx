@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase'
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@/lib/validations'
 import type { z } from 'zod'
 import { useAuth } from '@/features/auth/auth-context'
+import { homePathForRole } from '@/lib/utils'
 
 export function ForgotPasswordPage() {
   const {
@@ -120,7 +121,7 @@ export function PendingApprovalPage() {
       return
     }
     if (profile?.approval_status === 'approved' && profile.is_active) {
-      navigate('/dashboard', { replace: true })
+      navigate(homePathForRole(profile.role), { replace: true })
     }
   }, [loading, session, profile, navigate])
 

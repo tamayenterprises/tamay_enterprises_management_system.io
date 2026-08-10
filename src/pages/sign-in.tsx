@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
 import { formatAuthError } from '@/lib/auth-errors'
+import { homePathForRole } from '@/lib/utils'
 import { signInSchema, type SignInValues } from '@/lib/validations'
+import type { UserRole } from '@/types/database'
 
 export function SignInPage() {
   const navigate = useNavigate()
@@ -27,11 +29,15 @@ export function SignInPage() {
 
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('approval_status, is_active')
+      .select('approval_status, is_active, role')
       .eq('id', data.user.id)
       .single()
 
-    const profile = profileData as { approval_status: string; is_active: boolean } | null
+    const profile = profileData as {
+      approval_status: string
+      is_active: boolean
+      role: UserRole
+    } | null
 
     if (!profile || profile.approval_status !== 'approved' || !profile.is_active) {
       await supabase.auth.signOut({ scope: 'global' })
@@ -40,7 +46,7 @@ export function SignInPage() {
     }
 
     toast.success('Welcome back')
-    navigate('/dashboard', { replace: true })
+    navigate(homePathForRole(profile.role), { replace: true })
   })
 
   return (
@@ -48,7 +54,7 @@ export function SignInPage() {
       <Card className="w-full max-w-md border-border/70 bg-white shadow-brand">
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
-          <CardDescription>Access the Tamay Enterprises management system.</CardDescription>
+          <CardDescription>Access Tamay Enterprises — staff tools or the client portal.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
@@ -66,13 +72,21 @@ export function SignInPage() {
               {isSubmitting ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
-          <div className="mt-4 flex justify-between text-sm">
+          <div className="mt-4 space-y-3 text-sm">
             <Link className="text-primary hover:underline" to="/forgot-password">
               Forgot password?
             </Link>
-            <Link className="text-primary hover:underline" to="/sign-up">
-              Create account
-            </Link>
+            <div className="rounded-lg border border-border bg-[#fbfcff] px-3 py-2.5">
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">Create an account</p>
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:justify-between">
+                <Link className="font-medium text-primary hover:underline" to="/client/sign-up">
+                  Client / homeowner
+                </Link>
+                <Link className="text-muted-foreground hover:underline" to="/sign-up">
+                  Staff / employee
+                </Link>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

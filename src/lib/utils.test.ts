@@ -29,6 +29,7 @@ describe('utils', () => {
 
   it('labels roles and statuses', () => {
     expect(roleLabel('project_manager')).toBe('Project Manager')
+    expect(roleLabel('client')).toBe('Client')
     expect(projectStatusLabel('in_progress')).toBe('In Progress')
     expect(certificationStatusLabel('expiring_soon')).toBe('Expiring Soon')
     expect(approvalStatusLabel('pending')).toBe('Pending')
