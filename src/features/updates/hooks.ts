@@ -106,7 +106,7 @@ export function useCreateCompanyUpdate() {
         const validationError = validateImageUploadFile(photo)
         if (validationError) throw new Error(validationError)
         const safeName = photo.name.replace(/[^\w.\-()+ ]+/g, '_')
-        photoPath = `${profile.id}/company-updates/${Date.now()}-${safeName}`
+        photoPath = `${profile.id}/company-updates/${Date.now()}-${crypto.randomUUID()}-${safeName}`
         const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, photo)
         if (uploadError) throw uploadError
       }

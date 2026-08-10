@@ -123,19 +123,45 @@ function CompanyComposer({
               mentionedUserIds: mentionedIds,
               projectIds,
             })
-          } else {
+          } else if (parentId) {
             for (let index = 0; index < photos.length; index += 1) {
               await create.mutateAsync({
                 content: index === 0 ? content : '',
                 parentId,
                 photo: photos[index],
                 audienceType,
-                audienceUserIds: index === 0 ? audienceUserIds : [],
+                audienceUserIds: [],
                 repliesEnabled,
-                requiresAttention: index === 0 ? requiresAttention : false,
-                notifyProjectTeam: index === 0 && notifyProjectTeam && projectIds.length > 0,
+                requiresAttention: false,
+                notifyProjectTeam: false,
                 mentionedUserIds: index === 0 ? mentionedIds : [],
-                projectIds: index === 0 ? projectIds : [],
+                projectIds: [],
+              })
+            }
+          } else {
+            const root = await create.mutateAsync({
+              content,
+              photo: photos[0],
+              audienceType,
+              audienceUserIds,
+              repliesEnabled,
+              requiresAttention,
+              notifyProjectTeam: notifyProjectTeam && projectIds.length > 0,
+              mentionedUserIds: mentionedIds,
+              projectIds,
+            })
+            for (let index = 1; index < photos.length; index += 1) {
+              await create.mutateAsync({
+                content: '',
+                parentId: root.id,
+                photo: photos[index],
+                audienceType,
+                audienceUserIds: [],
+                repliesEnabled,
+                requiresAttention: false,
+                notifyProjectTeam: false,
+                mentionedUserIds: [],
+                projectIds: [],
               })
             }
           }

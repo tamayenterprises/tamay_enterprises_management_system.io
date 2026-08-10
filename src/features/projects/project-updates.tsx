@@ -133,6 +133,7 @@ function UpdateComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
+          const visibility = canManage ? visibleToClient : undefined
           if (photos.length === 0) {
             await createUpdate.mutateAsync({
               projectId,
@@ -141,9 +142,10 @@ function UpdateComposer({
               mentionedUserIds: mentionedIds,
               requiresAttention,
               referencedProjectIds: projectIds,
-              visibleToClient: canManage ? visibleToClient : undefined,
+              visibleToClient: visibility,
             })
-          } else {
+          } else if (parentId) {
+            // Replies are one level deep — keep every photo under the same parent.
             for (let index = 0; index < photos.length; index += 1) {
               await createUpdate.mutateAsync({
                 projectId,
@@ -153,7 +155,27 @@ function UpdateComposer({
                 mentionedUserIds: index === 0 ? mentionedIds : undefined,
                 requiresAttention: index === 0 ? requiresAttention : false,
                 referencedProjectIds: index === 0 ? projectIds : undefined,
-                visibleToClient: canManage ? visibleToClient : undefined,
+                visibleToClient: visibility,
+              })
+            }
+          } else {
+            // Keep the written update with the photo group (extras nest as replies).
+            const root = await createUpdate.mutateAsync({
+              projectId,
+              content,
+              photo: photos[0],
+              mentionedUserIds: mentionedIds,
+              requiresAttention,
+              referencedProjectIds: projectIds,
+              visibleToClient: visibility,
+            })
+            for (let index = 1; index < photos.length; index += 1) {
+              await createUpdate.mutateAsync({
+                projectId,
+                parentId: root.id,
+                content: '',
+                photo: photos[index],
+                visibleToClient: visibility,
               })
             }
           }

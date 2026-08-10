@@ -168,7 +168,7 @@ export function useCreateProjectUpdate() {
         if (validationError) throw new Error(validationError)
 
         const safeName = photo.name.replace(/[^\w.\-()+ ]+/g, '_')
-        photoPath = `${profile.id}/${projectId}/updates/${Date.now()}-${safeName}`
+        photoPath = `${profile.id}/${projectId}/updates/${Date.now()}-${crypto.randomUUID()}-${safeName}`
 
         const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, photo)
         if (uploadError) throw uploadError
@@ -203,8 +203,9 @@ export function useCreateProjectUpdate() {
       if (error) {
         if (photoPath) await supabase.storage.from('project-files').remove([photoPath])
         const missingColumn =
-          /parent_id|photo_path|requires_attention|schema cache|PGRST204/i.test(error.message) ||
-          error.code === 'PGRST204'
+          /parent_id|photo_path|requires_attention|visible_to_client|schema cache|PGRST204/i.test(
+            error.message,
+          ) || error.code === 'PGRST204'
         if (missingColumn) {
           throw new Error(
             'Project Updates / activity notifications are not fully set up in the database yet. Run the latest SQL migrations in Supabase, then try again.',
