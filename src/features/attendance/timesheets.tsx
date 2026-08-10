@@ -737,6 +737,7 @@ export function TimesheetsPanel() {
                   projectId === 'none'
                 }
                 onClick={async () => {
+                  if (!previewValue) return
                   if (
                     !confirmAction(
                       'Save corrected attendance? Original values remain in the audit trail and the exception (if linked) will be marked resolved.',

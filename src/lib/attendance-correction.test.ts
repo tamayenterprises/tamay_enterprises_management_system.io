@@ -32,7 +32,7 @@ describe('attendance correction reconstruction', () => {
     expect(preview.paidHours).toBe(8.43)
   })
 
-  it('rejects break longer than the workday', () => {
+  it('rejects a break that ends after clock out', () => {
     expect(() =>
       buildSimpleCorrectionPreview({
         clockInIso: '2026-08-04T14:27:00.000Z',
@@ -40,7 +40,7 @@ describe('attendance correction reconstruction', () => {
         breakMinutes: 90,
         originalBreakStartedAt: '2026-08-04T14:40:00.000Z',
       }),
-    ).toThrow(/Break time cannot exceed/)
+    ).toThrow(/A break ends after the selected Clock Out time/)
   })
 
   it('parses datetime-local without ambiguous locale strings', () => {

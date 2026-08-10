@@ -7,25 +7,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { formatAuthError } from '@/lib/auth-errors'
-import { signUpSchema, type SignUpValues } from '@/lib/validations'
+import { clientSignUpSchema, type ClientSignUpValues } from '@/lib/validations'
 
-export function SignUpPage() {
+export function ClientSignUpPage() {
   const navigate = useNavigate()
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors, isSubmitting },
-  } = useForm<SignUpValues>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { role: 'employee' },
+  } = useForm<ClientSignUpValues>({
+    resolver: zodResolver(clientSignUpSchema),
   })
-
-  const role = watch('role')
 
   const onSubmit = handleSubmit(async (values) => {
     const { error } = await supabase.auth.signUp({
@@ -36,9 +30,7 @@ export function SignUpPage() {
           first_name: values.firstName,
           last_name: values.lastName,
           phone: values.phone,
-          role: values.role,
-          company_name: values.companyName,
-          trade_specialization: values.tradeSpecialization,
+          role: 'client',
         },
       },
     })
@@ -48,10 +40,8 @@ export function SignUpPage() {
       return
     }
 
-    // Clear any auto-created session so the user lands on sign-in, not pending-approval
     await supabase.auth.signOut()
-
-    toast.success('Registration submitted. You can sign in after management approves your account.')
+    toast.success('Client registration submitted. You can sign in after Tamay Enterprises approves your account.')
     navigate('/sign-in', { replace: true })
   })
 
@@ -59,8 +49,11 @@ export function SignUpPage() {
     <AuthLayout>
       <Card className="w-full max-w-md border-border/80 shadow-md">
         <CardHeader>
-          <CardTitle>Create account</CardTitle>
-          <CardDescription>Register as an employee or subcontractor. Approval is required.</CardDescription>
+          <CardTitle>Client account</CardTitle>
+          <CardDescription>
+            Create a client portal account to request projects, share documents and photos, and follow updates.
+            Approval is required.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
@@ -78,67 +71,43 @@ export function SignUpPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...register('email')} />
+              <Input id="email" type="email" autoComplete="email" {...register('email')} />
               {errors.email ? <p className="text-xs text-destructive">{errors.email.message}</p> : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" {...register('phone')} />
+              <Input id="phone" autoComplete="tel" {...register('phone')} />
               {errors.phone ? <p className="text-xs text-destructive">{errors.phone.message}</p> : null}
             </div>
             <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={role} onValueChange={(value) => setValue('role', value as SignUpValues['role'])}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="subcontractor">Subcontractor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {role === 'subcontractor' ? (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="companyName">Company name</Label>
-                  <Input id="companyName" {...register('companyName')} />
-                  {errors.companyName ? <p className="text-xs text-destructive">{errors.companyName.message}</p> : null}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tradeSpecialization">Trade specialization</Label>
-                  <Input id="tradeSpecialization" {...register('tradeSpecialization')} />
-                </div>
-              </>
-            ) : null}
-            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" {...register('password')} />
+              <Input id="password" type="password" autoComplete="new-password" {...register('password')} />
               {errors.password ? <p className="text-xs text-destructive">{errors.password.message}</p> : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
-              <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
+              <Input
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                {...register('confirmPassword')}
+              />
               {errors.confirmPassword ? (
                 <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
               ) : null}
             </div>
             <Button className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Register'}
+              {isSubmitting ? 'Submitting...' : 'Create client account'}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm">
-            Already registered?{' '}
+          <div className="mt-4 flex justify-between text-sm">
             <Link className="text-primary hover:underline" to="/sign-in">
-              Sign in
+              Back to sign in
             </Link>
-          </p>
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            Looking for the client portal?{' '}
-            <Link className="text-primary hover:underline" to="/client/sign-up">
-              Client sign up
+            <Link className="text-muted-foreground hover:underline" to="/sign-up">
+              Staff sign up
             </Link>
-          </p>
+          </div>
         </CardContent>
       </Card>
     </AuthLayout>

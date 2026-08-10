@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'project_manager' | 'employee' | 'subcontractor'
+export type UserRole = 'admin' | 'project_manager' | 'employee' | 'subcontractor' | 'client'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
 export type ProjectStatus = 'not_started' | 'in_progress' | 'waiting' | 'completed'
 export type ProjectPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -142,6 +142,41 @@ export interface ProjectNote {
   created_at: string
   updated_at: string
   author?: Profile
+}
+
+export type ProjectRequestStatus = 'pending' | 'under_review' | 'approved' | 'declined' | 'converted'
+
+export interface ProjectRequest {
+  id: string
+  organization_id: string
+  client_id: string
+  title: string
+  description: string | null
+  location: string | null
+  preferred_start_date: string | null
+  status: ProjectRequestStatus
+  converted_project_id: string | null
+  admin_notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+  client?: Profile
+  converted_project?: Project | null
+  files?: ProjectRequestFile[]
+}
+
+export interface ProjectRequestFile {
+  id: string
+  organization_id: string
+  request_id: string
+  uploaded_by: string
+  name: string
+  file_kind: 'document' | 'photo'
+  storage_path: string
+  mime_type: string | null
+  file_size: number | null
+  created_at: string
 }
 
 export interface Certification {
