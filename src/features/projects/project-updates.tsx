@@ -133,7 +133,11 @@ function UpdateComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
-          const visibility = canManage ? visibleToClient : undefined
+          // Replies under a client-visible root always stay client-visible so the
+          // customer sees the full conversation chain, not only the first message.
+          const shareWithClient =
+            Boolean(defaultVisibleToClient) || (canManage && visibleToClient)
+
           if (photos.length === 0) {
             await createUpdate.mutateAsync({
               projectId,
@@ -142,7 +146,7 @@ function UpdateComposer({
               mentionedUserIds: mentionedIds,
               requiresAttention,
               referencedProjectIds: projectIds,
-              visibleToClient: visibility,
+              visibleToClient: shareWithClient ? true : undefined,
             })
           } else if (parentId) {
             // Replies are one level deep — keep every photo under the same parent.
@@ -155,7 +159,7 @@ function UpdateComposer({
                 mentionedUserIds: index === 0 ? mentionedIds : undefined,
                 requiresAttention: index === 0 ? requiresAttention : false,
                 referencedProjectIds: index === 0 ? projectIds : undefined,
-                visibleToClient: visibility,
+                visibleToClient: shareWithClient ? true : undefined,
               })
             }
           } else {
@@ -167,7 +171,7 @@ function UpdateComposer({
               mentionedUserIds: mentionedIds,
               requiresAttention,
               referencedProjectIds: projectIds,
-              visibleToClient: visibility,
+              visibleToClient: shareWithClient ? true : undefined,
             })
             for (let index = 1; index < photos.length; index += 1) {
               await createUpdate.mutateAsync({
@@ -175,7 +179,7 @@ function UpdateComposer({
                 parentId: root.id,
                 content: '',
                 photo: photos[index],
-                visibleToClient: visibility,
+                visibleToClient: shareWithClient ? true : undefined,
               })
             }
           }
@@ -327,7 +331,7 @@ function UpdateComposer({
           />
           Requires attention
         </label>
-        {canManage ? (
+        {canManage && !defaultVisibleToClient ? (
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
@@ -336,6 +340,9 @@ function UpdateComposer({
             />
             Visible to client
           </label>
+        ) : null}
+        {defaultVisibleToClient ? (
+          <span className="text-xs text-muted-foreground">Visible to client (whole thread)</span>
         ) : null}
       </div>
 
@@ -446,6 +453,9 @@ function UpdateCard({
               }`}
             >
               <p className="text-xs text-muted-foreground">Replying to {authorName}</p>
+              {reply.visible_to_client ? (
+                <Badge variant="secondary">Visible to client</Badge>
+              ) : null}
               {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
               {reply.photo_path ? <UpdatePhoto path={reply.photo_path} /> : null}
               <p className="text-xs text-muted-foreground">
