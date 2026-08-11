@@ -52,8 +52,12 @@ function UpdatePhoto({ path }: { path: string }) {
   }
 
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border">
-      <img src={url} alt="Project update" className="max-h-72 w-full object-cover" />
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border bg-muted/30">
+      <img
+        src={url}
+        alt="Project update"
+        className="mx-auto max-h-80 w-auto max-w-full object-contain"
+      />
     </a>
   )
 }
