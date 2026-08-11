@@ -18,10 +18,7 @@ import {
   useUploadDocument,
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
-import { UPLOAD_ACCEPT, resolveUploadCategory } from '@/lib/uploads'
-import type { DocumentCategory } from '@/types/database'
-
-const CLIENT_CATEGORIES: DocumentCategory[] = ['work_photo', 'project_file', 'contract', 'miscellaneous']
+import { UPLOAD_ACCEPT, categoryForUploadFile } from '@/lib/uploads'
 
 export function ClientDocumentsPage() {
   const { profile } = useAuth()
@@ -31,7 +28,6 @@ export function ClientDocumentsPage() {
   const postPhotosToThread = usePostProjectPhotosToThread()
   const postDocumentsToThread = usePostProjectDocumentsToThread()
 
-  const [category, setCategory] = useState<DocumentCategory>('project_file')
   const [projectId, setProjectId] = useState<string>('none')
   const [files, setFiles] = useState<File[]>([])
 
@@ -39,7 +35,6 @@ export function ClientDocumentsPage() {
     const mine = documents.filter(
       (doc) => doc.owner_id === profile?.id || doc.uploaded_by === profile?.id || Boolean(doc.project_id),
     )
-    // Prefer docs on assigned projects or owned by the client
     const assignedIds = new Set(projects.map((p) => p.id))
     return mine.filter(
       (doc) =>
@@ -62,7 +57,7 @@ export function ClientDocumentsPage() {
         uploaded.push(
           await uploadDocument.mutateAsync({
             file,
-            category: resolveUploadCategory(file, category) as DocumentCategory,
+            category: categoryForUploadFile(file),
             projectId: linkedProjectId,
             bucket,
           }),
@@ -101,6 +96,9 @@ export function ClientDocumentsPage() {
     }
   }
 
+  const uploading =
+    uploadDocument.isPending || postPhotosToThread.isPending || postDocumentsToThread.isPending
+
   return (
     <div className="space-y-4">
       <div>
@@ -114,29 +112,14 @@ export function ClientDocumentsPage() {
         <CardHeader>
           <CardTitle>Upload</CardTitle>
           <CardDescription>
-            Upload photos or documents (PDF, Word, Excel). Files linked to a project are saved there
-            and noted in the project message thread.
+            Choose one or many photos or documents (PDF, Word, Excel). Optionally link them to a
+            project.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Type</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as DocumentCategory)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLIENT_CATEGORIES.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {documentCategoryLabel(item)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Project</Label>
+              <Label>Project (optional)</Label>
               <Select value={projectId} onValueChange={setProjectId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select project" />
@@ -163,22 +146,8 @@ export function ClientDocumentsPage() {
             </div>
           </div>
           <SelectedFilesList files={files} onChange={setFiles} />
-          <p className="text-xs text-muted-foreground">
-            PDFs and photos are supported. Select several at once, or keep adding more before you
-            upload.
-          </p>
-          <Button
-            disabled={
-              files.length === 0 ||
-              uploadDocument.isPending ||
-              postPhotosToThread.isPending ||
-              postDocumentsToThread.isPending
-            }
-            onClick={() => void onUpload()}
-          >
-            {uploadDocument.isPending ||
-            postPhotosToThread.isPending ||
-            postDocumentsToThread.isPending
+          <Button disabled={files.length === 0 || uploading} onClick={() => void onUpload()}>
+            {uploading
               ? 'Uploading…'
               : files.length > 1
                 ? `Upload ${files.length} files`

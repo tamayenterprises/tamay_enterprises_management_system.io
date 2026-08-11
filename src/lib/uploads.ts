@@ -40,6 +40,11 @@ export function isImageUploadFile(file: File): boolean {
   return file.type.startsWith('image/') || IMAGE_EXTENSIONS.has(extension)
 }
 
+/** Auto category from the file itself — no type dropdown needed. */
+export function categoryForUploadFile(file: File): 'work_photo' | 'project_file' {
+  return isImageUploadFile(file) ? 'work_photo' : 'project_file'
+}
+
 /** Pick a document category that matches the file (PDFs/docs never become work photos). */
 export function resolveUploadCategory<T extends string>(file: File, preferred: T): T | 'project_file' | 'work_photo' {
   if (isImageUploadFile(file)) {
