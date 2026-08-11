@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { documentStorageBucket, buildIlikeOrFilter } from '@/lib/utils'
+import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
 import { validateUploadFile, validateImageUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
@@ -30,18 +30,27 @@ export function useRoles() {
   })
 }
 
-export function useProjects(options?: { assignedOnly?: boolean; search?: string; status?: ProjectStatus | 'all' }) {
+export function useProjects(options?: {
+  assignedOnly?: boolean
+  search?: string
+  status?: ProjectStatus | 'all'
+  /** active = not archived (default); archived = archived only; all = both */
+  archived?: 'active' | 'archived' | 'all'
+}) {
   const { profile } = useAuth()
 
   return useQuery({
     queryKey: ['projects', options, profile?.id],
     enabled: Boolean(profile),
     queryFn: async () => {
-      let query = supabase
-        .from('projects')
-        .select('*')
-        .is('archived_at', null)
-        .order('updated_at', { ascending: false })
+      let query = supabase.from('projects').select('*').order('updated_at', { ascending: false })
+
+      const archivedMode = options?.archived ?? 'active'
+      if (archivedMode === 'active') {
+        query = query.is('archived_at', null)
+      } else if (archivedMode === 'archived') {
+        query = query.not('archived_at', 'is', null)
+      }
 
       if (options?.search) {
         query = query.ilike('name', `%${options.search}%`)
@@ -415,6 +424,7 @@ export function useCreateProject() {
         ...values,
         start_date: values.start_date || null,
         deadline: values.deadline || null,
+        warranty_ends_on: values.warranty_ends_on || null,
         description: values.description || null,
         location: values.location || null,
         organization_id: profile!.organization_id!,
@@ -437,6 +447,7 @@ export function useUpdateProject(projectId: string) {
         ...values,
         start_date: values.start_date === '' ? null : values.start_date,
         deadline: values.deadline === '' ? null : values.deadline,
+        warranty_ends_on: values.warranty_ends_on === '' ? null : values.warranty_ends_on,
       }
       const { data, error } = await supabase.from('projects').update(payload).eq('id', projectId).select().single()
       if (error) throw error
@@ -454,13 +465,50 @@ export function useArchiveProject() {
 
   return useMutation({
     mutationFn: async (projectId: string) => {
+      const { data: existing, error: loadError } = await supabase
+        .from('projects')
+        .select('status, warranty_ends_on')
+        .eq('id', projectId)
+        .single()
+      if (loadError) throw loadError
+
+      const payload: { archived_at: string; warranty_ends_on?: string } = {
+        archived_at: new Date().toISOString(),
+      }
+      // Keep a warranty date on archive for completed jobs if one was never set.
+      if (
+        existing &&
+        (existing as Project).status === 'completed' &&
+        !(existing as Project).warranty_ends_on
+      ) {
+        payload.warranty_ends_on = defaultWarrantyEndDate()
+      }
+
+      const { error } = await supabase.from('projects').update(payload).eq('id', projectId)
+      if (error) throw error
+    },
+    onSuccess: (_data, projectId) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+    },
+  })
+}
+
+export function useRestoreProject() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
       const { error } = await supabase
         .from('projects')
-        .update({ archived_at: new Date().toISOString() })
+        .update({ archived_at: null })
         .eq('id', projectId)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+    onSuccess: (_data, projectId) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+    },
   })
 }
 

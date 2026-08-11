@@ -13,7 +13,12 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useCreateProject, useArchiveProject, useProjects } from '@/features/data/hooks'
+import {
+  useCreateProject,
+  useArchiveProject,
+  useRestoreProject,
+  useProjects,
+} from '@/features/data/hooks'
 import { useFormDraft } from '@/features/drafts/use-form-draft'
 import { useAuth } from '@/features/auth/auth-context'
 import { formatDate, isManagementRole, projectStatusLabel } from '@/lib/utils'
@@ -34,14 +39,18 @@ export function ProjectsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<ProjectStatus | 'all'>('all')
+  const [archivedView, setArchivedView] = useState<'active' | 'archived'>('active')
   const [createOpen, setCreateOpen] = useState(false)
+  const canManage = isManagementRole(profile?.role)
   const { data, isLoading, isError } = useProjects({
-    assignedOnly: !isManagementRole(profile?.role),
+    assignedOnly: !canManage,
     search,
     status,
+    archived: canManage ? archivedView : 'active',
   })
   const createProject = useCreateProject()
   const archiveProject = useArchiveProject()
+  const restoreProject = useRestoreProject()
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -52,12 +61,13 @@ export function ProjectsPage() {
       priority: 'medium',
       start_date: '',
       deadline: '',
+      warranty_ends_on: '',
     },
   })
   const draft = useFormDraft<ProjectFormValues>({
     draftType: 'NEW_PROJECT',
     contextKey: 'new-project',
-    enabled: createOpen && isManagementRole(profile?.role),
+    enabled: createOpen && canManage,
     isMeaningful: (payload) =>
       Boolean(payload.name?.trim() || payload.location?.trim() || payload.description?.trim()),
   })
@@ -86,6 +96,7 @@ export function ProjectsPage() {
       priority: payload.priority || 'medium',
       start_date: payload.start_date || '',
       deadline: payload.deadline || '',
+      warranty_ends_on: payload.warranty_ends_on || '',
     })
     restoredRef.current = true
     toast.message('Draft restored.')
@@ -98,10 +109,14 @@ export function ProjectsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold">Projects</h1>
+          <h1 className="font-display text-3xl font-semibold">
+            {archivedView === 'archived' ? 'Archived projects' : 'Projects'}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            {isManagementRole(profile?.role)
-              ? 'Create projects, set deadlines, and track jobsite progress.'
+            {canManage
+              ? archivedView === 'archived'
+                ? 'Soft-archived jobs kept for warranty lookup (typically 7 years).'
+                : 'Create projects, set deadlines, and track jobsite progress.'
               : 'Projects assigned to you.'}
           </p>
         </div>
@@ -112,7 +127,7 @@ export function ProjectsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-64"
           />
-          {isManagementRole(profile?.role) ? (
+          {canManage ? (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
                 <Button>New project</Button>
@@ -222,6 +237,13 @@ export function ProjectsPage() {
                       <Input type="date" {...form.register('deadline')} />
                     </div>
                   </div>
+                  <div className="space-y-1">
+                    <Label>Warranty ends (optional)</Label>
+                    <Input type="date" {...form.register('warranty_ends_on')} />
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank; set automatically when marked completed (+7 years).
+                    </p>
+                  </div>
                   <Button type="submit" disabled={createProject.isPending}>
                     {createProject.isPending ? 'Creating...' : 'Create'}
                   </Button>
@@ -232,7 +254,26 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {canManage ? (
+          <>
+            <Button
+              size="sm"
+              variant={archivedView === 'active' ? 'default' : 'outline'}
+              onClick={() => setArchivedView('active')}
+            >
+              Active
+            </Button>
+            <Button
+              size="sm"
+              variant={archivedView === 'archived' ? 'default' : 'outline'}
+              onClick={() => setArchivedView('archived')}
+            >
+              Archived
+            </Button>
+            <span className="mx-1 hidden h-5 w-px bg-border sm:inline-block" aria-hidden />
+          </>
+        ) : null}
         {STATUS_FILTERS.map((filter) => (
           <Button
             key={filter.value}
@@ -246,7 +287,14 @@ export function ProjectsPage() {
       </div>
 
       {projects.length === 0 ? (
-        <EmptyState title="No projects yet" description="Management can create projects and assign workers." />
+        <EmptyState
+          title={archivedView === 'archived' ? 'No archived projects' : 'No projects yet'}
+          description={
+            archivedView === 'archived'
+              ? 'Archived jobs stay available here for warranty records.'
+              : 'Management can create projects and assign workers.'
+          }
+        />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {projects.map((project) => (
@@ -261,6 +309,7 @@ export function ProjectsPage() {
                   <p className="text-sm text-muted-foreground">{project.location || 'No location'}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
+                  {project.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
                   <Badge>{projectStatusLabel(project.status)}</Badge>
                   <Badge variant="secondary">{project.priority}</Badge>
                 </div>
@@ -269,16 +318,23 @@ export function ProjectsPage() {
                 <p className="line-clamp-2 text-muted-foreground">{project.description || 'No description'}</p>
                 <p>Start: {formatDate(project.start_date)}</p>
                 <p>Deadline: {formatDate(project.deadline)}</p>
+                <p>Warranty ends: {formatDate(project.warranty_ends_on)}</p>
                 <div className="flex gap-2 pt-2">
                   <Button asChild size="sm">
                     <Link to={`/projects/${project.id}`}>Open</Link>
                   </Button>
-                  {isManagementRole(profile?.role) ? (
+                  {canManage && !project.archived_at ? (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={async () => {
-                        if (!confirmAction(`Archive project "${project.name}"?`)) return
+                        if (
+                          !confirmAction(
+                            `Archive project "${project.name}"? It will stay available under Archived for warranty records.`,
+                          )
+                        ) {
+                          return
+                        }
                         try {
                           await archiveProject.mutateAsync(project.id)
                           toast.success('Project archived')
@@ -288,6 +344,22 @@ export function ProjectsPage() {
                       }}
                     >
                       Archive
+                    </Button>
+                  ) : null}
+                  {canManage && project.archived_at ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await restoreProject.mutateAsync(project.id)
+                          toast.success('Project restored')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Restore failed')
+                        }
+                      }}
+                    >
+                      Restore
                     </Button>
                   ) : null}
                 </div>
