@@ -55,15 +55,8 @@ export function FilePickerButton({
   onFiles,
 }: FilePickerButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const resolvedLabel =
-    label ??
-    (multiple
-      ? selectedFiles.length > 0
-        ? 'Add more files'
-        : 'Choose files'
-      : selectedFiles.length > 0
-        ? 'Change file'
-        : 'Choose file')
+  // Never put filenames on the button — keep a stable "Choose files" action.
+  const resolvedLabel = label ?? (multiple ? 'Choose files' : 'Choose file')
 
   return (
     <>

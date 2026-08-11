@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -123,7 +123,7 @@ export function ClientRequestsPage() {
                 <Label>Space photos (optional)</Label>
                 <FilePickerButton
                   accept={IMAGE_UPLOAD_ACCEPT}
-                  label={selectedFilesLabel(photos, 'Choose photos')}
+                  label="Choose photos"
                   variant="outline"
                   multiple
                   selectedFiles={photos}
@@ -135,7 +135,7 @@ export function ClientRequestsPage() {
                 <Label>Documents (optional)</Label>
                 <FilePickerButton
                   accept={UPLOAD_ACCEPT}
-                  label={selectedFilesLabel(documents, 'Choose files')}
+                  label="Choose files"
                   variant="outline"
                   multiple
                   selectedFiles={documents}
