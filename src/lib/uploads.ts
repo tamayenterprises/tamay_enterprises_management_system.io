@@ -27,19 +27,33 @@ const ALLOWED_EXTENSIONS = new Set([
   '.xlsx',
 ])
 
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'])
+
 export const UPLOAD_ACCEPT =
   '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,application/pdf,image/*'
 
-export const IMAGE_UPLOAD_ACCEPT = '.jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif'
+export const IMAGE_UPLOAD_ACCEPT =
+  '.jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif'
+
+export function isImageUploadFile(file: File): boolean {
+  const extension = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`
+  return file.type.startsWith('image/') || IMAGE_EXTENSIONS.has(extension)
+}
+
+/** Pick a document category that matches the file (PDFs/docs never become work photos). */
+export function resolveUploadCategory<T extends string>(file: File, preferred: T): T | 'project_file' | 'work_photo' {
+  if (isImageUploadFile(file)) {
+    return preferred === 'work_photo' ? 'work_photo' : preferred
+  }
+  if (preferred === 'work_photo') return 'project_file'
+  return preferred
+}
 
 export function validateImageUploadFile(file: File): string | null {
   const baseError = validateUploadFile(file)
   if (baseError) return baseError
 
-  const extension = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`
-  const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'])
-  const isImage = file.type.startsWith('image/') || imageExtensions.has(extension)
-  if (!isImage) return 'Please choose a photo (JPG, PNG, WEBP, or HEIC).'
+  if (!isImageUploadFile(file)) return 'Please choose a photo (JPG, PNG, WEBP, or HEIC).'
   return null
 }
 

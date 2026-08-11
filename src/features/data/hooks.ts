@@ -330,6 +330,59 @@ export function usePostProjectPhotosToThread() {
   })
 }
 
+/** Announce saved documents (PDF, Word, etc.) in the shared project message thread. */
+export function usePostProjectDocumentsToThread() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      documents,
+      visibleToClient = true,
+    }: {
+      projectId: string
+      documents: Array<{ name: string }>
+      visibleToClient?: boolean
+    }) => {
+      if (!profile?.id) throw new Error('Missing profile')
+      if (documents.length === 0) return []
+
+      const names = documents.map((doc) => doc.name)
+      const content =
+        names.length === 1
+          ? `Shared a document: ${names[0]}`
+          : `Shared ${names.length} documents:\n${names.map((name) => `• ${name}`).join('\n')}`
+
+      const payload: {
+        project_id: string
+        author_id: string
+        content: string
+        visible_to_client?: boolean
+      } = {
+        project_id: projectId,
+        author_id: profile.id,
+        content,
+      }
+      if (visibleToClient) payload.visible_to_client = true
+
+      const { data, error } = await supabase
+        .from('project_notes')
+        .insert(payload)
+        .select('*, author:profiles(*)')
+        .single()
+      if (error) throw error
+      return [data as ProjectNote]
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['project-activity'] })
+    },
+  })
+}
+
 export async function createUpdatePhotoSignedUrl(photoPath: string) {
   const { data, error } = await supabase.storage.from('project-files').createSignedUrl(photoPath, 60 * 30)
   if (error || !data?.signedUrl) throw error ?? new Error('Unable to open photo')
