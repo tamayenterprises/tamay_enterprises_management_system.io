@@ -103,6 +103,7 @@ export interface Project {
   priority: ProjectPriority
   start_date: string | null
   deadline: string | null
+  warranty_ends_on: string | null
   created_by: string | null
   archived_at: string | null
   created_at: string

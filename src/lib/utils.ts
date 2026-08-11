@@ -24,6 +24,14 @@ export function formatDate(value?: string | null, pattern = 'MMM d, yyyy') {
   return format(new Date(value), pattern)
 }
 
+/** Default Tamay warranty end date: 7 years from a completion (or given) date. */
+export function defaultWarrantyEndDate(from: Date | string = new Date()) {
+  const base = typeof from === 'string' ? new Date(from) : from
+  const end = new Date(base)
+  end.setFullYear(end.getFullYear() + 7)
+  return format(end, 'yyyy-MM-dd')
+}
+
 export function formatRelative(value?: string | null) {
   if (!value) return '—'
   return formatDistanceToNow(new Date(value), { addSuffix: true })

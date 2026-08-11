@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   createDocumentSignedUrl,
+  useArchiveProject,
   useAssignWorker,
   useAssignmentHistory,
   useDeleteDocument,
@@ -27,6 +28,7 @@ import {
   useProjectAssignments,
   useProjectDocuments,
   useRemoveAssignment,
+  useRestoreProject,
   useUpdateProject,
   useUploadDocument,
 } from '@/features/data/hooks'
@@ -55,6 +57,8 @@ export function ProjectDetailPage() {
   const { data: history = [] } = useAssignmentHistory(projectId)
   const { data: workers = [] } = useProfiles({ role: ['employee', 'subcontractor', 'project_manager'] })
   const updateProject = useUpdateProject(projectId ?? '')
+  const archiveProject = useArchiveProject()
+  const restoreProject = useRestoreProject()
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
   const uploadDocument = useUploadDocument()
@@ -88,6 +92,7 @@ export function ProjectDetailPage() {
           priority: project.priority,
           start_date: project.start_date ?? '',
           deadline: project.deadline ?? '',
+          warranty_ends_on: project.warranty_ends_on ?? '',
         }
       : undefined,
   })
@@ -121,8 +126,48 @@ export function ProjectDetailPage() {
           <p className="text-muted-foreground">{project.location || 'Location not set'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {project.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
           <Badge>{projectStatusLabel(project.status)}</Badge>
           <Badge variant="secondary">{project.priority}</Badge>
+          {canManage && !project.archived_at ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                if (
+                  !confirmAction(
+                    `Archive project "${project.name}"? It will stay available under Archived for warranty records.`,
+                  )
+                ) {
+                  return
+                }
+                try {
+                  await archiveProject.mutateAsync(project.id)
+                  toast.success('Project archived')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Archive failed')
+                }
+              }}
+            >
+              Archive
+            </Button>
+          ) : null}
+          {canManage && project.archived_at ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await restoreProject.mutateAsync(project.id)
+                  toast.success('Project restored')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Restore failed')
+                }
+              }}
+            >
+              Restore
+            </Button>
+          ) : null}
           {canManage ? (
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
               <DialogTrigger asChild>
@@ -204,6 +249,13 @@ export function ProjectDetailPage() {
                       <Input type="date" {...editForm.register('deadline')} />
                     </div>
                   </div>
+                  <div className="space-y-1">
+                    <Label>Warranty ends</Label>
+                    <Input type="date" {...editForm.register('warranty_ends_on')} />
+                    <p className="text-xs text-muted-foreground">
+                      Defaults to completion date + 7 years when left blank and status is Completed.
+                    </p>
+                  </div>
                   <Button type="submit" disabled={updateProject.isPending}>
                     Save changes
                   </Button>
@@ -224,10 +276,15 @@ export function ProjectDetailPage() {
               <p>{project.description || 'No description provided.'}</p>
               <p>Start: {formatDate(project.start_date)}</p>
               <p>Deadline: {formatDate(project.deadline)}</p>
+              <p>Warranty ends: {formatDate(project.warranty_ends_on)}</p>
+              {project.archived_at ? (
+                <p className="text-muted-foreground">Archived {formatDate(project.archived_at)}</p>
+              ) : null}
               <div className="space-y-2 pt-2">
                 <Label>Update status</Label>
                 <Select
                   value={project.status}
+                  disabled={!canManage}
                   onValueChange={async (value) => {
                     try {
                       await updateProject.mutateAsync({ status: value as ProjectStatus })

@@ -15,7 +15,7 @@ import {
   useProject,
   useUploadDocument,
 } from '@/features/data/hooks'
-import { documentCategoryLabel, formatFileSize, projectStatusLabel } from '@/lib/utils'
+import { documentCategoryLabel, formatDate, formatFileSize, projectStatusLabel } from '@/lib/utils'
 import { UPLOAD_ACCEPT, categoryForUploadFile, confirmAction } from '@/lib/uploads'
 
 export function ClientProjectDetailPage() {
@@ -106,6 +106,11 @@ export function ClientProjectDetailPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {project.location || 'No location'} · {projectStatusLabel(project.status)}
           </p>
+          {project.warranty_ends_on ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Warranty through {formatDate(project.warranty_ends_on)}
+            </p>
+          ) : null}
         </div>
       </div>
 

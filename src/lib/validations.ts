@@ -106,6 +106,7 @@ export const projectSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   start_date: z.string().optional().nullable(),
   deadline: z.string().optional().nullable(),
+  warranty_ends_on: z.string().optional().nullable(),
 })
 
 export const certificationSchema = z.object({
