@@ -35,6 +35,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 23. `supabase/migrations/20260338000000_client_portal.sql` (client role, project requests, convert RPC)
 24. `supabase/migrations/20260338000001_client_portal_polish.sql` (client-visible project updates)
 25. `supabase/migrations/20260338000002_client_visible_reply_chains.sql` (replies inherit client visibility + backfill)
+26. `supabase/migrations/20260338000003_share_work_photos_in_thread.sql` (existing work photos → client-visible message thread)
 
 **Notes**
 
@@ -46,7 +47,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 - Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
 - Migration `20260334` is split because Postgres cannot use new enum values in the same transaction that adds them. Always run `00000` then `00001` as two separate SQL Editor runs. Historical project notes are not exposed company-wide.
 - Migration `20260335` corrects targeted Connecticut projects that were saved with a missing longitude minus sign, adds `suspicious_project_locations` for admin review, and blocks re-saving positive CT longitudes.
-- Migration `20260338` adds the client portal (`client` role, project requests, request files) and client-visible project update controls. After applying, clients only see project notes marked **Visible to client**. Replies under a client-visible update inherit that visibility so the customer sees the full thread.
+- Migration `20260338` adds the client portal (`client` role, project requests, request files) and client-visible project update controls. After applying, clients only see project notes marked **Visible to client**. Replies under a client-visible update inherit that visibility so the customer sees the full thread. Work photos uploaded to a project are also posted into that shared message thread.
 
 ### Verify cron job
 
