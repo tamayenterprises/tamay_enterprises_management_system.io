@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Textarea } from '@/components/ui/textarea'
 import {
   createUpdatePhotoSignedUrl,
@@ -94,26 +94,25 @@ function ClientReplyComposer({
         placeholder="Write a reply for Tamay Enterprises…"
         rows={3}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <FilePickerButton
-          accept={IMAGE_UPLOAD_ACCEPT}
-          label={selectedFilesLabel(photos, 'Add photos')}
-          variant="outline"
-          multiple
-          onFiles={setPhotos}
-        />
-        {photos.length > 0 ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
-            Clear photos
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilePickerButton
+            accept={IMAGE_UPLOAD_ACCEPT}
+            label={selectedFilesLabel(photos, 'Add photos')}
+            variant="outline"
+            multiple
+            selectedFiles={photos}
+            onFiles={setPhotos}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
+          >
+            {createUpdate.isPending ? 'Sending…' : 'Send reply'}
           </Button>
-        ) : null}
-        <Button
-          type="submit"
-          size="sm"
-          disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
-        >
-          {createUpdate.isPending ? 'Sending…' : 'Send reply'}
-        </Button>
+        </div>
+        <SelectedFilesList files={photos} onChange={setPhotos} />
       </div>
     </form>
   )
@@ -249,26 +248,25 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
             placeholder="Ask a question or share an update for Tamay…"
             rows={3}
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <FilePickerButton
-              accept={IMAGE_UPLOAD_ACCEPT}
-              label={selectedFilesLabel(photos, 'Add photos')}
-              variant="outline"
-              multiple
-              onFiles={setPhotos}
-            />
-            {photos.length > 0 ? (
-              <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
-                Clear photos
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <FilePickerButton
+                accept={IMAGE_UPLOAD_ACCEPT}
+                label={selectedFilesLabel(photos, 'Add photos')}
+                variant="outline"
+                multiple
+                selectedFiles={photos}
+                onFiles={setPhotos}
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
+              >
+                {createUpdate.isPending ? 'Sending…' : 'Send message'}
               </Button>
-            ) : null}
-            <Button
-              type="submit"
-              size="sm"
-              disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
-            >
-              {createUpdate.isPending ? 'Sending…' : 'Send message'}
-            </Button>
+            </div>
+            <SelectedFilesList files={photos} onChange={setPhotos} />
           </div>
         </form>
 

@@ -226,6 +226,7 @@ export function CertificationsPage() {
                       label={proofFile ? 'Change proof file' : 'Upload proof file'}
                       size="sm"
                       variant="outline"
+                      multiple={false}
                       onFile={(selected) => setProofFile(selected)}
                     />
                     <p className="text-sm text-muted-foreground">
@@ -481,6 +482,7 @@ function CertificationCard({
                       label={proofFile ? 'Change proof file' : 'Upload proof file'}
                       size="sm"
                       variant="outline"
+                      multiple={false}
                       onFile={(selected) => setProofFile(selected)}
                     />
                     <p className="text-sm text-muted-foreground">

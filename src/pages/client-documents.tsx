@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -154,17 +154,15 @@ export function ClientDocumentsPage() {
                 label={selectedFilesLabel(files, 'Choose files')}
                 variant="outline"
                 multiple
+                selectedFiles={files}
                 onFiles={setFiles}
               />
             </div>
           </div>
-          {files.length > 1 ? (
-            <ul className="max-h-28 overflow-y-auto text-xs text-muted-foreground">
-              {files.map((item) => (
-                <li key={`${item.name}-${item.size}-${item.lastModified}`}>{item.name}</li>
-              ))}
-            </ul>
-          ) : null}
+          <SelectedFilesList files={files} onChange={setFiles} />
+          <p className="text-xs text-muted-foreground">
+            Select several at once, or keep adding more before you upload.
+          </p>
           <Button
             disabled={files.length === 0 || uploadDocument.isPending || postPhotosToThread.isPending}
             onClick={() => void onUpload()}
