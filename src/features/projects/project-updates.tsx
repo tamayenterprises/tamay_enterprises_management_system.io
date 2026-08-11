@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
@@ -375,7 +375,7 @@ function UpdateComposer({
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
             accept={IMAGE_UPLOAD_ACCEPT}
-            label={selectedFilesLabel(photos, 'Add photos')}
+            label="Add photos"
             variant="outline"
             multiple
             selectedFiles={photos}

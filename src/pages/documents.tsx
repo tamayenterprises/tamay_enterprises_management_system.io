@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -106,7 +106,6 @@ export function DocumentsPage() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <FilePickerButton
                     accept={UPLOAD_ACCEPT}
-                    label={selectedFilesLabel(files, 'Choose files')}
                     size="sm"
                     variant="outline"
                     multiple

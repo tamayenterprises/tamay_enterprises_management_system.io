@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Textarea } from '@/components/ui/textarea'
 import {
   createUpdatePhotoSignedUrl,
@@ -98,7 +98,7 @@ function ClientReplyComposer({
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
             accept={IMAGE_UPLOAD_ACCEPT}
-            label={selectedFilesLabel(photos, 'Add photos')}
+            label="Add photos"
             variant="outline"
             multiple
             selectedFiles={photos}
@@ -252,7 +252,7 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
             <div className="flex flex-wrap items-center gap-2">
               <FilePickerButton
                 accept={IMAGE_UPLOAD_ACCEPT}
-                label={selectedFilesLabel(photos, 'Add photos')}
+                label="Add photos"
                 variant="outline"
                 multiple
                 selectedFiles={photos}
