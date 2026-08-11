@@ -20,6 +20,7 @@ import {
   useAssignWorker,
   useAssignmentHistory,
   useDeleteDocument,
+  usePostProjectPhotosToThread,
   useProfiles,
   useProject,
   useProjectAssignments,
@@ -56,6 +57,7 @@ export function ProjectDetailPage() {
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
   const uploadDocument = useUploadDocument()
+  const postPhotosToThread = usePostProjectPhotosToThread()
   const deleteDocument = useDeleteDocument()
   const [selectedWorker, setSelectedWorker] = useState('')
   const [editOpen, setEditOpen] = useState(false)
@@ -254,6 +256,10 @@ export function ProjectDetailPage() {
           <Card id="project-files">
             <CardHeader>
               <CardTitle>Files & work photos</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Work photos are also posted into the project message thread and shared with the
+                client when this project has client visibility.
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -262,23 +268,42 @@ export function ProjectDetailPage() {
                   label="Upload files"
                   loadingLabel="Uploading…"
                   disabled={!profile?.organization_id}
-                  isLoading={uploadDocument.isPending}
+                  isLoading={uploadDocument.isPending || postPhotosToThread.isPending}
                   multiple
                   onFiles={async (selected) => {
                     if (!profile?.organization_id) return
                     try {
+                      const uploaded = []
                       for (const file of selected) {
-                        await uploadDocument.mutateAsync({
-                          file,
-                          category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
+                        uploaded.push(
+                          await uploadDocument.mutateAsync({
+                            file,
+                            category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
+                            projectId: project.id,
+                            bucket: 'project-files',
+                          }),
+                        )
+                      }
+                      const threadPhotos = uploaded.filter(
+                        (doc) =>
+                          doc.category === 'work_photo' ||
+                          Boolean(doc.mime_type?.startsWith('image/')),
+                      )
+                      if (threadPhotos.length > 0) {
+                        await postPhotosToThread.mutateAsync({
                           projectId: project.id,
-                          bucket: 'project-files',
+                          photos: threadPhotos,
+                          visibleToClient: true,
                         })
                       }
                       toast.success(
-                        selected.length === 1
-                          ? 'File uploaded'
-                          : `${selected.length} files uploaded`,
+                        threadPhotos.length > 0
+                          ? selected.length === 1
+                            ? 'Photo shared in project messages'
+                            : `${selected.length} files uploaded; photos shared in project messages`
+                          : selected.length === 1
+                            ? 'File uploaded'
+                            : `${selected.length} files uploaded`,
                       )
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Upload failed')

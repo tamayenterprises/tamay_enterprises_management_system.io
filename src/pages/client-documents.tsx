@@ -12,6 +12,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import {
   createDocumentSignedUrl,
   useDocuments,
+  usePostProjectPhotosToThread,
   useProjects,
   useUploadDocument,
 } from '@/features/data/hooks'
@@ -26,6 +27,7 @@ export function ClientDocumentsPage() {
   const { data: projects = [] } = useProjects({ assignedOnly: true })
   const { data: documents = [], isLoading, isError } = useDocuments({ mineOnly: false })
   const uploadDocument = useUploadDocument()
+  const postPhotosToThread = usePostProjectPhotosToThread()
 
   const [category, setCategory] = useState<DocumentCategory>('work_photo')
   const [projectId, setProjectId] = useState<string>('none')
@@ -53,15 +55,42 @@ export function ClientDocumentsPage() {
     try {
       const bucket = projectId === 'none' ? 'documents' : 'project-files'
       const linkedProjectId = projectId === 'none' ? null : projectId
+      const uploaded = []
       for (const file of files) {
-        await uploadDocument.mutateAsync({
-          file,
-          category,
+        uploaded.push(
+          await uploadDocument.mutateAsync({
+            file,
+            category,
+            projectId: linkedProjectId,
+            bucket,
+          }),
+        )
+      }
+
+      const threadPhotos =
+        linkedProjectId == null
+          ? []
+          : uploaded.filter(
+              (doc) =>
+                doc.category === 'work_photo' || Boolean(doc.mime_type?.startsWith('image/')),
+            )
+      if (linkedProjectId && threadPhotos.length > 0) {
+        await postPhotosToThread.mutateAsync({
           projectId: linkedProjectId,
-          bucket,
+          photos: threadPhotos,
+          visibleToClient: true,
         })
       }
-      toast.success(files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`)
+
+      toast.success(
+        threadPhotos.length > 0
+          ? files.length === 1
+            ? 'Photo shared in project messages'
+            : `${files.length} files uploaded and shared in project messages`
+          : files.length === 1
+            ? 'File uploaded'
+            : `${files.length} files uploaded`,
+      )
       setFiles([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed')
@@ -81,7 +110,8 @@ export function ClientDocumentsPage() {
         <CardHeader>
           <CardTitle>Upload</CardTitle>
           <CardDescription>
-            Attach one or many files to a project, or keep them in your personal files.
+            Attach one or many files to a project. Photos linked to a project are also posted in that
+            project’s message thread for you and Tamay.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -135,8 +165,11 @@ export function ClientDocumentsPage() {
               ))}
             </ul>
           ) : null}
-          <Button disabled={files.length === 0 || uploadDocument.isPending} onClick={() => void onUpload()}>
-            {uploadDocument.isPending
+          <Button
+            disabled={files.length === 0 || uploadDocument.isPending || postPhotosToThread.isPending}
+            onClick={() => void onUpload()}
+          >
+            {uploadDocument.isPending || postPhotosToThread.isPending
               ? 'Uploading…'
               : files.length > 1
                 ? `Upload ${files.length} files`

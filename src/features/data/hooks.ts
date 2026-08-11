@@ -243,6 +243,93 @@ export function useCreateProjectUpdate() {
   })
 }
 
+/**
+ * Post already-uploaded project photos into the shared project message thread
+ * so staff and clients see them in the same reply chain (not only under Files).
+ */
+export function usePostProjectPhotosToThread() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      photos,
+      caption,
+      visibleToClient = true,
+    }: {
+      projectId: string
+      photos: Array<{ storage_path: string; name?: string | null }>
+      caption?: string
+      visibleToClient?: boolean
+    }) => {
+      if (!profile?.id) throw new Error('Missing profile')
+      if (photos.length === 0) return []
+
+      const notes: ProjectNote[] = []
+      const rootCaption =
+        caption?.trim() ||
+        (photos.length === 1 ? 'Shared a photo' : `Shared ${photos.length} photos`)
+
+      const rootPayload: {
+        project_id: string
+        author_id: string
+        content: string
+        photo_path: string
+        visible_to_client?: boolean
+      } = {
+        project_id: projectId,
+        author_id: profile.id,
+        content: rootCaption,
+        photo_path: photos[0]!.storage_path,
+      }
+      if (visibleToClient) rootPayload.visible_to_client = true
+
+      const { data: root, error: rootError } = await supabase
+        .from('project_notes')
+        .insert(rootPayload)
+        .select('*, author:profiles(*)')
+        .single()
+      if (rootError) throw rootError
+      notes.push(root as ProjectNote)
+
+      for (let index = 1; index < photos.length; index += 1) {
+        const replyPayload: {
+          project_id: string
+          author_id: string
+          content: string | null
+          parent_id: string
+          photo_path: string
+          visible_to_client?: boolean
+        } = {
+          project_id: projectId,
+          author_id: profile.id,
+          content: null,
+          parent_id: (root as ProjectNote).id,
+          photo_path: photos[index]!.storage_path,
+        }
+        if (visibleToClient) replyPayload.visible_to_client = true
+
+        const { data: reply, error: replyError } = await supabase
+          .from('project_notes')
+          .insert(replyPayload)
+          .select('*, author:profiles(*)')
+          .single()
+        if (replyError) throw replyError
+        notes.push(reply as ProjectNote)
+      }
+
+      return notes
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['project-activity'] })
+    },
+  })
+}
+
 export async function createUpdatePhotoSignedUrl(photoPath: string) {
   const { data, error } = await supabase.storage.from('project-files').createSignedUrl(photoPath, 60 * 30)
   if (error || !data?.signedUrl) throw error ?? new Error('Unable to open photo')

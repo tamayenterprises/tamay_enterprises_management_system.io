@@ -12,6 +12,7 @@ import { ClientProjectUpdates } from '@/features/client/project-updates'
 import {
   createDocumentSignedUrl,
   useDocuments,
+  usePostProjectPhotosToThread,
   useProject,
   useUploadDocument,
 } from '@/features/data/hooks'
@@ -24,6 +25,7 @@ export function ClientProjectDetailPage() {
   const { data: project, isLoading, isError } = useProject(projectId)
   const { data: documents = [] } = useDocuments({ projectId })
   const uploadDocument = useUploadDocument()
+  const postPhotosToThread = usePostProjectPhotosToThread()
   const [category, setCategory] = useState<DocumentCategory>('work_photo')
   const [files, setFiles] = useState<File[]>([])
 
@@ -49,20 +51,37 @@ export function ClientProjectDetailPage() {
   const onUpload = async () => {
     if (files.length === 0 || !projectId) return
     try {
+      const uploaded = []
       for (const file of files) {
-        await uploadDocument.mutateAsync({
-          file,
-          category,
+        uploaded.push(
+          await uploadDocument.mutateAsync({
+            file,
+            category,
+            projectId,
+            bucket: 'project-files',
+          }),
+        )
+      }
+
+      const threadPhotos = uploaded.filter(
+        (doc) => doc.category === 'work_photo' || Boolean(doc.mime_type?.startsWith('image/')),
+      )
+      if (threadPhotos.length > 0) {
+        await postPhotosToThread.mutateAsync({
           projectId,
-          bucket: 'project-files',
+          photos: threadPhotos,
+          visibleToClient: true,
         })
       }
+
       toast.success(
-        files.length === 1
-          ? category === 'work_photo'
-            ? 'Photo uploaded'
-            : 'Document uploaded'
-          : `${files.length} files uploaded`,
+        threadPhotos.length > 0
+          ? files.length === 1
+            ? 'Photo shared in project messages'
+            : `${files.length} files uploaded and shared in project messages`
+          : files.length === 1
+            ? 'Document uploaded'
+            : `${files.length} files uploaded`,
       )
       setFiles([])
     } catch (error) {
@@ -99,7 +118,8 @@ export function ClientProjectDetailPage() {
         <CardHeader>
           <CardTitle>Share files & space photos</CardTitle>
           <CardDescription>
-            Upload one or many documents or pictures of the space so Tamay can plan the work.
+            Photos are saved to this project and posted in the message thread so you and Tamay can
+            review them together. Documents stay in the files list.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -136,8 +156,11 @@ export function ClientProjectDetailPage() {
               ))}
             </ul>
           ) : null}
-          <Button disabled={files.length === 0 || uploadDocument.isPending} onClick={() => void onUpload()}>
-            {uploadDocument.isPending
+          <Button
+            disabled={files.length === 0 || uploadDocument.isPending || postPhotosToThread.isPending}
+            onClick={() => void onUpload()}
+          >
+            {uploadDocument.isPending || postPhotosToThread.isPending
               ? 'Uploading…'
               : files.length > 1
                 ? `Upload ${files.length} files`
