@@ -37,7 +37,12 @@ create trigger projects_default_warranty
   for each row execute function public.set_default_project_warranty();
 
 -- Backfill completed projects that never got a warranty date.
+-- SQL Editor has no management session, so disable the worker-update guard for this pass.
+alter table public.projects disable trigger projects_enforce_worker_update;
+
 update public.projects
 set warranty_ends_on = (coalesce(updated_at::date, current_date) + interval '7 years')::date
 where status = 'completed'
   and warranty_ends_on is null;
+
+alter table public.projects enable trigger projects_enforce_worker_update;
