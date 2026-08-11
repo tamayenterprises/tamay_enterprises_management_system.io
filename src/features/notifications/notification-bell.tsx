@@ -87,7 +87,10 @@ export function NotificationBell() {
                 </p>
               ) : null}
               {items.map((item) => {
-                const destination = item.destination_route || item.link
+                let destination = item.destination_route || item.link
+                if (isClientRole(profile?.role) && destination?.startsWith('/projects/')) {
+                  destination = destination.replace('/projects/', '/portal/projects/')
+                }
                 return (
                   <button
                     key={item.id}
@@ -143,17 +146,19 @@ export function NotificationBell() {
             >
               View all notifications
             </Button>
-            <Button
-              className="mt-2 w-full"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setOpen(false)
-                navigate('/activity')
-              }}
-            >
-              View recent activity
-            </Button>
+            {!isClientRole(profile?.role) ? (
+              <Button
+                className="mt-2 w-full"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOpen(false)
+                  navigate('/activity')
+                }}
+              >
+                View recent activity
+              </Button>
+            ) : null}
           </div>
         </>
       ) : null}
