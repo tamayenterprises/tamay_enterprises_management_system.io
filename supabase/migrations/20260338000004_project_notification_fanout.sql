@@ -31,7 +31,7 @@ declare
   v_include boolean;
   v_project_name text;
   v_parent_is_root boolean;
-  v_recipient_role public.user_role;
+  v_recipient_role text;
   v_route text;
   v_note_visible boolean;
 begin
