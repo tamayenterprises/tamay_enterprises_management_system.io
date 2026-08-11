@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -126,11 +126,10 @@ export function ClientRequestsPage() {
                   label={selectedFilesLabel(photos, 'Choose photos')}
                   variant="outline"
                   multiple
+                  selectedFiles={photos}
                   onFiles={setPhotos}
                 />
-                {photos.length > 1 ? (
-                  <p className="text-xs text-muted-foreground">{photos.length} photos selected</p>
-                ) : null}
+                <SelectedFilesList files={photos} onChange={setPhotos} />
               </div>
               <div className="space-y-1">
                 <Label>Documents (optional)</Label>
@@ -139,11 +138,10 @@ export function ClientRequestsPage() {
                   label={selectedFilesLabel(documents, 'Choose files')}
                   variant="outline"
                   multiple
+                  selectedFiles={documents}
                   onFiles={setDocuments}
                 />
-                {documents.length > 1 ? (
-                  <p className="text-xs text-muted-foreground">{documents.length} files selected</p>
-                ) : null}
+                <SelectedFilesList files={documents} onChange={setDocuments} />
               </div>
               <Button className="w-full" disabled={createRequest.isPending || uploadFile.isPending}>
                 {createRequest.isPending || uploadFile.isPending ? 'Submitting…' : 'Submit request'}
@@ -206,6 +204,7 @@ export function ClientRequestsPage() {
                       size="sm"
                       variant="outline"
                       multiple
+                      append={false}
                       isLoading={uploadFile.isPending}
                       onFiles={async (selected) => {
                         try {
@@ -230,6 +229,7 @@ export function ClientRequestsPage() {
                       size="sm"
                       variant="outline"
                       multiple
+                      append={false}
                       isLoading={uploadFile.isPending}
                       onFiles={async (selected) => {
                         try {

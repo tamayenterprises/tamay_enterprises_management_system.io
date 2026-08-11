@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -368,27 +368,26 @@ function CompanyComposer({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <FilePickerButton
-          accept={IMAGE_UPLOAD_ACCEPT}
-          label={photos.length > 0 ? selectedFilesLabel(photos, 'Add photos') : 'Add photos'}
-          variant="outline"
-          disabled={create.isPending}
-          multiple
-          onFiles={setPhotos}
-        />
-        {photos.length > 0 ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
-            Clear photos
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilePickerButton
+            accept={IMAGE_UPLOAD_ACCEPT}
+            label={photos.length > 0 ? selectedFilesLabel(photos, 'Add photos') : 'Add photos'}
+            variant="outline"
+            disabled={create.isPending}
+            multiple
+            selectedFiles={photos}
+            onFiles={setPhotos}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={create.isPending || (!content.trim() && photos.length === 0)}
+          >
+            {create.isPending ? 'Posting…' : parentId ? 'Post reply' : 'Add Update'}
           </Button>
-        ) : null}
-        <Button
-          type="submit"
-          size="sm"
-          disabled={create.isPending || (!content.trim() && photos.length === 0)}
-        >
-          {create.isPending ? 'Posting…' : parentId ? 'Post reply' : 'Add Update'}
-        </Button>
+        </div>
+        <SelectedFilesList files={photos} onChange={setPhotos} />
       </div>
     </form>
   )

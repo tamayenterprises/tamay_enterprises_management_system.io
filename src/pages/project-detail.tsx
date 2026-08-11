@@ -270,6 +270,7 @@ export function ProjectDetailPage() {
                   disabled={!profile?.organization_id}
                   isLoading={uploadDocument.isPending || postPhotosToThread.isPending}
                   multiple
+                  append={false}
                   onFiles={async (selected) => {
                     if (!profile?.organization_id) return
                     try {
@@ -311,7 +312,7 @@ export function ProjectDetailPage() {
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Choose one or many photos or documents from your device.
+                  Pick several photos or documents in one go (Ctrl/Cmd or Shift to multi-select).
                 </p>
               </div>
               {documents.length === 0 ? (

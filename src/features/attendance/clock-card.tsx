@@ -337,6 +337,7 @@ export function ClockInOutCard() {
                     accept={IMAGE_UPLOAD_ACCEPT}
                     label={exceptionPhoto ? 'Change photo' : 'Optional photo'}
                     variant="outline"
+                    multiple={false}
                     onFile={(file) => setExceptionPhoto(file)}
                   />
                   <Button

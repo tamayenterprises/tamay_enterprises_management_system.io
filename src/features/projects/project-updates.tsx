@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
@@ -371,32 +371,26 @@ function UpdateComposer({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <FilePickerButton
-          accept={IMAGE_UPLOAD_ACCEPT}
-          label={selectedFilesLabel(photos, 'Add photos')}
-          variant="outline"
-          multiple
-          disabled={createUpdate.isPending}
-          onFiles={setPhotos}
-        />
-        {photos.length > 0 ? (
-          <span className="max-w-[14rem] truncate text-xs text-muted-foreground">
-            {selectedFilesLabel(photos)}
-          </span>
-        ) : null}
-        {photos.length > 0 ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPhotos([])}>
-            Clear photos
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilePickerButton
+            accept={IMAGE_UPLOAD_ACCEPT}
+            label={selectedFilesLabel(photos, 'Add photos')}
+            variant="outline"
+            multiple
+            selectedFiles={photos}
+            disabled={createUpdate.isPending}
+            onFiles={setPhotos}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
+          >
+            {createUpdate.isPending ? 'Posting…' : submitLabel}
           </Button>
-        ) : null}
-        <Button
-          type="submit"
-          size="sm"
-          disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
-        >
-          {createUpdate.isPending ? 'Posting…' : submitLabel}
-        </Button>
+        </div>
+        <SelectedFilesList files={photos} onChange={setPhotos} />
       </div>
     </form>
   )

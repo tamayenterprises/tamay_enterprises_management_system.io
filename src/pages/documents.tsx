@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, selectedFilesLabel } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList, selectedFilesLabel } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -110,19 +110,14 @@ export function DocumentsPage() {
                     size="sm"
                     variant="outline"
                     multiple
+                    selectedFiles={files}
                     onFiles={setFiles}
                   />
                   <p className="text-sm text-muted-foreground">
-                    {selectedFilesLabel(files, 'No files selected yet')}
+                    Select several at once, or keep adding more.
                   </p>
                 </div>
-                {files.length > 1 ? (
-                  <ul className="max-h-28 overflow-y-auto text-xs text-muted-foreground">
-                    {files.map((item) => (
-                      <li key={`${item.name}-${item.size}-${item.lastModified}`}>{item.name}</li>
-                    ))}
-                  </ul>
-                ) : null}
+                <SelectedFilesList files={files} onChange={setFiles} />
               </div>
               <div className="space-y-1">
                 <Label>Category</Label>
