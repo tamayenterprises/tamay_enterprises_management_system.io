@@ -20,6 +20,7 @@ import {
   useAssignWorker,
   useAssignmentHistory,
   useDeleteDocument,
+  usePostProjectDocumentsToThread,
   usePostProjectPhotosToThread,
   useProfiles,
   useProject,
@@ -40,7 +41,7 @@ import {
   projectStatusLabel,
   roleLabel,
 } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
+import { UPLOAD_ACCEPT, confirmAction, isImageUploadFile } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 
@@ -58,6 +59,7 @@ export function ProjectDetailPage() {
   const removeAssignment = useRemoveAssignment()
   const uploadDocument = useUploadDocument()
   const postPhotosToThread = usePostProjectPhotosToThread()
+  const postDocumentsToThread = usePostProjectDocumentsToThread()
   const deleteDocument = useDeleteDocument()
   const [selectedWorker, setSelectedWorker] = useState('')
   const [editOpen, setEditOpen] = useState(false)
@@ -257,8 +259,8 @@ export function ProjectDetailPage() {
             <CardHeader>
               <CardTitle>Files & work photos</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Work photos are also posted into the project message thread and shared with the
-                client when this project has client visibility.
+                Upload photos or documents (PDF, Word, Excel). Files are saved here; photos and
+                document notices are also shared in the project message thread with the client.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -268,7 +270,11 @@ export function ProjectDetailPage() {
                   label="Upload files"
                   loadingLabel="Uploading…"
                   disabled={!profile?.organization_id}
-                  isLoading={uploadDocument.isPending || postPhotosToThread.isPending}
+                  isLoading={
+                    uploadDocument.isPending ||
+                    postPhotosToThread.isPending ||
+                    postDocumentsToThread.isPending
+                  }
                   multiple
                   append={false}
                   onFiles={async (selected) => {
@@ -279,7 +285,7 @@ export function ProjectDetailPage() {
                         uploaded.push(
                           await uploadDocument.mutateAsync({
                             file,
-                            category: file.type.startsWith('image/') ? 'work_photo' : 'project_file',
+                            category: isImageUploadFile(file) ? 'work_photo' : 'project_file',
                             projectId: project.id,
                             bucket: 'project-files',
                           }),
@@ -290,6 +296,10 @@ export function ProjectDetailPage() {
                           doc.category === 'work_photo' ||
                           Boolean(doc.mime_type?.startsWith('image/')),
                       )
+                      const threadDocs = uploaded.filter(
+                        (doc) =>
+                          doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
+                      )
                       if (threadPhotos.length > 0) {
                         await postPhotosToThread.mutateAsync({
                           projectId: project.id,
@@ -297,14 +307,17 @@ export function ProjectDetailPage() {
                           visibleToClient: true,
                         })
                       }
+                      if (threadDocs.length > 0) {
+                        await postDocumentsToThread.mutateAsync({
+                          projectId: project.id,
+                          documents: threadDocs,
+                          visibleToClient: true,
+                        })
+                      }
                       toast.success(
-                        threadPhotos.length > 0
-                          ? selected.length === 1
-                            ? 'Photo shared in project messages'
-                            : `${selected.length} files uploaded; photos shared in project messages`
-                          : selected.length === 1
-                            ? 'File uploaded'
-                            : `${selected.length} files uploaded`,
+                        selected.length === 1
+                          ? 'File uploaded and saved'
+                          : `${selected.length} files uploaded and saved`,
                       )
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Upload failed')
@@ -312,7 +325,7 @@ export function ProjectDetailPage() {
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Pick several photos or documents in one go (Ctrl/Cmd or Shift to multi-select).
+                  Pick several photos or PDFs in one go (Ctrl/Cmd or Shift to multi-select).
                 </p>
               </div>
               {documents.length === 0 ? (

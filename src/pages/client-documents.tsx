@@ -12,12 +12,13 @@ import { useAuth } from '@/features/auth/auth-context'
 import {
   createDocumentSignedUrl,
   useDocuments,
+  usePostProjectDocumentsToThread,
   usePostProjectPhotosToThread,
   useProjects,
   useUploadDocument,
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, UPLOAD_ACCEPT } from '@/lib/uploads'
+import { UPLOAD_ACCEPT, resolveUploadCategory } from '@/lib/uploads'
 import type { DocumentCategory } from '@/types/database'
 
 const CLIENT_CATEGORIES: DocumentCategory[] = ['work_photo', 'project_file', 'contract', 'miscellaneous']
@@ -28,8 +29,9 @@ export function ClientDocumentsPage() {
   const { data: documents = [], isLoading, isError } = useDocuments({ mineOnly: false })
   const uploadDocument = useUploadDocument()
   const postPhotosToThread = usePostProjectPhotosToThread()
+  const postDocumentsToThread = usePostProjectDocumentsToThread()
 
-  const [category, setCategory] = useState<DocumentCategory>('work_photo')
+  const [category, setCategory] = useState<DocumentCategory>('project_file')
   const [projectId, setProjectId] = useState<string>('none')
   const [files, setFiles] = useState<File[]>([])
 
@@ -60,36 +62,38 @@ export function ClientDocumentsPage() {
         uploaded.push(
           await uploadDocument.mutateAsync({
             file,
-            category,
+            category: resolveUploadCategory(file, category) as DocumentCategory,
             projectId: linkedProjectId,
             bucket,
           }),
         )
       }
 
-      const threadPhotos =
-        linkedProjectId == null
-          ? []
-          : uploaded.filter(
-              (doc) =>
-                doc.category === 'work_photo' || Boolean(doc.mime_type?.startsWith('image/')),
-            )
-      if (linkedProjectId && threadPhotos.length > 0) {
-        await postPhotosToThread.mutateAsync({
-          projectId: linkedProjectId,
-          photos: threadPhotos,
-          visibleToClient: true,
-        })
+      if (linkedProjectId) {
+        const threadPhotos = uploaded.filter(
+          (doc) => doc.category === 'work_photo' || Boolean(doc.mime_type?.startsWith('image/')),
+        )
+        const threadDocs = uploaded.filter(
+          (doc) => doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
+        )
+        if (threadPhotos.length > 0) {
+          await postPhotosToThread.mutateAsync({
+            projectId: linkedProjectId,
+            photos: threadPhotos,
+            visibleToClient: true,
+          })
+        }
+        if (threadDocs.length > 0) {
+          await postDocumentsToThread.mutateAsync({
+            projectId: linkedProjectId,
+            documents: threadDocs,
+            visibleToClient: true,
+          })
+        }
       }
 
       toast.success(
-        threadPhotos.length > 0
-          ? files.length === 1
-            ? 'Photo shared in project messages'
-            : `${files.length} files uploaded and shared in project messages`
-          : files.length === 1
-            ? 'File uploaded'
-            : `${files.length} files uploaded`,
+        files.length === 1 ? 'File uploaded and saved' : `${files.length} files uploaded and saved`,
       )
       setFiles([])
     } catch (error) {
@@ -110,8 +114,8 @@ export function ClientDocumentsPage() {
         <CardHeader>
           <CardTitle>Upload</CardTitle>
           <CardDescription>
-            Attach one or many files to a project. Photos linked to a project are also posted in that
-            project’s message thread for you and Tamay.
+            Upload photos or documents (PDF, Word, Excel). Files linked to a project are saved there
+            and noted in the project message thread.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -150,7 +154,7 @@ export function ClientDocumentsPage() {
             <div className="space-y-1">
               <Label>Files</Label>
               <FilePickerButton
-                accept={category === 'work_photo' ? IMAGE_UPLOAD_ACCEPT : UPLOAD_ACCEPT}
+                accept={UPLOAD_ACCEPT}
                 variant="outline"
                 multiple
                 selectedFiles={files}
@@ -160,13 +164,21 @@ export function ClientDocumentsPage() {
           </div>
           <SelectedFilesList files={files} onChange={setFiles} />
           <p className="text-xs text-muted-foreground">
-            Select several at once, or keep adding more before you upload.
+            PDFs and photos are supported. Select several at once, or keep adding more before you
+            upload.
           </p>
           <Button
-            disabled={files.length === 0 || uploadDocument.isPending || postPhotosToThread.isPending}
+            disabled={
+              files.length === 0 ||
+              uploadDocument.isPending ||
+              postPhotosToThread.isPending ||
+              postDocumentsToThread.isPending
+            }
             onClick={() => void onUpload()}
           >
-            {uploadDocument.isPending || postPhotosToThread.isPending
+            {uploadDocument.isPending ||
+            postPhotosToThread.isPending ||
+            postDocumentsToThread.isPending
               ? 'Uploading…'
               : files.length > 1
                 ? `Upload ${files.length} files`

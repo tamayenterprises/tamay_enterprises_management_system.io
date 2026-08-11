@@ -12,12 +12,13 @@ import { ClientProjectUpdates } from '@/features/client/project-updates'
 import {
   createDocumentSignedUrl,
   useDocuments,
+  usePostProjectDocumentsToThread,
   usePostProjectPhotosToThread,
   useProject,
   useUploadDocument,
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatFileSize, projectStatusLabel } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
+import { UPLOAD_ACCEPT, confirmAction, resolveUploadCategory } from '@/lib/uploads'
 import type { DocumentCategory } from '@/types/database'
 
 export function ClientProjectDetailPage() {
@@ -26,7 +27,8 @@ export function ClientProjectDetailPage() {
   const { data: documents = [] } = useDocuments({ projectId })
   const uploadDocument = useUploadDocument()
   const postPhotosToThread = usePostProjectPhotosToThread()
-  const [category, setCategory] = useState<DocumentCategory>('work_photo')
+  const postDocumentsToThread = usePostProjectDocumentsToThread()
+  const [category, setCategory] = useState<DocumentCategory>('project_file')
   const [files, setFiles] = useState<File[]>([])
 
   const photos = useMemo(
@@ -56,7 +58,7 @@ export function ClientProjectDetailPage() {
         uploaded.push(
           await uploadDocument.mutateAsync({
             file,
-            category,
+            category: resolveUploadCategory(file, category) as DocumentCategory,
             projectId,
             bucket: 'project-files',
           }),
@@ -66,6 +68,10 @@ export function ClientProjectDetailPage() {
       const threadPhotos = uploaded.filter(
         (doc) => doc.category === 'work_photo' || Boolean(doc.mime_type?.startsWith('image/')),
       )
+      const threadDocs = uploaded.filter(
+        (doc) => doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
+      )
+
       if (threadPhotos.length > 0) {
         await postPhotosToThread.mutateAsync({
           projectId,
@@ -73,15 +79,16 @@ export function ClientProjectDetailPage() {
           visibleToClient: true,
         })
       }
+      if (threadDocs.length > 0) {
+        await postDocumentsToThread.mutateAsync({
+          projectId,
+          documents: threadDocs,
+          visibleToClient: true,
+        })
+      }
 
       toast.success(
-        threadPhotos.length > 0
-          ? files.length === 1
-            ? 'Photo shared in project messages'
-            : `${files.length} files uploaded and shared in project messages`
-          : files.length === 1
-            ? 'Document uploaded'
-            : `${files.length} files uploaded`,
+        files.length === 1 ? 'File uploaded and saved' : `${files.length} files uploaded and saved`,
       )
       setFiles([])
     } catch (error) {
@@ -118,8 +125,8 @@ export function ClientProjectDetailPage() {
         <CardHeader>
           <CardTitle>Share files & space photos</CardTitle>
           <CardDescription>
-            Photos are saved to this project and posted in the message thread so you and Tamay can
-            review them together. Documents stay in the files list.
+            Upload photos or documents (PDF, Word, Excel). Everything is saved to this project.
+            Photos and document notices also appear in the message thread for you and Tamay.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -131,8 +138,8 @@ export function ClientProjectDetailPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="project_file">Project document (PDF, etc.)</SelectItem>
                   <SelectItem value="work_photo">Space / work photo</SelectItem>
-                  <SelectItem value="project_file">Project document</SelectItem>
                   <SelectItem value="contract">Contract</SelectItem>
                   <SelectItem value="miscellaneous">Other</SelectItem>
                 </SelectContent>
@@ -142,24 +149,31 @@ export function ClientProjectDetailPage() {
               <Label>Files</Label>
               <div className="flex flex-wrap items-center gap-2">
                 <FilePickerButton
-                  accept={category === 'work_photo' ? IMAGE_UPLOAD_ACCEPT : UPLOAD_ACCEPT}
+                  accept={UPLOAD_ACCEPT}
                   variant="outline"
                   multiple
                   selectedFiles={files}
                   onFiles={setFiles}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Select several at once, or keep adding more before you upload.
+                  Photos, PDFs, and other documents — select several at once.
                 </p>
               </div>
               <SelectedFilesList files={files} onChange={setFiles} />
             </div>
           </div>
           <Button
-            disabled={files.length === 0 || uploadDocument.isPending || postPhotosToThread.isPending}
+            disabled={
+              files.length === 0 ||
+              uploadDocument.isPending ||
+              postPhotosToThread.isPending ||
+              postDocumentsToThread.isPending
+            }
             onClick={() => void onUpload()}
           >
-            {uploadDocument.isPending || postPhotosToThread.isPending
+            {uploadDocument.isPending ||
+            postPhotosToThread.isPending ||
+            postDocumentsToThread.isPending
               ? 'Uploading…'
               : files.length > 1
                 ? `Upload ${files.length} files`
