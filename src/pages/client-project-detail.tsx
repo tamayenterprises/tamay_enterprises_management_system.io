@@ -5,9 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
-import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ClientProjectUpdates } from '@/features/client/project-updates'
 import {
   createDocumentSignedUrl,
@@ -18,8 +16,7 @@ import {
   useUploadDocument,
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatFileSize, projectStatusLabel } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction, resolveUploadCategory } from '@/lib/uploads'
-import type { DocumentCategory } from '@/types/database'
+import { UPLOAD_ACCEPT, categoryForUploadFile, confirmAction } from '@/lib/uploads'
 
 export function ClientProjectDetailPage() {
   const { projectId } = useParams()
@@ -28,7 +25,6 @@ export function ClientProjectDetailPage() {
   const uploadDocument = useUploadDocument()
   const postPhotosToThread = usePostProjectPhotosToThread()
   const postDocumentsToThread = usePostProjectDocumentsToThread()
-  const [category, setCategory] = useState<DocumentCategory>('project_file')
   const [files, setFiles] = useState<File[]>([])
 
   const photos = useMemo(
@@ -58,7 +54,7 @@ export function ClientProjectDetailPage() {
         uploaded.push(
           await uploadDocument.mutateAsync({
             file,
-            category: resolveUploadCategory(file, category) as DocumentCategory,
+            category: categoryForUploadFile(file),
             projectId,
             bucket: 'project-files',
           }),
@@ -96,6 +92,9 @@ export function ClientProjectDetailPage() {
     }
   }
 
+  const uploading =
+    uploadDocument.isPending || postPhotosToThread.isPending || postDocumentsToThread.isPending
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -125,55 +124,24 @@ export function ClientProjectDetailPage() {
         <CardHeader>
           <CardTitle>Share files & space photos</CardTitle>
           <CardDescription>
-            Upload photos or documents (PDF, Word, Excel). Everything is saved to this project.
-            Photos and document notices also appear in the message thread for you and Tamay.
+            Upload one or many photos or documents (PDF, Word, Excel). Everything is saved to this
+            project and noted in the message thread for you and Tamay.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <Label>Type</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as DocumentCategory)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="project_file">Project document (PDF, etc.)</SelectItem>
-                  <SelectItem value="work_photo">Space / work photo</SelectItem>
-                  <SelectItem value="contract">Contract</SelectItem>
-                  <SelectItem value="miscellaneous">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <Label>Files</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                <FilePickerButton
-                  accept={UPLOAD_ACCEPT}
-                  variant="outline"
-                  multiple
-                  selectedFiles={files}
-                  onFiles={setFiles}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Photos, PDFs, and other documents — select several at once.
-                </p>
-              </div>
-              <SelectedFilesList files={files} onChange={setFiles} />
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <FilePickerButton
+              accept={UPLOAD_ACCEPT}
+              variant="outline"
+              multiple
+              selectedFiles={files}
+              onFiles={setFiles}
+            />
+            <p className="text-xs text-muted-foreground">Select several at once, or keep adding more.</p>
           </div>
-          <Button
-            disabled={
-              files.length === 0 ||
-              uploadDocument.isPending ||
-              postPhotosToThread.isPending ||
-              postDocumentsToThread.isPending
-            }
-            onClick={() => void onUpload()}
-          >
-            {uploadDocument.isPending ||
-            postPhotosToThread.isPending ||
-            postDocumentsToThread.isPending
+          <SelectedFilesList files={files} onChange={setFiles} />
+          <Button disabled={files.length === 0 || uploading} onClick={() => void onUpload()}>
+            {uploading
               ? 'Uploading…'
               : files.length > 1
                 ? `Upload ${files.length} files`

@@ -25,7 +25,7 @@ import {
   fullName,
   isManagementRole,
 } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
+import { UPLOAD_ACCEPT, categoryForUploadFile, confirmAction } from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
 
 const CATEGORIES: DocumentCategory[] = [
@@ -49,7 +49,6 @@ export function DocumentsPage() {
   const [scope, setScope] = useState<string>(canManage ? 'all' : 'all')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [files, setFiles] = useState<File[]>([])
-  const [uploadCategory, setUploadCategory] = useState<DocumentCategory>('miscellaneous')
   const [uploadProjectId, setUploadProjectId] = useState<string>('none')
 
   const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
@@ -119,24 +118,6 @@ export function DocumentsPage() {
                 <SelectedFilesList files={files} onChange={setFiles} />
               </div>
               <div className="space-y-1">
-                <Label>Category</Label>
-                <Select
-                  value={uploadCategory}
-                  onValueChange={(value) => setUploadCategory(value as DocumentCategory)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {documentCategoryLabel(item)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
                 <Label>Link to project (optional)</Label>
                 <Select value={uploadProjectId} onValueChange={setUploadProjectId}>
                   <SelectTrigger>
@@ -161,7 +142,7 @@ export function DocumentsPage() {
                     for (const file of files) {
                       await uploadDocument.mutateAsync({
                         file,
-                        category: uploadCategory,
+                        category: categoryForUploadFile(file),
                         projectId,
                         bucket: projectId ? 'project-files' : 'documents',
                       })
@@ -170,7 +151,6 @@ export function DocumentsPage() {
                       files.length === 1 ? 'Document uploaded' : `${files.length} documents uploaded`,
                     )
                     setFiles([])
-                    setUploadCategory('miscellaneous')
                     setUploadProjectId('none')
                     setUploadOpen(false)
                   } catch (error) {
