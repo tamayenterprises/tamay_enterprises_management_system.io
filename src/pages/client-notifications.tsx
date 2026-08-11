@@ -105,7 +105,7 @@ export function ClientNotificationsPage() {
                     } catch {
                       /* still navigate */
                     }
-                    const link = item.link
+                    const link = item.destination_route || item.link
                     if (link?.startsWith('/')) {
                       // Map staff project links into the portal when possible
                       if (link.startsWith('/projects/')) {
