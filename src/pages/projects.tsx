@@ -14,14 +14,16 @@ import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  useAssignWorker,
   useCreateProject,
   useArchiveProject,
+  useProfiles,
   useRestoreProject,
   useProjects,
 } from '@/features/data/hooks'
 import { useFormDraft } from '@/features/drafts/use-form-draft'
 import { useAuth } from '@/features/auth/auth-context'
-import { formatDate, isManagementRole, projectStatusLabel } from '@/lib/utils'
+import { formatDate, fullName, isManagementRole, projectStatusLabel } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
@@ -41,6 +43,7 @@ export function ProjectsPage() {
   const [status, setStatus] = useState<ProjectStatus | 'all'>('all')
   const [archivedView, setArchivedView] = useState<'active' | 'archived'>('active')
   const [createOpen, setCreateOpen] = useState(false)
+  const [assignClientId, setAssignClientId] = useState('')
   const canManage = isManagementRole(profile?.role)
   const { data, isLoading, isError } = useProjects({
     assignedOnly: !canManage,
@@ -48,9 +51,20 @@ export function ProjectsPage() {
     status,
     archived: canManage ? archivedView : 'active',
   })
+  const { data: clients = [] } = useProfiles({ role: 'client' })
   const createProject = useCreateProject()
+  const assignWorker = useAssignWorker()
   const archiveProject = useArchiveProject()
   const restoreProject = useRestoreProject()
+
+  const availableClients = useMemo(
+    () =>
+      clients.filter(
+        (client) =>
+          client.approval_status === 'approved' && client.is_active && !client.archived_at,
+      ),
+    [clients],
+  )
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -141,11 +155,22 @@ export function ProjectsPage() {
                   onSubmit={form.handleSubmit(async (values) => {
                     try {
                       const project = await createProject.mutateAsync(values)
+                      if (assignClientId && assignClientId !== 'none') {
+                        await assignWorker.mutateAsync({
+                          projectId: project.id,
+                          profileId: assignClientId,
+                        })
+                      }
                       if (draft.draft?.id) {
                         await draft.publishDraft({ draftId: draft.draft.id, publishedEntityId: project.id })
                       }
-                      toast.success('Project created')
+                      toast.success(
+                        assignClientId && assignClientId !== 'none'
+                          ? 'Project created and client assigned'
+                          : 'Project created',
+                      )
                       form.reset()
+                      setAssignClientId('')
                       setCreateOpen(false)
                       navigate(`/projects/${project.id}`)
                     } catch (error) {
@@ -244,8 +269,35 @@ export function ProjectsPage() {
                       Leave blank; set automatically when marked completed (+7 years).
                     </p>
                   </div>
-                  <Button type="submit" disabled={createProject.isPending}>
-                    {createProject.isPending ? 'Creating...' : 'Create'}
+                  <div className="space-y-1">
+                    <Label>Assign to client (optional)</Label>
+                    <Select value={assignClientId} onValueChange={setAssignClientId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No client yet</SelectItem>
+                        {availableClients.length === 0 ? (
+                          <SelectItem value="unavailable" disabled>
+                            No approved clients
+                          </SelectItem>
+                        ) : (
+                          availableClients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {fullName(client.first_name, client.last_name)}
+                              {client.company_name ? ` · ${client.company_name}` : ''}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Shares this project in the client portal. You can also assign workers after
+                      creating.
+                    </p>
+                  </div>
+                  <Button type="submit" disabled={createProject.isPending || assignWorker.isPending}>
+                    {createProject.isPending || assignWorker.isPending ? 'Creating...' : 'Create'}
                   </Button>
                 </form>
               </DialogContent>

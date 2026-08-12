@@ -1180,15 +1180,23 @@ export function useAssignWorker() {
         performed_by: profile!.id,
       })
 
-      const assignee = await supabase.from('profiles').select('organization_id').eq('id', profileId).single()
-      const orgId = (assignee.data as { organization_id: string | null } | null)?.organization_id
+      const assignee = await supabase
+        .from('profiles')
+        .select('organization_id, role')
+        .eq('id', profileId)
+        .single()
+      const assigneeRow = assignee.data as { organization_id: string | null; role: UserRole } | null
+      const orgId = assigneeRow?.organization_id
       if (orgId) {
+        const isClient = assigneeRow?.role === 'client'
         await supabase.from('notifications').insert({
           organization_id: orgId,
           recipient_id: profileId,
-          title: 'Assigned to project',
-          message: 'You have been assigned to a new project.',
-          link: `/projects/${projectId}`,
+          title: isClient ? 'Project shared with you' : 'Assigned to project',
+          message: isClient
+            ? 'Tamay Enterprises shared a project with you in the client portal.'
+            : 'You have been assigned to a new project.',
+          link: isClient ? `/portal/projects/${projectId}` : `/projects/${projectId}`,
         })
       }
 

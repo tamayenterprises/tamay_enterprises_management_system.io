@@ -56,6 +56,7 @@ export function ProjectDetailPage() {
   const { data: documents = [] } = useProjectDocuments(projectId)
   const { data: history = [] } = useAssignmentHistory(projectId)
   const { data: workers = [] } = useProfiles({ role: ['employee', 'subcontractor', 'project_manager'] })
+  const { data: clients = [] } = useProfiles({ role: 'client' })
   const updateProject = useUpdateProject(projectId ?? '')
   const archiveProject = useArchiveProject()
   const restoreProject = useRestoreProject()
@@ -66,6 +67,7 @@ export function ProjectDetailPage() {
   const postDocumentsToThread = usePostProjectDocumentsToThread()
   const deleteDocument = useDeleteDocument()
   const [selectedWorker, setSelectedWorker] = useState('')
+  const [selectedClient, setSelectedClient] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const focusDocId = params.get('doc')
   const focusTab = params.get('tab')
@@ -97,8 +99,12 @@ export function ProjectDetailPage() {
       : undefined,
   })
 
+  const assignedIds = useMemo(
+    () => new Set(assignments.map((item) => item.profile_id)),
+    [assignments],
+  )
+
   const availableWorkers = useMemo(() => {
-    const assignedIds = new Set(assignments.map((item) => item.profile_id))
     return workers.filter(
       (worker) =>
         worker.approval_status === 'approved' &&
@@ -106,7 +112,26 @@ export function ProjectDetailPage() {
         !worker.archived_at &&
         !assignedIds.has(worker.id),
     )
-  }, [workers, assignments])
+  }, [workers, assignedIds])
+
+  const availableClients = useMemo(() => {
+    return clients.filter(
+      (client) =>
+        client.approval_status === 'approved' &&
+        client.is_active &&
+        !client.archived_at &&
+        !assignedIds.has(client.id),
+    )
+  }, [clients, assignedIds])
+
+  const workerAssignments = useMemo(
+    () => assignments.filter((item) => item.profile?.role !== 'client'),
+    [assignments],
+  )
+  const clientAssignments = useMemo(
+    () => assignments.filter((item) => item.profile?.role === 'client'),
+    [assignments],
+  )
 
   if (isLoading) return <LoadingState />
   if (isError || !project) {
@@ -449,90 +474,197 @@ export function ProjectDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Assigned workers</CardTitle>
+              <CardTitle>People on this project</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {canManage ? (
-                <div className="space-y-2">
-                  <Select value={selectedWorker} onValueChange={setSelectedWorker}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Assign worker" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableWorkers.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No available workers
-                        </SelectItem>
-                      ) : (
-                        availableWorkers.map((worker) => (
-                          <SelectItem key={worker.id} value={worker.id}>
-                            {fullName(worker.first_name, worker.last_name)} ({roleLabel(worker.role)})
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={!selectedWorker || selectedWorker === 'none'}
-                    onClick={async () => {
-                      try {
-                        await assignWorker.mutateAsync({ projectId: project.id, profileId: selectedWorker })
-                        setSelectedWorker('')
-                        toast.success('Worker assigned')
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : 'Assignment failed')
-                      }
-                    }}
-                  >
-                    Assign
-                  </Button>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Assign to worker</p>
+                  <p className="text-xs text-muted-foreground">
+                    Employees, subcontractors, and project managers.
+                  </p>
                 </div>
-              ) : null}
-
-              {assignments.length === 0 ? (
-                <EmptyState title="No workers assigned" />
-              ) : (
-                assignments.map((assignment) => (
-                  <div
-                    key={assignment.id}
-                    className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {assignment.profile
-                          ? fullName(assignment.profile.first_name, assignment.profile.last_name)
-                          : 'Worker'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {assignment.profile ? roleLabel(assignment.profile.role) : '—'} · assigned{' '}
-                        {formatRelative(assignment.assigned_at)}
-                      </p>
-                    </div>
-                    {canManage ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            await removeAssignment.mutateAsync({
-                              assignmentId: assignment.id,
-                              projectId: project.id,
-                              profileId: assignment.profile_id,
-                            })
-                            toast.success('Assignment removed')
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : 'Remove failed')
-                          }
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    ) : null}
+                {canManage ? (
+                  <div className="space-y-2">
+                    <Select value={selectedWorker} onValueChange={setSelectedWorker}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a worker" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableWorkers.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No available workers
+                          </SelectItem>
+                        ) : (
+                          availableWorkers.map((worker) => (
+                            <SelectItem key={worker.id} value={worker.id}>
+                              {fullName(worker.first_name, worker.last_name)} ({roleLabel(worker.role)})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      disabled={!selectedWorker || selectedWorker === 'none'}
+                      onClick={async () => {
+                        try {
+                          await assignWorker.mutateAsync({
+                            projectId: project.id,
+                            profileId: selectedWorker,
+                          })
+                          setSelectedWorker('')
+                          toast.success('Worker assigned')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Assignment failed')
+                        }
+                      }}
+                    >
+                      Assign worker
+                    </Button>
                   </div>
-                ))
-              )}
+                ) : null}
+                {workerAssignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No workers assigned yet.</p>
+                ) : (
+                  workerAssignments.map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {assignment.profile
+                            ? fullName(assignment.profile.first_name, assignment.profile.last_name)
+                            : 'Worker'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {assignment.profile ? roleLabel(assignment.profile.role) : '—'} · assigned{' '}
+                          {formatRelative(assignment.assigned_at)}
+                        </p>
+                      </div>
+                      {canManage ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await removeAssignment.mutateAsync({
+                                assignmentId: assignment.id,
+                                projectId: project.id,
+                                profileId: assignment.profile_id,
+                              })
+                              toast.success('Worker removed')
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : 'Remove failed')
+                            }
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="border-t border-border pt-6 space-y-3">
+                <div>
+                  <p className="text-sm font-medium">Assign to client</p>
+                  <p className="text-xs text-muted-foreground">
+                    Gives the customer access to this project in the client portal.
+                  </p>
+                </div>
+                {canManage ? (
+                  <div className="space-y-2">
+                    <Select value={selectedClient} onValueChange={setSelectedClient}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableClients.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No available clients
+                          </SelectItem>
+                        ) : (
+                          availableClients.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {fullName(client.first_name, client.last_name)}
+                              {client.company_name ? ` · ${client.company_name}` : ''}
+                              {client.email ? ` (${client.email})` : ''}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      disabled={!selectedClient || selectedClient === 'none'}
+                      onClick={async () => {
+                        try {
+                          await assignWorker.mutateAsync({
+                            projectId: project.id,
+                            profileId: selectedClient,
+                          })
+                          setSelectedClient('')
+                          toast.success('Client assigned')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Assignment failed')
+                        }
+                      }}
+                    >
+                      Assign client
+                    </Button>
+                  </div>
+                ) : null}
+                {clientAssignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No clients assigned yet.</p>
+                ) : (
+                  clientAssignments.map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {assignment.profile
+                            ? fullName(assignment.profile.first_name, assignment.profile.last_name)
+                            : 'Client'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Client
+                          {assignment.profile?.company_name
+                            ? ` · ${assignment.profile.company_name}`
+                            : ''}{' '}
+                          · assigned {formatRelative(assignment.assigned_at)}
+                        </p>
+                      </div>
+                      {canManage ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await removeAssignment.mutateAsync({
+                                assignmentId: assignment.id,
+                                projectId: project.id,
+                                profileId: assignment.profile_id,
+                              })
+                              toast.success('Client removed')
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : 'Remove failed')
+                            }
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -549,7 +681,7 @@ export function ProjectDetailPage() {
                     <div key={item.id} className="rounded-md border border-border px-3 py-2 text-sm">
                       <p className="font-medium capitalize">{item.action}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.profile ? fullName(item.profile.first_name, item.profile.last_name) : 'Worker'} ·{' '}
+                        {item.profile ? fullName(item.profile.first_name, item.profile.last_name) : 'Person'} ·{' '}
                         {formatRelative(item.created_at)}
                       </p>
                     </div>
