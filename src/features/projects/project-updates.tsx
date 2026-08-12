@@ -139,8 +139,8 @@ function UpdateComposer({
         try {
           // Replies under a client-visible root always stay client-visible so the
           // customer sees the full conversation chain, not only the first message.
-          const shareWithClient =
-            Boolean(defaultVisibleToClient) || (canManage && visibleToClient)
+          // Any assigned staff member (including employees/subs) can opt to share.
+          const shareWithClient = Boolean(defaultVisibleToClient) || visibleToClient
 
           if (photos.length === 0) {
             await createUpdate.mutateAsync({
@@ -335,7 +335,7 @@ function UpdateComposer({
           />
           Requires attention
         </label>
-        {canManage && !defaultVisibleToClient ? (
+        {!defaultVisibleToClient ? (
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
