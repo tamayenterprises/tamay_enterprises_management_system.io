@@ -81,8 +81,6 @@ function UpdateComposer({
   defaultVisibleToClient?: boolean
   onDone?: () => void
 }) {
-  const { profile } = useAuth()
-  const canManage = isManagementRole(profile?.role)
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
