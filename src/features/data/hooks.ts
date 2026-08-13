@@ -154,7 +154,7 @@ export function useCreateProjectUpdate() {
       mentionedUserIds,
       requiresAttention,
       referencedProjectIds,
-      visibleToClient,
+      visibleToClient = true,
     }: {
       projectId: string
       content: string
@@ -197,11 +197,11 @@ export function useCreateProjectUpdate() {
         project_id: projectId,
         author_id: profile.id,
         content: trimmed || null,
+        visible_to_client: visibleToClient !== false,
       }
       if (parentId) payload.parent_id = parentId
       if (photoPath) payload.photo_path = photoPath
       if (requiresAttention) payload.requires_attention = true
-      if (visibleToClient) payload.visible_to_client = true
 
       const { data, error } = await supabase
         .from('project_notes')
@@ -265,11 +265,11 @@ export function usePostProjectPhotosToThread() {
       projectId,
       photos,
       caption,
-      visibleToClient = true,
     }: {
       projectId: string
       photos: Array<{ storage_path: string; name?: string | null }>
       caption?: string
+      /** @deprecated Always shared with assigned clients */
       visibleToClient?: boolean
     }) => {
       if (!profile?.id) throw new Error('Missing profile')
@@ -280,19 +280,13 @@ export function usePostProjectPhotosToThread() {
         caption?.trim() ||
         (photos.length === 1 ? 'Shared a photo' : `Shared ${photos.length} photos`)
 
-      const rootPayload: {
-        project_id: string
-        author_id: string
-        content: string
-        photo_path: string
-        visible_to_client?: boolean
-      } = {
+      const rootPayload = {
         project_id: projectId,
         author_id: profile.id,
         content: rootCaption,
         photo_path: photos[0]!.storage_path,
+        visible_to_client: true,
       }
-      if (visibleToClient) rootPayload.visible_to_client = true
 
       const { data: root, error: rootError } = await supabase
         .from('project_notes')
@@ -303,21 +297,14 @@ export function usePostProjectPhotosToThread() {
       notes.push(root as ProjectNote)
 
       for (let index = 1; index < photos.length; index += 1) {
-        const replyPayload: {
-          project_id: string
-          author_id: string
-          content: string | null
-          parent_id: string
-          photo_path: string
-          visible_to_client?: boolean
-        } = {
+        const replyPayload = {
           project_id: projectId,
           author_id: profile.id,
-          content: null,
+          content: null as string | null,
           parent_id: (root as ProjectNote).id,
           photo_path: photos[index]!.storage_path,
+          visible_to_client: true,
         }
-        if (visibleToClient) replyPayload.visible_to_client = true
 
         const { data: reply, error: replyError } = await supabase
           .from('project_notes')
@@ -348,10 +335,10 @@ export function usePostProjectDocumentsToThread() {
     mutationFn: async ({
       projectId,
       documents,
-      visibleToClient = true,
     }: {
       projectId: string
       documents: Array<{ name: string }>
+      /** @deprecated Always shared with assigned clients */
       visibleToClient?: boolean
     }) => {
       if (!profile?.id) throw new Error('Missing profile')
@@ -363,17 +350,12 @@ export function usePostProjectDocumentsToThread() {
           ? `Shared a document: ${names[0]}`
           : `Shared ${names.length} documents:\n${names.map((name) => `• ${name}`).join('\n')}`
 
-      const payload: {
-        project_id: string
-        author_id: string
-        content: string
-        visible_to_client?: boolean
-      } = {
+      const payload = {
         project_id: projectId,
         author_id: profile.id,
         content,
+        visible_to_client: true,
       }
-      if (visibleToClient) payload.visible_to_client = true
 
       const { data, error } = await supabase
         .from('project_notes')

@@ -69,7 +69,6 @@ function UpdateComposer({
   submitLabel,
   mentionCandidates,
   projects,
-  defaultVisibleToClient = false,
   onDone,
 }: {
   projectId: string
@@ -78,14 +77,12 @@ function UpdateComposer({
   submitLabel: string
   mentionCandidates: Profile[]
   projects: Project[]
-  defaultVisibleToClient?: boolean
   onDone?: () => void
 }) {
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
   const [requiresAttention, setRequiresAttention] = useState(false)
-  const [visibleToClient, setVisibleToClient] = useState(defaultVisibleToClient)
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
   const [projectIds, setProjectIds] = useState<string[]>([projectId])
   const [mentionPicker, setMentionPicker] = useState('')
@@ -135,11 +132,7 @@ function UpdateComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
-          // Replies under a client-visible root always stay client-visible so the
-          // customer sees the full conversation chain, not only the first message.
-          // Any assigned staff member (including employees/subs) can opt to share.
-          const shareWithClient = Boolean(defaultVisibleToClient) || visibleToClient
-
+          // Project thread is shared with assigned clients — no per-message opt-in.
           if (photos.length === 0) {
             await createUpdate.mutateAsync({
               projectId,
@@ -148,7 +141,7 @@ function UpdateComposer({
               mentionedUserIds: mentionedIds,
               requiresAttention,
               referencedProjectIds: projectIds,
-              visibleToClient: shareWithClient ? true : undefined,
+              visibleToClient: true,
             })
           } else if (parentId) {
             // Replies are one level deep — keep every photo under the same parent.
@@ -161,7 +154,7 @@ function UpdateComposer({
                 mentionedUserIds: index === 0 ? mentionedIds : undefined,
                 requiresAttention: index === 0 ? requiresAttention : false,
                 referencedProjectIds: index === 0 ? projectIds : undefined,
-                visibleToClient: shareWithClient ? true : undefined,
+                visibleToClient: true,
               })
             }
           } else {
@@ -173,7 +166,7 @@ function UpdateComposer({
               mentionedUserIds: mentionedIds,
               requiresAttention,
               referencedProjectIds: projectIds,
-              visibleToClient: shareWithClient ? true : undefined,
+              visibleToClient: true,
             })
             for (let index = 1; index < photos.length; index += 1) {
               await createUpdate.mutateAsync({
@@ -181,7 +174,7 @@ function UpdateComposer({
                 parentId: root.id,
                 content: '',
                 photo: photos[index],
-                visibleToClient: shareWithClient ? true : undefined,
+                visibleToClient: true,
               })
             }
           }
@@ -189,7 +182,6 @@ function UpdateComposer({
           setContent('')
           setPhotos([])
           setRequiresAttention(false)
-          setVisibleToClient(defaultVisibleToClient)
           setMentionedIds([])
           setProjectIds([projectId])
           setDraftBanner(null)
@@ -333,19 +325,6 @@ function UpdateComposer({
           />
           Requires attention
         </label>
-        {!defaultVisibleToClient ? (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={visibleToClient}
-              onChange={(e) => setVisibleToClient(e.target.checked)}
-            />
-            Visible to client
-          </label>
-        ) : null}
-        {defaultVisibleToClient ? (
-          <span className="text-xs text-muted-foreground">Visible to client (whole thread)</span>
-        ) : null}
       </div>
 
       {mentionedIds.length > 0 || projectIds.length > 1 ? (
@@ -427,7 +406,6 @@ function UpdateCard({
     >
       <div className="space-y-2">
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
-        {update.visible_to_client ? <Badge variant="secondary">Visible to client</Badge> : null}
         {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
         {update.photo_path ? <UpdatePhoto path={update.photo_path} /> : null}
         <p className="text-xs text-muted-foreground">
@@ -449,9 +427,6 @@ function UpdateCard({
               }`}
             >
               <p className="text-xs text-muted-foreground">Replying to {authorName}</p>
-              {reply.visible_to_client ? (
-                <Badge variant="secondary">Visible to client</Badge>
-              ) : null}
               {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
               {reply.photo_path ? <UpdatePhoto path={reply.photo_path} /> : null}
               <p className="text-xs text-muted-foreground">
@@ -468,7 +443,6 @@ function UpdateCard({
           parentId={update.id}
           mentionCandidates={mentionCandidates}
           projects={projects}
-          defaultVisibleToClient={Boolean(update.visible_to_client)}
           placeholder={`Reply to ${authorName}…`}
           submitLabel="Post reply"
           onDone={() => setReplyOpen(false)}
