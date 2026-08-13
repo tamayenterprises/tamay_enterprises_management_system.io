@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { AuthBrowserTip } from '@/components/auth-browser-tip'
 import { supabase } from '@/lib/supabase'
 import { formatAuthError } from '@/lib/auth-errors'
 import { signUpSchema, type SignUpValues } from '@/lib/validations'
@@ -132,18 +133,21 @@ export function SignUpPage() {
               {isSubmitting ? 'Submitting...' : 'Register'}
             </Button>
           </form>
-          <p className="mt-4 text-center text-sm">
-            Already registered?{' '}
-            <Link className="text-primary hover:underline" to="/sign-in">
-              Sign in
-            </Link>
-          </p>
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            Looking for the client portal?{' '}
-            <Link className="text-primary hover:underline" to="/client/sign-up">
-              Client sign up
-            </Link>
-          </p>
+          <div className="mt-4 space-y-3">
+            <AuthBrowserTip />
+            <p className="text-center text-sm">
+              Already registered?{' '}
+              <Link className="text-primary hover:underline" to="/sign-in">
+                Sign in
+              </Link>
+            </p>
+            <p className="text-center text-sm text-muted-foreground">
+              Looking for the client portal?{' '}
+              <Link className="text-primary hover:underline" to="/client/sign-up">
+                Client sign up
+              </Link>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </AuthLayout>
