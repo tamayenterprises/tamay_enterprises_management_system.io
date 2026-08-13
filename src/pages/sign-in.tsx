@@ -54,7 +54,9 @@ export function SignInPage() {
     }
 
     toast.success('Welcome back')
-    navigate(homePathForRole(profile.role), { replace: true })
+    // Full navigation so auth context and route guards load cleanly together
+    // (client-side navigate can bounce back to /sign-in before profile sync finishes).
+    window.location.assign(homePathForRole(profile.role))
   })
 
   return (
