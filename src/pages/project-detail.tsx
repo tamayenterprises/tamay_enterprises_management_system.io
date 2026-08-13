@@ -27,6 +27,7 @@ import {
   useProject,
   useProjectAssignments,
   useProjectDocuments,
+  useProjectWarrantyAudit,
   useRemoveAssignment,
   useRestoreProject,
   useUpdateProject,
@@ -42,6 +43,7 @@ import {
   isManagementRole,
   projectStatusLabel,
   roleLabel,
+  warrantyStatusLabel,
 } from '@/lib/utils'
 import { UPLOAD_ACCEPT, confirmAction, isImageUploadFile } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
@@ -55,6 +57,7 @@ export function ProjectDetailPage() {
   const { data: assignments = [] } = useProjectAssignments(projectId)
   const { data: documents = [] } = useProjectDocuments(projectId)
   const { data: history = [] } = useAssignmentHistory(projectId)
+  const { data: warrantyAudit = [] } = useProjectWarrantyAudit(projectId)
   const { data: workers = [] } = useProfiles({ role: ['employee', 'subcontractor', 'project_manager'] })
   const { data: clients = [] } = useProfiles({ role: 'client' })
   const updateProject = useUpdateProject(projectId ?? '')
@@ -278,7 +281,8 @@ export function ProjectDetailPage() {
                     <Label>Warranty ends</Label>
                     <Input type="date" {...editForm.register('warranty_ends_on')} />
                     <p className="text-xs text-muted-foreground">
-                      Defaults to completion date + 7 years when left blank and status is Completed.
+                      Defaults to completion + 7 years. Once set, the date can be changed but not
+                      cleared. Hard delete is blocked while warranty is active.
                     </p>
                   </div>
                   <Button type="submit" disabled={updateProject.isPending}>
@@ -302,6 +306,7 @@ export function ProjectDetailPage() {
               <p>Start: {formatDate(project.start_date)}</p>
               <p>Deadline: {formatDate(project.deadline)}</p>
               <p>Warranty ends: {formatDate(project.warranty_ends_on)}</p>
+              <p className="text-muted-foreground">{warrantyStatusLabel(project.warranty_ends_on)}</p>
               {project.archived_at ? (
                 <p className="text-muted-foreground">Archived {formatDate(project.archived_at)}</p>
               ) : null}
@@ -686,6 +691,47 @@ export function ProjectDetailPage() {
                       </p>
                     </div>
                   ))
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {canManage ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Warranty & archive audit</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {warrantyAudit.length === 0 ? (
+                  <EmptyState title="No warranty or archive changes logged yet" />
+                ) : (
+                  warrantyAudit.map((item) => {
+                    const actionLabel =
+                      item.action === 'project_archived'
+                        ? 'Archived'
+                        : item.action === 'project_restored'
+                          ? 'Restored'
+                          : item.action === 'warranty_date_changed'
+                            ? 'Warranty date changed'
+                            : item.action
+                    return (
+                      <div key={item.id} className="rounded-md border border-border px-3 py-2 text-sm">
+                        <p className="font-medium">{actionLabel}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.actor
+                            ? fullName(item.actor.first_name, item.actor.last_name)
+                            : 'System'}{' '}
+                          · {formatRelative(item.created_at)}
+                        </p>
+                        {item.action === 'warranty_date_changed' ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatDate(String(item.metadata?.previous_warranty_ends_on ?? ''))} →{' '}
+                            {formatDate(String(item.metadata?.warranty_ends_on ?? ''))}
+                          </p>
+                        ) : null}
+                      </div>
+                    )
+                  })
                 )}
               </CardContent>
             </Card>

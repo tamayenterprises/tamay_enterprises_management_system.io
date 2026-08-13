@@ -36,6 +36,8 @@ export function useProjects(options?: {
   status?: ProjectStatus | 'all'
   /** active = not archived (default); archived = archived only; all = both */
   archived?: 'active' | 'archived' | 'all'
+  /** Client-side style filter applied after fetch for archived warranty views */
+  warranty?: 'all' | 'active' | 'expired'
 }) {
   const { profile } = useAuth()
 
@@ -53,7 +55,10 @@ export function useProjects(options?: {
       }
 
       if (options?.search) {
-        query = query.ilike('name', `%${options.search}%`)
+        const term = options.search.trim()
+        if (term) {
+          query = query.or(`name.ilike.%${term}%,location.ilike.%${term}%,description.ilike.%${term}%`)
+        }
       }
 
       if (options?.status && options.status !== 'all') {
@@ -62,7 +67,18 @@ export function useProjects(options?: {
 
       const { data, error } = await query
       if (error) throw error
-      const projects = (data ?? []) as Project[]
+      let projects = (data ?? []) as Project[]
+
+      if (options?.warranty && options.warranty !== 'all') {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        projects = projects.filter((project) => {
+          if (!project.warranty_ends_on) return options.warranty === 'active'
+          const end = new Date(`${project.warranty_ends_on}T00:00:00`)
+          const active = end >= today
+          return options.warranty === 'active' ? active : !active
+        })
+      }
 
       if (options?.assignedOnly && profile && !['admin', 'project_manager'].includes(profile.role)) {
         const { data: assignments, error: assignmentError } = await supabase
@@ -76,6 +92,58 @@ export function useProjects(options?: {
       }
 
       return projects
+    },
+  })
+}
+
+/** Active client assignees for a set of projects (for archived warranty lookup cards). */
+export function useProjectClientAssignees(projectIds: string[]) {
+  const idsKey = projectIds.slice().sort().join(',')
+  return useQuery({
+    queryKey: ['project-client-assignees', idsKey],
+    enabled: projectIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('project_assignments')
+        .select('project_id, profile:profiles!profile_id(id, first_name, last_name, company_name, role, email)')
+        .in('project_id', projectIds)
+        .eq('is_active', true)
+      if (error) throw error
+
+      const byProject = new Map<string, Profile[]>()
+      for (const row of data ?? []) {
+        const assignment = row as {
+          project_id: string
+          profile: Profile | Profile[] | null
+        }
+        const profile = Array.isArray(assignment.profile)
+          ? assignment.profile[0]
+          : assignment.profile
+        if (!profile || profile.role !== 'client') continue
+        const list = byProject.get(assignment.project_id) ?? []
+        list.push(profile)
+        byProject.set(assignment.project_id, list)
+      }
+      return byProject
+    },
+  })
+}
+
+export function useProjectWarrantyAudit(projectId?: string) {
+  return useQuery({
+    queryKey: ['project-warranty-audit', projectId],
+    enabled: Boolean(projectId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('*, actor:profiles!actor_id(*)')
+        .eq('entity_type', 'project')
+        .eq('entity_id', projectId!)
+        .in('action', ['project_archived', 'project_restored', 'warranty_date_changed'])
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error) throw error
+      return (data ?? []) as ActivityLog[]
     },
   })
 }
@@ -428,11 +496,16 @@ export function useUpdateProject(projectId: string) {
 
   return useMutation({
     mutationFn: async (values: Partial<ProjectFormValues> & { status?: ProjectStatus }) => {
-      const payload = {
+      const payload: Record<string, unknown> = {
         ...values,
         start_date: values.start_date === '' ? null : values.start_date,
         deadline: values.deadline === '' ? null : values.deadline,
-        warranty_ends_on: values.warranty_ends_on === '' ? null : values.warranty_ends_on,
+      }
+      // Warranty dates cannot be cleared once set (DB enforces). Omit blank to leave unchanged.
+      if (values.warranty_ends_on === '' || values.warranty_ends_on == null) {
+        delete payload.warranty_ends_on
+      } else {
+        payload.warranty_ends_on = values.warranty_ends_on
       }
       const { data, error } = await supabase.from('projects').update(payload).eq('id', projectId).select().single()
       if (error) throw error
@@ -441,6 +514,8 @@ export function useUpdateProject(projectId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-warranty-audit', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
     },
   })
 }
@@ -475,6 +550,8 @@ export function useArchiveProject() {
     onSuccess: (_data, projectId) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-warranty-audit', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
     },
   })
 }
@@ -493,6 +570,8 @@ export function useRestoreProject() {
     onSuccess: (_data, projectId) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
       queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['project-warranty-audit', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
     },
   })
 }
