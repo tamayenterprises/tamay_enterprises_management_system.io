@@ -39,6 +39,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 27. `supabase/migrations/20260338000004_project_notification_fanout.sql` (management + client project notification fan-out)
 28. `supabase/migrations/20260338000005_project_warranty_archive.sql` (warranty_ends_on + archived project indexes; auto +7 years on completed)
 29. `supabase/migrations/20260338000006_project_thread_always_client_visible.sql` (project thread shared with assigned clients; no per-message opt-in)
+30. `supabase/migrations/20260338000007_harden_warranty_archive.sql` (block hard-delete under warranty; audit archive/restore/warranty changes)
 
 **Notes**
 

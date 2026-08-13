@@ -18,12 +18,20 @@ import {
   useCreateProject,
   useArchiveProject,
   useProfiles,
+  useProjectClientAssignees,
   useRestoreProject,
   useProjects,
 } from '@/features/data/hooks'
 import { useFormDraft } from '@/features/drafts/use-form-draft'
 import { useAuth } from '@/features/auth/auth-context'
-import { formatDate, fullName, isManagementRole, projectStatusLabel } from '@/lib/utils'
+import {
+  formatDate,
+  fullName,
+  isManagementRole,
+  isWarrantyActive,
+  projectStatusLabel,
+  warrantyStatusLabel,
+} from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
@@ -36,12 +44,19 @@ const STATUS_FILTERS: Array<{ value: ProjectStatus | 'all'; label: string }> = [
   { value: 'completed', label: 'Completed' },
 ]
 
+const WARRANTY_FILTERS: Array<{ value: 'all' | 'active' | 'expired'; label: string }> = [
+  { value: 'all', label: 'All warranties' },
+  { value: 'active', label: 'Warranty active' },
+  { value: 'expired', label: 'Warranty expired' },
+]
+
 export function ProjectsPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<ProjectStatus | 'all'>('all')
   const [archivedView, setArchivedView] = useState<'active' | 'archived'>('active')
+  const [warrantyFilter, setWarrantyFilter] = useState<'all' | 'active' | 'expired'>('all')
   const [createOpen, setCreateOpen] = useState(false)
   const [assignClientId, setAssignClientId] = useState('')
   const canManage = isManagementRole(profile?.role)
@@ -50,6 +65,7 @@ export function ProjectsPage() {
     search,
     status,
     archived: canManage ? archivedView : 'active',
+    warranty: archivedView === 'archived' ? warrantyFilter : 'all',
   })
   const { data: clients = [] } = useProfiles({ role: 'client' })
   const createProject = useCreateProject()
@@ -88,6 +104,10 @@ export function ProjectsPage() {
   const watched = form.watch()
   const restoredRef = useRef(false)
   const projects = useMemo(() => data ?? [], [data])
+  const projectIds = useMemo(() => projects.map((project) => project.id), [projects])
+  const { data: clientsByProject } = useProjectClientAssignees(
+    archivedView === 'archived' ? projectIds : [],
+  )
 
   useEffect(() => {
     if (!createOpen) return
@@ -136,7 +156,11 @@ export function ProjectsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Input
-            placeholder="Search projects..."
+            placeholder={
+              archivedView === 'archived'
+                ? 'Search archived by name, location…'
+                : 'Search projects...'
+            }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-64"
@@ -312,7 +336,10 @@ export function ProjectsPage() {
             <Button
               size="sm"
               variant={archivedView === 'active' ? 'default' : 'outline'}
-              onClick={() => setArchivedView('active')}
+              onClick={() => {
+                setArchivedView('active')
+                setWarrantyFilter('all')
+              }}
             >
               Active
             </Button>
@@ -336,6 +363,21 @@ export function ProjectsPage() {
             {filter.label}
           </Button>
         ))}
+        {canManage && archivedView === 'archived' ? (
+          <>
+            <span className="mx-1 hidden h-5 w-px bg-border sm:inline-block" aria-hidden />
+            {WARRANTY_FILTERS.map((filter) => (
+              <Button
+                key={filter.value}
+                size="sm"
+                variant={warrantyFilter === filter.value ? 'default' : 'outline'}
+                onClick={() => setWarrantyFilter(filter.value)}
+              >
+                {filter.label}
+              </Button>
+            ))}
+          </>
+        ) : null}
       </div>
 
       {projects.length === 0 ? (
@@ -343,13 +385,16 @@ export function ProjectsPage() {
           title={archivedView === 'archived' ? 'No archived projects' : 'No projects yet'}
           description={
             archivedView === 'archived'
-              ? 'Archived jobs stay available here for warranty records.'
+              ? 'Archived jobs stay available here for warranty records. Try another warranty filter or search.'
               : 'Management can create projects and assign workers.'
           }
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {projects.map((project) => (
+          {projects.map((project) => {
+            const projectClients = clientsByProject?.get(project.id) ?? []
+            const warrantyActive = isWarrantyActive(project.warranty_ends_on)
+            return (
             <Card key={project.id}>
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
                 <div>
@@ -359,9 +404,26 @@ export function ProjectsPage() {
                     </Link>
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">{project.location || 'No location'}</p>
+                  {projectClients.length > 0 ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Client:{' '}
+                      {projectClients
+                        .map((client) =>
+                          client.company_name
+                            ? `${fullName(client.first_name, client.last_name)} (${client.company_name})`
+                            : fullName(client.first_name, client.last_name),
+                        )
+                        .join(', ')}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   {project.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
+                  {project.archived_at || project.warranty_ends_on ? (
+                    <Badge variant={warrantyActive ? 'default' : 'outline'}>
+                      {warrantyActive ? 'Warranty active' : 'Warranty expired'}
+                    </Badge>
+                  ) : null}
                   <Badge>{projectStatusLabel(project.status)}</Badge>
                   <Badge variant="secondary">{project.priority}</Badge>
                 </div>
@@ -371,6 +433,11 @@ export function ProjectsPage() {
                 <p>Start: {formatDate(project.start_date)}</p>
                 <p>Deadline: {formatDate(project.deadline)}</p>
                 <p>Warranty ends: {formatDate(project.warranty_ends_on)}</p>
+                {project.warranty_ends_on || project.archived_at ? (
+                  <p className="text-xs text-muted-foreground">
+                    {warrantyStatusLabel(project.warranty_ends_on)}
+                  </p>
+                ) : null}
                 <div className="flex gap-2 pt-2">
                   <Button asChild size="sm">
                     <Link to={`/projects/${project.id}`}>Open</Link>
@@ -382,7 +449,7 @@ export function ProjectsPage() {
                       onClick={async () => {
                         if (
                           !confirmAction(
-                            `Archive project "${project.name}"? It will stay available under Archived for warranty records.`,
+                            `Archive project "${project.name}"? It will stay available under Archived for warranty records and cannot be hard-deleted while warranty is active.`,
                           )
                         ) {
                           return
@@ -417,7 +484,8 @@ export function ProjectsPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
