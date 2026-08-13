@@ -24,7 +24,10 @@ import {
   insertAtTrigger,
   mentionToken,
   projectHashToken,
+  resolveMentionedUserIds,
+  resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
+import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
 import { useAuth } from '@/features/auth/auth-context'
@@ -133,14 +136,27 @@ function UpdateComposer({
         event.preventDefault()
         try {
           // Project thread is shared with assigned clients — no per-message opt-in.
+          const mentionIds = Array.from(
+            new Set([
+              ...mentionedIds,
+              ...resolveMentionedUserIds(content, mentionCandidates),
+            ]),
+          )
+          const referencedIds = Array.from(
+            new Set([
+              ...projectIds,
+              ...resolveReferencedProjectIds(content, projects),
+            ]),
+          )
+
           if (photos.length === 0) {
             await createUpdate.mutateAsync({
               projectId,
               content,
               parentId,
-              mentionedUserIds: mentionedIds,
+              mentionedUserIds: mentionIds,
               requiresAttention,
-              referencedProjectIds: projectIds,
+              referencedProjectIds: referencedIds,
               visibleToClient: true,
             })
           } else if (parentId) {
@@ -151,9 +167,9 @@ function UpdateComposer({
                 content: index === 0 ? content : '',
                 parentId,
                 photo: photos[index],
-                mentionedUserIds: index === 0 ? mentionedIds : undefined,
+                mentionedUserIds: index === 0 ? mentionIds : undefined,
                 requiresAttention: index === 0 ? requiresAttention : false,
-                referencedProjectIds: index === 0 ? projectIds : undefined,
+                referencedProjectIds: index === 0 ? referencedIds : undefined,
                 visibleToClient: true,
               })
             }
@@ -163,9 +179,9 @@ function UpdateComposer({
               projectId,
               content,
               photo: photos[0],
-              mentionedUserIds: mentionedIds,
+              mentionedUserIds: mentionIds,
               requiresAttention,
-              referencedProjectIds: projectIds,
+              referencedProjectIds: referencedIds,
               visibleToClient: true,
             })
             for (let index = 1; index < photos.length; index += 1) {
@@ -333,7 +349,7 @@ function UpdateComposer({
             const person = mentionCandidates.find((p) => p.id === id)
             if (!person) return null
             return (
-              <Badge key={id} variant="secondary">
+              <Badge key={id} className="bg-[#35558f]/10 text-[#35558f]">
                 {mentionToken(person)}
               </Badge>
             )
@@ -406,7 +422,9 @@ function UpdateCard({
     >
       <div className="space-y-2">
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
-        {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
+        {update.content ? (
+          <RichUpdateText content={update.content} people={mentionCandidates} projects={projects} />
+        ) : null}
         {update.photo_path ? <UpdatePhoto path={update.photo_path} /> : null}
         <p className="text-xs text-muted-foreground">
           {authorName} · {formatRelative(update.created_at)}
@@ -427,7 +445,9 @@ function UpdateCard({
               }`}
             >
               <p className="text-xs text-muted-foreground">Replying to {authorName}</p>
-              {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
+              {reply.content ? (
+                <RichUpdateText content={reply.content} people={mentionCandidates} projects={projects} />
+              ) : null}
               {reply.photo_path ? <UpdatePhoto path={reply.photo_path} /> : null}
               <p className="text-xs text-muted-foreground">
                 {replyAuthor} · {formatRelative(reply.created_at)}

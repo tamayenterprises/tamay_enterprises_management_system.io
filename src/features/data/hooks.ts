@@ -230,7 +230,10 @@ export function useCreateProjectUpdate() {
           p_mentioned_user_ids: mentionedUserIds,
         })
         if (mentionError) {
-          console.warn(mentionError.message)
+          throw new Error(
+            mentionError.message ||
+              'Update saved, but mention notifications could not be sent. Try mentioning again.',
+          )
         }
       }
       if (referencedProjectIds?.length) {
