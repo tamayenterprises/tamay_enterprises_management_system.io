@@ -12,6 +12,7 @@ import {
 } from '@/features/data/hooks'
 import { formatRelative, fullName } from '@/lib/utils'
 import { IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
+import { RichUpdateText } from '@/features/updates/rich-update-text'
 import type { ProjectNote } from '@/types/database'
 
 function ClientUpdatePhoto({ path }: { path: string }) {
@@ -139,7 +140,7 @@ function ClientUpdateCard({
   return (
     <div className="space-y-3 rounded-md border border-border px-3 py-3 text-sm">
       <div className="space-y-2">
-        {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
+        {update.content ? <RichUpdateText content={update.content} /> : null}
         {update.photo_path ? <ClientUpdatePhoto path={update.photo_path} /> : null}
         <p className="text-xs text-muted-foreground">
           {authorName} · {formatRelative(update.created_at)}
@@ -154,7 +155,7 @@ function ClientUpdateCard({
               : 'Unknown'
             return (
               <div key={reply.id} className="space-y-2 rounded-md bg-muted/40 px-3 py-2">
-                {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
+                {reply.content ? <RichUpdateText content={reply.content} /> : null}
                 {reply.photo_path ? <ClientUpdatePhoto path={reply.photo_path} /> : null}
                 <p className="text-xs text-muted-foreground">
                   {replyAuthor} · {formatRelative(reply.created_at)}
