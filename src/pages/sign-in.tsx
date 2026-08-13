@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AuthBrowserTip } from '@/components/auth-browser-tip'
 import { supabase } from '@/lib/supabase'
 import { formatAuthError } from '@/lib/auth-errors'
 import { homePathForRole } from '@/lib/utils'
@@ -83,6 +84,7 @@ export function SignInPage() {
             </Button>
           </form>
           <div className="mt-4 space-y-3 text-sm">
+            <AuthBrowserTip />
             <Link className="text-primary hover:underline" to="/forgot-password">
               Forgot password?
             </Link>

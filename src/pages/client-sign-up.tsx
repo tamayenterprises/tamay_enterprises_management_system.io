@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AuthBrowserTip } from '@/components/auth-browser-tip'
 import { supabase } from '@/lib/supabase'
 import { formatAuthError } from '@/lib/auth-errors'
 import { clientSignUpSchema, type ClientSignUpValues } from '@/lib/validations'
@@ -99,13 +100,16 @@ export function ClientSignUpPage() {
               {isSubmitting ? 'Submitting...' : 'Create client account'}
             </Button>
           </form>
-          <div className="mt-4 flex justify-between text-sm">
-            <Link className="text-primary hover:underline" to="/sign-in">
-              Back to sign in
-            </Link>
-            <Link className="text-muted-foreground hover:underline" to="/sign-up">
-              Staff sign up
-            </Link>
+          <div className="mt-4 space-y-3">
+            <AuthBrowserTip />
+            <div className="flex justify-between text-sm">
+              <Link className="text-primary hover:underline" to="/sign-in">
+                Back to sign in
+              </Link>
+              <Link className="text-muted-foreground hover:underline" to="/sign-up">
+                Staff sign up
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>
