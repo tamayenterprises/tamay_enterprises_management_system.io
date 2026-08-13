@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -12,7 +12,6 @@ import { formatAuthError } from '@/lib/auth-errors'
 import { clientSignUpSchema, type ClientSignUpValues } from '@/lib/validations'
 
 export function ClientSignUpPage() {
-  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
@@ -41,8 +40,8 @@ export function ClientSignUpPage() {
     }
 
     await supabase.auth.signOut()
-    toast.success('Client registration submitted. You can sign in after Tamay Enterprises approves your account.')
-    navigate('/sign-in', { replace: true })
+    // Full page load avoids React unmount racing browser password-manager DOM edits.
+    window.location.replace('/sign-in?registered=1')
   })
 
   return (

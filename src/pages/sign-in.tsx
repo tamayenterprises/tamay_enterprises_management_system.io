@@ -1,4 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -14,11 +15,18 @@ import type { UserRole } from '@/types/database'
 
 export function SignInPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<SignInValues>({ resolver: zodResolver(signInSchema) })
+
+  useEffect(() => {
+    if (params.get('registered') !== '1') return
+    toast.success('Registration submitted. You can sign in after management approves your account.')
+    navigate('/sign-in', { replace: true })
+  }, [params, navigate])
 
   const onSubmit = handleSubmit(async (values) => {
     const { data, error } = await supabase.auth.signInWithPassword(values)

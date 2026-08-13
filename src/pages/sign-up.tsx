@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -13,7 +13,6 @@ import { formatAuthError } from '@/lib/auth-errors'
 import { signUpSchema, type SignUpValues } from '@/lib/validations'
 
 export function SignUpPage() {
-  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
@@ -51,8 +50,9 @@ export function SignUpPage() {
     // Clear any auto-created session so the user lands on sign-in, not pending-approval
     await supabase.auth.signOut()
 
-    toast.success('Registration submitted. You can sign in after management approves your account.')
-    navigate('/sign-in', { replace: true })
+    // Full page load avoids React unmount racing browser password-manager DOM edits
+    // (common "removeChild" crash on mobile Chrome after signup).
+    window.location.replace('/sign-in?registered=1')
   })
 
   return (
@@ -78,12 +78,12 @@ export function SignUpPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...register('email')} />
+              <Input id="email" type="email" autoComplete="email" {...register('email')} />
               {errors.email ? <p className="text-xs text-destructive">{errors.email.message}</p> : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" {...register('phone')} />
+              <Input id="phone" autoComplete="tel" {...register('phone')} />
               {errors.phone ? <p className="text-xs text-destructive">{errors.phone.message}</p> : null}
             </div>
             <div className="space-y-2">
@@ -113,12 +113,17 @@ export function SignUpPage() {
             ) : null}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" {...register('password')} />
+              <Input id="password" type="password" autoComplete="new-password" {...register('password')} />
               {errors.password ? <p className="text-xs text-destructive">{errors.password.message}</p> : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm password</Label>
-              <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
+              <Input
+                id="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                {...register('confirmPassword')}
+              />
               {errors.confirmPassword ? (
                 <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
               ) : null}
