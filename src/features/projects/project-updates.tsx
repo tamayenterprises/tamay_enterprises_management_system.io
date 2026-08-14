@@ -306,89 +306,97 @@ function UpdateComposer({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={mentionPicker}
-          onValueChange={(value) => {
-            const person = mentionCandidates.find((p) => p.id === value)
-            if (!person) return
-            setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${mentionToken(person)} `)
-            setMentionedIds((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]))
-            setMentionPicker('')
-          }}
-        >
-          <SelectTrigger className="w-[11rem]">
-            <SelectValue placeholder="Mention @" />
-          </SelectTrigger>
-          <SelectContent>
-            {mentionCandidates.map((person) => (
-              <SelectItem key={person.id} value={person.id}>
-                {fullName(person.first_name, person.last_name)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={projectPicker}
-          onValueChange={(value) => {
-            const project = projects.find((p) => p.id === value)
-            if (!project) return
-            setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${projectHashToken(project)} `)
-            setProjectIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]))
-            setProjectPicker('')
-          }}
-        >
-          <SelectTrigger className="w-[11rem]">
-            <SelectValue placeholder="Reference #" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={requiresAttention}
-            onChange={(e) => {
-              const next = e.target.checked
-              setRequiresAttention(next)
-              draft.scheduleSave({
-                content,
-                requiresAttention: next,
-                visibleToClient,
-                mentionedIds,
-                projectIds,
-              })
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Select
+            value={mentionPicker}
+            onValueChange={(value) => {
+              const person = mentionCandidates.find((p) => p.id === value)
+              if (!person) return
+              setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${mentionToken(person)} `)
+              setMentionedIds((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]))
+              setMentionPicker('')
             }}
-          />
-          Requires attention
-        </label>
-        {!defaultVisibleToClient ? (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          >
+            <SelectTrigger className="h-11 w-full sm:w-[11rem]">
+              <SelectValue placeholder="Mention @" />
+            </SelectTrigger>
+            <SelectContent>
+              {mentionCandidates.map((person) => (
+                <SelectItem key={person.id} value={person.id}>
+                  {fullName(person.first_name, person.last_name)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={projectPicker}
+            onValueChange={(value) => {
+              const project = projects.find((p) => p.id === value)
+              if (!project) return
+              setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${projectHashToken(project)} `)
+              setProjectIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]))
+              setProjectPicker('')
+            }}
+          >
+            <SelectTrigger className="h-11 w-full sm:w-[11rem]">
+              <SelectValue placeholder="Reference #" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="flex min-h-11 items-center gap-3 text-sm text-muted-foreground">
             <input
               type="checkbox"
-              checked={visibleToClient}
+              className="h-5 w-5 shrink-0"
+              checked={requiresAttention}
               onChange={(e) => {
                 const next = e.target.checked
-                setVisibleToClient(next)
+                setRequiresAttention(next)
                 draft.scheduleSave({
                   content,
-                  requiresAttention,
-                  visibleToClient: next,
+                  requiresAttention: next,
+                  visibleToClient,
                   mentionedIds,
                   projectIds,
                 })
               }}
             />
-            Visible to client
+            Requires attention
           </label>
-        ) : (
-          <span className="text-xs text-muted-foreground">Visible to client (whole thread)</span>
-        )}
+          {!defaultVisibleToClient ? (
+            <label className="flex min-h-11 items-center gap-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-5 w-5 shrink-0"
+                checked={visibleToClient}
+                onChange={(e) => {
+                  const next = e.target.checked
+                  setVisibleToClient(next)
+                  draft.scheduleSave({
+                    content,
+                    requiresAttention,
+                    visibleToClient: next,
+                    mentionedIds,
+                    projectIds,
+                  })
+                }}
+              />
+              Visible to client
+            </label>
+          ) : (
+            <span className="flex min-h-11 items-center text-sm text-muted-foreground">
+              Visible to client (whole thread)
+            </span>
+          )}
+        </div>
       </div>
 
       {mentionedIds.length > 0 || projectIds.length > 1 ? (

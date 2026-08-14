@@ -27,10 +27,10 @@ import {
 } from '@/lib/utils'
 import {
   IMAGE_UPLOAD_ACCEPT,
-  UPLOAD_FOLDER_HINT,
   categoryForUploadFile,
   confirmAction,
   resolvedDocumentUploadAccept,
+  uploadFolderHint,
 } from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
 
@@ -108,7 +108,7 @@ export function DocumentsPage() {
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label>Files</Label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <FilePickerButton
                     accept={IMAGE_UPLOAD_ACCEPT}
                     label="Add photos"
@@ -135,7 +135,7 @@ export function DocumentsPage() {
                     onFiles={setFiles}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
+                <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
                 <SelectedFilesList files={files} onChange={setFiles} />
               </div>
               <div className="space-y-1">

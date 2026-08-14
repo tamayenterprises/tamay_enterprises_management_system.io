@@ -218,10 +218,11 @@ export function ClockInOutCard() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {actions.map((action) => (
             <Button
               key={action}
+              className="min-h-11 w-full sm:w-auto"
               variant={action === 'WORK_ENDED' || action === 'BREAK_STARTED' ? 'outline' : 'default'}
               disabled={
                 Boolean(busyAction) ||
@@ -235,8 +236,8 @@ export function ClockInOutCard() {
           ))}
           <Button
             type="button"
-            variant="ghost"
-            size="sm"
+            variant="outline"
+            className="min-h-11 w-full sm:w-auto"
             disabled={!canRequestException}
             onClick={() => {
               if (!canRequestException) {
@@ -273,12 +274,15 @@ export function ClockInOutCard() {
           <div className="space-y-2 border-t border-border pt-3">
             <p className="text-sm font-medium">Recent shifts</p>
             {history.map((row) => (
-              <div key={row.id} className="flex items-center justify-between text-sm">
-                <div>
+              <div
+                key={row.id}
+                className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
                   <p>{format(new Date(row.clock_in_time), 'MMM d')}</p>
                   <p className="text-xs text-muted-foreground">{row.project?.name || 'No project'}</p>
                 </div>
-                <div className="text-right text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground sm:text-right">
                   <p>
                     {format(new Date(row.clock_in_time), 'h:mm a')}
                     {row.clock_out_time ? ` – ${format(new Date(row.clock_out_time), 'h:mm a')}` : ' – open'}

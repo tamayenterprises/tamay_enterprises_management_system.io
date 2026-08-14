@@ -190,15 +190,15 @@ export function AdminPage() {
               person and unassigns them from all projects (restorable later).
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <Input
-              className="w-56"
+              className="w-full sm:w-56"
               placeholder="Search name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -211,7 +211,7 @@ export function AdminPage() {
               </SelectContent>
             </Select>
             <Select value={approvalFilter} onValueChange={setApprovalFilter}>
-              <SelectTrigger className="w-44">
+              <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Approval" />
               </SelectTrigger>
               <SelectContent>
@@ -224,6 +224,7 @@ export function AdminPage() {
             <Button
               variant={showArchived ? 'secondary' : 'outline'}
               size="sm"
+              className="min-h-11 w-full sm:w-auto"
               onClick={() => setShowArchived((value) => !value)}
             >
               {showArchived ? 'Hide removed' : 'Show removed'}
@@ -422,13 +423,13 @@ function UserRow({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Select
             value={user.role}
             disabled={isSelf}
             onValueChange={(value) => void onRoleChange(value as UserRole)}
           >
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="h-11 w-full sm:w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -440,21 +441,22 @@ function UserRow({
             </SelectContent>
           </Select>
           {user.approval_status === 'rejected' ? (
-            <Button size="sm" variant="outline" onClick={onReapprove}>
+            <Button size="sm" variant="outline" className="min-h-11 w-full sm:w-auto" onClick={onReapprove}>
               Re-approve
             </Button>
           ) : null}
-          <Button size="sm" variant="outline" disabled={isSelf} onClick={onToggleActive}>
+          <Button size="sm" variant="outline" className="min-h-11 w-full sm:w-auto" disabled={isSelf} onClick={onToggleActive}>
             {user.is_active ? 'Deactivate' : 'Activate'}
           </Button>
           <Button
             size="sm"
             variant="outline"
+            className="min-h-11 w-full sm:w-auto"
             onClick={() => setShowProjects((open) => !open)}
           >
             {showProjects ? 'Hide projects' : 'Projects'}
           </Button>
-          <Button size="sm" variant="destructive" disabled={isSelf} onClick={onToggleRemove}>
+          <Button size="sm" variant="destructive" className="min-h-11 w-full sm:w-auto" disabled={isSelf} onClick={onToggleRemove}>
             {user.archived_at ? 'Restore' : 'Remove'}
           </Button>
         </div>

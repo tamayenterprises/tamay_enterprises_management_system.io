@@ -20,9 +20,9 @@ import {
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
 import {
   IMAGE_UPLOAD_ACCEPT,
-  UPLOAD_FOLDER_HINT,
   categoryForUploadFile,
   resolvedDocumentUploadAccept,
+  uploadFolderHint,
 } from '@/lib/uploads'
 
 export function ClientDocumentsPage() {
@@ -154,7 +154,7 @@ export function ClientDocumentsPage() {
             </div>
             <div className="space-y-1">
               <Label>Files</Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <FilePickerButton
                   accept={IMAGE_UPLOAD_ACCEPT}
                   label="Add photos"
@@ -178,7 +178,7 @@ export function ClientDocumentsPage() {
                   onFiles={setFiles}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
+              <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
             </div>
           </div>
           <SelectedFilesList files={files} onChange={setFiles} />

@@ -197,5 +197,15 @@ export function confirmAction(message: string) {
   return window.confirm(message)
 }
 
+/** Call at render time so the hint matches phone vs desktop. */
+export function uploadFolderHint() {
+  if (isMobileUploadDevice()) {
+    return 'On your phone: tap Pick folder files, open the folder in Files, tap Select / Select All, then Done.'
+  }
+  return 'Phone: use Pick folder files (open folder → Select All). Desktop: use Choose folder, or multi-select files.'
+}
+
+/** @deprecated Prefer uploadFolderHint() at render time */
 export const UPLOAD_FOLDER_HINT =
-  'Phone: tap “Pick folder files”, open the folder in Files, tap Select / Select All, then Done. Desktop: use Choose folder.'
+  'On phones: Pick folder files → open folder in Files → Select All → Done. On desktop: Choose folder works too.'
+

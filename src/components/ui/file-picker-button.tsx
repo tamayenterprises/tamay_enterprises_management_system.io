@@ -53,7 +53,7 @@ export function FilePickerButton({
   disabled,
   isLoading,
   className,
-  size = 'sm',
+  size = 'default',
   variant = 'default',
   multiple = true,
   append = true,
@@ -120,7 +120,7 @@ export function FilePickerButton({
         type="button"
         size={size}
         variant={variant}
-        className={cn(className)}
+        className={cn('min-h-11 w-full sm:w-auto', className)}
         disabled={disabled || isLoading}
         onClick={() => inputRef.current?.click()}
       >
@@ -150,16 +150,16 @@ export function SelectedFilesList({
 
   return (
     <div className={cn('space-y-1', className)}>
-      <ul className="max-h-36 overflow-y-auto rounded-md border border-border bg-[#fbfcff] px-2 py-1.5 text-xs">
+      <ul className="max-h-36 overflow-y-auto rounded-md border border-border bg-[#fbfcff] px-2 py-1.5 text-sm">
         {files.map((file) => (
           <li
             key={fileKey(file)}
-            className="flex items-center justify-between gap-2 border-b border-border/60 py-1 last:border-b-0"
+            className="flex items-center justify-between gap-2 border-b border-border/60 py-1.5 last:border-b-0"
           >
-            <span className="min-w-0 truncate">{file.name}</span>
+            <span className="min-w-0 truncate text-xs sm:text-sm">{file.name}</span>
             <button
               type="button"
-              className="shrink-0 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              className="inline-flex min-h-10 shrink-0 items-center px-2 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               onClick={() => onChange(files.filter((item) => fileKey(item) !== fileKey(file)))}
             >
               Remove
@@ -170,7 +170,7 @@ export function SelectedFilesList({
       {files.length > 1 ? (
         <button
           type="button"
-          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+          className="inline-flex min-h-10 items-center text-sm text-muted-foreground underline-offset-2 hover:underline"
           onClick={() => onChange([])}
         >
           Clear all {files.length} files

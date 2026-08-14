@@ -933,13 +933,19 @@ function ExceptionRequestCard({
       {req.calculated_distance_meters != null ? (
         <p className="text-xs">Distance: {formatDistance(req.calculated_distance_meters)}</p>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={correctPending || resolveException.isPending} onClick={() => void onApproveAndCorrect()}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button
+          size="sm"
+          className="min-h-11 w-full sm:w-auto"
+          disabled={correctPending || resolveException.isPending}
+          onClick={() => void onApproveAndCorrect()}
+        >
           Approve and Correct Attendance
         </Button>
         <Button
           size="sm"
           variant="outline"
+          className="min-h-11 w-full sm:w-auto"
           disabled={resolveException.isPending}
           onClick={async () => {
             try {
@@ -959,8 +965,9 @@ function ExceptionRequestCard({
         >
           Mark under review
         </Button>
-        <div className="flex min-w-[220px] flex-1 flex-col gap-1">
+        <div className="flex w-full flex-col gap-1 sm:min-w-[220px] sm:flex-1">
           <Input
+            className="min-h-11"
             placeholder="Rejection reason (required)"
             value={rejectNote}
             onChange={(e) => setRejectNote(e.target.value)}
@@ -968,6 +975,7 @@ function ExceptionRequestCard({
           <Button
             size="sm"
             variant="destructive"
+            className="min-h-11 w-full"
             disabled={resolveException.isPending || rejectNote.trim().length < 3}
             onClick={async () => {
               try {
@@ -1004,8 +1012,8 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
   const role = record.profile ? roleLabel(record.profile.role) : '—'
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-1.5">
-      <div>
+    <div className="flex flex-col gap-1 rounded-lg border border-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
         <p className="font-medium">{name}</p>
         <p className="text-xs text-muted-foreground">
           {role}
@@ -1018,7 +1026,7 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
           </p>
         ) : null}
       </div>
-      <div className="text-right text-sm">
+      <div className="text-sm sm:text-right">
         <p>
           In {format(new Date(record.clock_in_time), 'h:mm a')}
           {record.clock_out_time
