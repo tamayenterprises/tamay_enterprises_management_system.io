@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { validateImageUploadFile, validateUploadFile } from '@/lib/uploads'
+import { validateImageUploadFile, validateUploadFile, contentTypeForUploadFile } from '@/lib/uploads'
 import type { ProjectRequestFormValues } from '@/lib/validations'
 import type { Project, ProjectRequest, ProjectRequestFile, ProjectRequestStatus } from '@/types/database'
 
@@ -112,10 +112,14 @@ export function useUploadProjectRequestFile() {
         fileKind === 'photo' ? validateImageUploadFile(file) : validateUploadFile(file)
       if (validationError) throw new Error(validationError)
 
-      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_')
-      const storagePath = `${profile.id}/requests/${requestId}/${Date.now()}-${safeName}`
+      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
+      const storagePath = `${profile.id}/requests/${requestId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
+      const contentType = contentTypeForUploadFile(file)
 
-      const { error: uploadError } = await supabase.storage.from('project-files').upload(storagePath, file)
+      const { error: uploadError } = await supabase.storage.from('project-files').upload(storagePath, file, {
+        contentType,
+        upsert: false,
+      })
       if (uploadError) throw uploadError
 
       const { data, error } = await supabase
@@ -127,7 +131,7 @@ export function useUploadProjectRequestFile() {
           name: file.name,
           file_kind: fileKind,
           storage_path: storagePath,
-          mime_type: file.type || null,
+          mime_type: contentType,
           file_size: file.size,
         })
         .select()

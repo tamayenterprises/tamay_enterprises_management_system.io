@@ -16,7 +16,13 @@ import {
   useUploadDocument,
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatDate, formatFileSize, projectStatusLabel } from '@/lib/utils'
-import { UPLOAD_ACCEPT, categoryForUploadFile, confirmAction } from '@/lib/uploads'
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  UPLOAD_FOLDER_HINT,
+  categoryForUploadFile,
+  confirmAction,
+  resolvedDocumentUploadAccept,
+} from '@/lib/uploads'
 
 export function ClientProjectDetailPage() {
   const { projectId } = useParams()
@@ -50,15 +56,20 @@ export function ClientProjectDetailPage() {
     if (files.length === 0 || !projectId) return
     try {
       const uploaded = []
+      const failures: string[] = []
       for (const file of files) {
-        uploaded.push(
-          await uploadDocument.mutateAsync({
-            file,
-            category: categoryForUploadFile(file),
-            projectId,
-            bucket: 'project-files',
-          }),
-        )
+        try {
+          uploaded.push(
+            await uploadDocument.mutateAsync({
+              file,
+              category: categoryForUploadFile(file),
+              projectId,
+              bucket: 'project-files',
+            }),
+          )
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : `Failed: ${file.name}`)
+        }
       }
 
       const threadPhotos = uploaded.filter(
@@ -72,21 +83,29 @@ export function ClientProjectDetailPage() {
         await postPhotosToThread.mutateAsync({
           projectId,
           photos: threadPhotos,
-          visibleToClient: true,
         })
       }
       if (threadDocs.length > 0) {
         await postDocumentsToThread.mutateAsync({
           projectId,
           documents: threadDocs,
-          visibleToClient: true,
         })
       }
 
-      toast.success(
-        files.length === 1 ? 'File uploaded and saved' : `${files.length} files uploaded and saved`,
-      )
-      setFiles([])
+      if (failures.length > 0) {
+        toast.error(
+          uploaded.length > 0
+            ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
+            : failures[0]!,
+        )
+      } else {
+        toast.success(
+          uploaded.length === 1
+            ? 'File uploaded and saved'
+            : `${uploaded.length} files uploaded and saved`,
+        )
+      }
+      if (uploaded.length > 0) setFiles([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed')
     }
@@ -129,21 +148,36 @@ export function ClientProjectDetailPage() {
         <CardHeader>
           <CardTitle>Share files & space photos</CardTitle>
           <CardDescription>
-            Upload one or many photos or documents (PDF, Word, Excel). Everything is saved to this
+            Add photos and documents separately (better on phones). Everything is saved to this
             project and noted in the message thread for you and Tamay.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <FilePickerButton
-              accept={UPLOAD_ACCEPT}
+              accept={IMAGE_UPLOAD_ACCEPT}
+              label="Add photos"
               variant="outline"
               multiple
               selectedFiles={files}
               onFiles={setFiles}
             />
-            <p className="text-xs text-muted-foreground">Select several at once, or keep adding more.</p>
+            <FilePickerButton
+              accept={resolvedDocumentUploadAccept()}
+              label="Add documents"
+              variant="outline"
+              multiple
+              selectedFiles={files}
+              onFiles={setFiles}
+            />
+            <FilePickerButton
+              variant="outline"
+              directory
+              selectedFiles={files}
+              onFiles={setFiles}
+            />
           </div>
+          <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
           <SelectedFilesList files={files} onChange={setFiles} />
           <Button disabled={files.length === 0 || uploading} onClick={() => void onUpload()}>
             {uploading
