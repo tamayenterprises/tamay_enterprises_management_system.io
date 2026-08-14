@@ -18,7 +18,12 @@ import {
   useUploadDocument,
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
-import { UPLOAD_ACCEPT, categoryForUploadFile } from '@/lib/uploads'
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  UPLOAD_FOLDER_HINT,
+  categoryForUploadFile,
+  resolvedDocumentUploadAccept,
+} from '@/lib/uploads'
 
 export function ClientDocumentsPage() {
   const { profile } = useAuth()
@@ -53,15 +58,20 @@ export function ClientDocumentsPage() {
       const bucket = projectId === 'none' ? 'documents' : 'project-files'
       const linkedProjectId = projectId === 'none' ? null : projectId
       const uploaded = []
+      const failures: string[] = []
       for (const file of files) {
-        uploaded.push(
-          await uploadDocument.mutateAsync({
-            file,
-            category: categoryForUploadFile(file),
-            projectId: linkedProjectId,
-            bucket,
-          }),
-        )
+        try {
+          uploaded.push(
+            await uploadDocument.mutateAsync({
+              file,
+              category: categoryForUploadFile(file),
+              projectId: linkedProjectId,
+              bucket,
+            }),
+          )
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : `Failed: ${file.name}`)
+        }
       }
 
       if (linkedProjectId) {
@@ -75,22 +85,30 @@ export function ClientDocumentsPage() {
           await postPhotosToThread.mutateAsync({
             projectId: linkedProjectId,
             photos: threadPhotos,
-            visibleToClient: true,
           })
         }
         if (threadDocs.length > 0) {
           await postDocumentsToThread.mutateAsync({
             projectId: linkedProjectId,
             documents: threadDocs,
-            visibleToClient: true,
           })
         }
       }
 
-      toast.success(
-        files.length === 1 ? 'File uploaded and saved' : `${files.length} files uploaded and saved`,
-      )
-      setFiles([])
+      if (failures.length > 0) {
+        toast.error(
+          uploaded.length > 0
+            ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
+            : failures[0]!,
+        )
+      } else {
+        toast.success(
+          uploaded.length === 1
+            ? 'File uploaded and saved'
+            : `${uploaded.length} files uploaded and saved`,
+        )
+      }
+      if (uploaded.length > 0) setFiles([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed')
     }
@@ -112,7 +130,7 @@ export function ClientDocumentsPage() {
         <CardHeader>
           <CardTitle>Upload</CardTitle>
           <CardDescription>
-            Choose one or many photos or documents (PDF, Word, Excel). Optionally link them to a
+            Add photos and documents separately (better on phones). Optionally link them to a
             project.
           </CardDescription>
         </CardHeader>
@@ -136,13 +154,31 @@ export function ClientDocumentsPage() {
             </div>
             <div className="space-y-1">
               <Label>Files</Label>
-              <FilePickerButton
-                accept={UPLOAD_ACCEPT}
-                variant="outline"
-                multiple
-                selectedFiles={files}
-                onFiles={setFiles}
-              />
+              <div className="flex flex-wrap gap-2">
+                <FilePickerButton
+                  accept={IMAGE_UPLOAD_ACCEPT}
+                  label="Add photos"
+                  variant="outline"
+                  multiple
+                  selectedFiles={files}
+                  onFiles={setFiles}
+                />
+                <FilePickerButton
+                  accept={resolvedDocumentUploadAccept()}
+                  label="Add documents"
+                  variant="outline"
+                  multiple
+                  selectedFiles={files}
+                  onFiles={setFiles}
+                />
+                <FilePickerButton
+                  variant="outline"
+                  directory
+                  selectedFiles={files}
+                  onFiles={setFiles}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
             </div>
           </div>
           <SelectedFilesList files={files} onChange={setFiles} />

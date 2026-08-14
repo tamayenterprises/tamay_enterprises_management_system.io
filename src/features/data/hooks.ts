@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
-import { validateUploadFile, validateImageUploadFile } from '@/lib/uploads'
+import { validateUploadFile, validateImageUploadFile, contentTypeForUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
@@ -1091,12 +1091,16 @@ export function useUploadDocument() {
       const validationError = validateUploadFile(file)
       if (validationError) throw new Error(validationError)
 
-      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_')
+      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
       const path = projectId
-        ? `${profile.id}/${projectId}/${Date.now()}-${safeName}`
-        : `${profile.id}/${Date.now()}-${safeName}`
+        ? `${profile.id}/${projectId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
+        : `${profile.id}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
 
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file)
+      const contentType = contentTypeForUploadFile(file)
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+        contentType,
+        upsert: false,
+      })
       if (uploadError) throw uploadError
 
       const { data, error } = await supabase
@@ -1109,7 +1113,7 @@ export function useUploadDocument() {
           name: file.name,
           category,
           storage_path: path,
-          mime_type: file.type || null,
+          mime_type: contentType,
           file_size: file.size,
         })
         .select()

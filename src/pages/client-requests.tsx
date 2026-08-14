@@ -20,7 +20,7 @@ import {
   useUploadProjectRequestFile,
 } from '@/features/client/hooks'
 import { formatFileSize, formatRelative } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, UPLOAD_ACCEPT } from '@/lib/uploads'
+import { IMAGE_UPLOAD_ACCEPT, resolvedDocumentUploadAccept } from '@/lib/uploads'
 import { projectRequestSchema, type ProjectRequestFormValues } from '@/lib/validations'
 import type { ProjectRequest } from '@/types/database'
 
@@ -134,7 +134,7 @@ export function ClientRequestsPage() {
               <div className="space-y-1">
                 <Label>Documents (optional)</Label>
                 <FilePickerButton
-                  accept={UPLOAD_ACCEPT}
+                  accept={resolvedDocumentUploadAccept()}
                   label="Choose files"
                   variant="outline"
                   multiple
@@ -224,7 +224,7 @@ export function ClientRequestsPage() {
                       }}
                     />
                     <FilePickerButton
-                      accept={UPLOAD_ACCEPT}
+                      accept={resolvedDocumentUploadAccept()}
                       label="Add documents"
                       size="sm"
                       variant="outline"

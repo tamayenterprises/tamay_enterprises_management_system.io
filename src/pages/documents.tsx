@@ -25,7 +25,13 @@ import {
   fullName,
   isManagementRole,
 } from '@/lib/utils'
-import { UPLOAD_ACCEPT, categoryForUploadFile, confirmAction } from '@/lib/uploads'
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  UPLOAD_FOLDER_HINT,
+  categoryForUploadFile,
+  confirmAction,
+  resolvedDocumentUploadAccept,
+} from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
 
 const CATEGORIES: DocumentCategory[] = [
@@ -102,19 +108,34 @@ export function DocumentsPage() {
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label>Files</Label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex flex-wrap gap-2">
                   <FilePickerButton
-                    accept={UPLOAD_ACCEPT}
+                    accept={IMAGE_UPLOAD_ACCEPT}
+                    label="Add photos"
                     size="sm"
                     variant="outline"
                     multiple
                     selectedFiles={files}
                     onFiles={setFiles}
                   />
-                  <p className="text-sm text-muted-foreground">
-                    Select several at once, or keep adding more.
-                  </p>
+                  <FilePickerButton
+                    accept={resolvedDocumentUploadAccept()}
+                    label="Add documents"
+                    size="sm"
+                    variant="outline"
+                    multiple
+                    selectedFiles={files}
+                    onFiles={setFiles}
+                  />
+                  <FilePickerButton
+                    size="sm"
+                    variant="outline"
+                    directory
+                    selectedFiles={files}
+                    onFiles={setFiles}
+                  />
                 </div>
+                <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
                 <SelectedFilesList files={files} onChange={setFiles} />
               </div>
               <div className="space-y-1">
@@ -139,20 +160,41 @@ export function DocumentsPage() {
                   if (files.length === 0) return
                   try {
                     const projectId = uploadProjectId === 'none' ? null : uploadProjectId
+                    const failures: string[] = []
+                    let uploadedCount = 0
                     for (const file of files) {
-                      await uploadDocument.mutateAsync({
-                        file,
-                        category: categoryForUploadFile(file),
-                        projectId,
-                        bucket: projectId ? 'project-files' : 'documents',
-                      })
+                      try {
+                        await uploadDocument.mutateAsync({
+                          file,
+                          category: categoryForUploadFile(file),
+                          projectId,
+                          bucket: projectId ? 'project-files' : 'documents',
+                        })
+                        uploadedCount += 1
+                      } catch (error) {
+                        failures.push(
+                          error instanceof Error ? error.message : `Failed: ${file.name}`,
+                        )
+                      }
                     }
-                    toast.success(
-                      files.length === 1 ? 'Document uploaded' : `${files.length} documents uploaded`,
-                    )
-                    setFiles([])
-                    setUploadProjectId('none')
-                    setUploadOpen(false)
+                    if (failures.length > 0) {
+                      toast.error(
+                        uploadedCount > 0
+                          ? `${uploadedCount} uploaded; ${failures.length} failed. ${failures[0]}`
+                          : failures[0]!,
+                      )
+                    } else {
+                      toast.success(
+                        uploadedCount === 1
+                          ? 'Document uploaded'
+                          : `${uploadedCount} documents uploaded`,
+                      )
+                    }
+                    if (uploadedCount > 0) {
+                      setFiles([])
+                      setUploadProjectId('none')
+                      setUploadOpen(false)
+                    }
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : 'Upload failed')
                   }

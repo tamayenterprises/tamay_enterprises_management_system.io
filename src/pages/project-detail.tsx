@@ -45,7 +45,7 @@ import {
   roleLabel,
   warrantyStatusLabel,
 } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction, isImageUploadFile } from '@/lib/uploads'
+import { IMAGE_UPLOAD_ACCEPT, UPLOAD_FOLDER_HINT, confirmAction, isImageUploadFile, resolvedDocumentUploadAccept } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 
@@ -346,74 +346,207 @@ export function ProjectDetailPage() {
             <CardHeader>
               <CardTitle>Files & work photos</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Upload photos or documents (PDF, Word, Excel). Files are saved here; photos and
-                document notices are also shared in the project message thread with the client.
+                Upload photos and documents separately (better on phones). Files are saved here and
+                noted in the project message thread.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <FilePickerButton
-                  accept={UPLOAD_ACCEPT}
-                  label="Upload files"
-                  loadingLabel="Uploading…"
-                  disabled={!profile?.organization_id}
-                  isLoading={
-                    uploadDocument.isPending ||
-                    postPhotosToThread.isPending ||
-                    postDocumentsToThread.isPending
-                  }
-                  multiple
-                  append={false}
-                  onFiles={async (selected) => {
-                    if (!profile?.organization_id) return
-                    try {
-                      const uploaded = []
-                      for (const file of selected) {
-                        uploaded.push(
-                          await uploadDocument.mutateAsync({
-                            file,
-                            category: isImageUploadFile(file) ? 'work_photo' : 'project_file',
-                            projectId: project.id,
-                            bucket: 'project-files',
-                          }),
-                        )
-                      }
-                      const threadPhotos = uploaded.filter(
-                        (doc) =>
-                          doc.category === 'work_photo' ||
-                          Boolean(doc.mime_type?.startsWith('image/')),
-                      )
-                      const threadDocs = uploaded.filter(
-                        (doc) =>
-                          doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
-                      )
-                      if (threadPhotos.length > 0) {
-                        await postPhotosToThread.mutateAsync({
-                          projectId: project.id,
-                          photos: threadPhotos,
-                          visibleToClient: true,
-                        })
-                      }
-                      if (threadDocs.length > 0) {
-                        await postDocumentsToThread.mutateAsync({
-                          projectId: project.id,
-                          documents: threadDocs,
-                          visibleToClient: true,
-                        })
-                      }
-                      toast.success(
-                        selected.length === 1
-                          ? 'File uploaded and saved'
-                          : `${selected.length} files uploaded and saved`,
-                      )
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : 'Upload failed')
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <FilePickerButton
+                    accept={IMAGE_UPLOAD_ACCEPT}
+                    label="Upload photos"
+                    loadingLabel="Uploading photos…"
+                    disabled={!profile?.organization_id}
+                    isLoading={
+                      uploadDocument.isPending ||
+                      postPhotosToThread.isPending ||
+                      postDocumentsToThread.isPending
                     }
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Pick several photos or PDFs in one go (Ctrl/Cmd or Shift to multi-select).
-                </p>
+                    multiple
+                    append={false}
+                    onFiles={async (selected) => {
+                      if (!profile?.organization_id) return
+                      const photosOnly = selected.filter((file) => isImageUploadFile(file))
+                      if (photosOnly.length === 0) {
+                        toast.error('Please choose photo files (JPG, PNG, WEBP, or HEIC).')
+                        return
+                      }
+                      try {
+                        const uploaded = []
+                        const failures: string[] = []
+                        for (const file of photosOnly) {
+                          try {
+                            uploaded.push(
+                              await uploadDocument.mutateAsync({
+                                file,
+                                category: 'work_photo',
+                                projectId: project.id,
+                                bucket: 'project-files',
+                              }),
+                            )
+                          } catch (error) {
+                            failures.push(
+                              error instanceof Error ? error.message : `Failed: ${file.name}`,
+                            )
+                          }
+                        }
+                        if (uploaded.length > 0) {
+                          await postPhotosToThread.mutateAsync({
+                            projectId: project.id,
+                            photos: uploaded,
+                          })
+                        }
+                        if (failures.length > 0) {
+                          toast.error(
+                            uploaded.length > 0
+                              ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
+                              : failures[0]!,
+                          )
+                        } else {
+                          toast.success(
+                            uploaded.length === 1
+                              ? 'Photo uploaded and saved'
+                              : `${uploaded.length} photos uploaded and saved`,
+                          )
+                        }
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Upload failed')
+                      }
+                    }}
+                  />
+                  <FilePickerButton
+                    accept={resolvedDocumentUploadAccept()}
+                    label="Upload documents"
+                    loadingLabel="Uploading documents…"
+                    variant="outline"
+                    disabled={!profile?.organization_id}
+                    isLoading={
+                      uploadDocument.isPending ||
+                      postPhotosToThread.isPending ||
+                      postDocumentsToThread.isPending
+                    }
+                    multiple
+                    append={false}
+                    onFiles={async (selected) => {
+                      if (!profile?.organization_id) return
+                      const docsOnly = selected.filter((file) => !isImageUploadFile(file))
+                      if (docsOnly.length === 0) {
+                        toast.error('Please choose document files (PDF, Word, Excel, etc.).')
+                        return
+                      }
+                      try {
+                        const uploaded = []
+                        const failures: string[] = []
+                        for (const file of docsOnly) {
+                          try {
+                            uploaded.push(
+                              await uploadDocument.mutateAsync({
+                                file,
+                                category: 'project_file',
+                                projectId: project.id,
+                                bucket: 'project-files',
+                              }),
+                            )
+                          } catch (error) {
+                            failures.push(
+                              error instanceof Error ? error.message : `Failed: ${file.name}`,
+                            )
+                          }
+                        }
+                        if (uploaded.length > 0) {
+                          await postDocumentsToThread.mutateAsync({
+                            projectId: project.id,
+                            documents: uploaded,
+                          })
+                        }
+                        if (failures.length > 0) {
+                          toast.error(
+                            uploaded.length > 0
+                              ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
+                              : failures[0]!,
+                          )
+                        } else {
+                          toast.success(
+                            uploaded.length === 1
+                              ? 'Document uploaded and saved'
+                              : `${uploaded.length} documents uploaded and saved`,
+                          )
+                        }
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Upload failed')
+                      }
+                    }}
+                  />
+                  <FilePickerButton
+                    variant="outline"
+                    directory
+                    append={false}
+                    disabled={!profile?.organization_id}
+                    isLoading={
+                      uploadDocument.isPending ||
+                      postPhotosToThread.isPending ||
+                      postDocumentsToThread.isPending
+                    }
+                    onFiles={async (selected) => {
+                      if (!profile?.organization_id) return
+                      if (selected.length === 0) return
+                      try {
+                        const uploaded = []
+                        const failures: string[] = []
+                        for (const file of selected) {
+                          try {
+                            uploaded.push(
+                              await uploadDocument.mutateAsync({
+                                file,
+                                category: isImageUploadFile(file) ? 'work_photo' : 'project_file',
+                                projectId: project.id,
+                                bucket: 'project-files',
+                              }),
+                            )
+                          } catch (error) {
+                            failures.push(
+                              error instanceof Error ? error.message : `Failed: ${file.name}`,
+                            )
+                          }
+                        }
+                        const threadPhotos = uploaded.filter(
+                          (doc) =>
+                            doc.category === 'work_photo' ||
+                            Boolean(doc.mime_type?.startsWith('image/')),
+                        )
+                        const threadDocs = uploaded.filter(
+                          (doc) =>
+                            doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
+                        )
+                        if (threadPhotos.length > 0) {
+                          await postPhotosToThread.mutateAsync({
+                            projectId: project.id,
+                            photos: threadPhotos,
+                          })
+                        }
+                        if (threadDocs.length > 0) {
+                          await postDocumentsToThread.mutateAsync({
+                            projectId: project.id,
+                            documents: threadDocs,
+                          })
+                        }
+                        if (failures.length > 0) {
+                          toast.error(
+                            uploaded.length > 0
+                              ? `${uploaded.length} uploaded; ${failures.length} skipped/failed. ${failures[0]}`
+                              : failures[0]!,
+                          )
+                        } else {
+                          toast.success(`${uploaded.length} files uploaded from folder`)
+                        }
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Upload failed')
+                      }
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
               </div>
               {documents.length === 0 ? (
                 <EmptyState title="No files uploaded" />

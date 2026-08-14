@@ -1,5 +1,6 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { canUseDirectoryUpload } from '@/lib/uploads'
 import { cn } from '@/lib/utils'
 
 type FilePickerButtonProps = {
@@ -21,6 +22,12 @@ type FilePickerButtonProps = {
    * instead of replacing them. Defaults to true.
    */
   append?: boolean
+  /**
+   * Prefer picking an entire folder on desktop (webkitdirectory).
+   * On mobile, falls back to multi-file browse so users can open a folder in Files
+   * and Select All — browsers cannot upload a folder as one object on iOS/Android.
+   */
+  directory?: boolean
   /** Currently staged files — used so "Add more" can merge with prior picks. */
   selectedFiles?: File[]
   onFile?: (file: File) => void | Promise<void>
@@ -50,22 +57,40 @@ export function FilePickerButton({
   variant = 'default',
   multiple = true,
   append = true,
+  directory = false,
   selectedFiles = [],
   onFile,
   onFiles,
 }: FilePickerButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  // Never put filenames on the button — keep a stable "Choose files" action.
-  const resolvedLabel = label ?? (multiple ? 'Choose files' : 'Choose file')
+  const nativeDirectory = useMemo(
+    () => directory && canUseDirectoryUpload(),
+    [directory],
+  )
+  // Mobile "folder" = multi-file with no accept filter (browse into folder in Files).
+  const mobileFolderBrowse = directory && !nativeDirectory
+  const allowMultiple = multiple || directory
+
+  const resolvedLabel =
+    label ??
+    (nativeDirectory
+      ? 'Choose folder'
+      : mobileFolderBrowse
+        ? 'Pick folder files'
+        : multiple
+          ? 'Choose files'
+          : 'Choose file')
 
   return (
     <>
       <input
         ref={inputRef}
         type="file"
-        accept={accept}
+        accept={nativeDirectory || mobileFolderBrowse ? undefined : accept}
         // Explicit true so the HTML multiple attribute is always present when enabled.
-        multiple={multiple ? true : undefined}
+        multiple={allowMultiple ? true : undefined}
+        // @ts-expect-error webkitdirectory is widely supported for folder picks on desktop
+        webkitdirectory={nativeDirectory ? '' : undefined}
         className="sr-only"
         tabIndex={-1}
         onChange={async (event) => {
@@ -74,14 +99,16 @@ export function FilePickerButton({
           if (selected.length === 0) return
 
           const next =
-            multiple && append ? mergeSelectedFiles(selectedFiles, selected) : selected
+            allowMultiple && append
+              ? mergeSelectedFiles(selectedFiles, selected)
+              : selected
 
           if (onFiles) {
             await onFiles(next)
             return
           }
           if (onFile) {
-            if (multiple) {
+            if (allowMultiple) {
               for (const file of next) await onFile(file)
             } else {
               await onFile(next[0]!)
