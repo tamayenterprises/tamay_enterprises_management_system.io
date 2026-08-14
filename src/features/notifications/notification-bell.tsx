@@ -50,9 +50,9 @@ export function NotificationBell() {
             aria-label="Close notifications"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-border bg-white p-3 shadow-lg">
+          <div className="fixed left-3 right-3 top-14 z-50 flex max-h-[min(28rem,calc(100dvh-5rem))] flex-col overflow-hidden rounded-xl border border-border bg-white p-3 shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[min(24rem,calc(100vw-2rem))] sm:max-h-none">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <div>
+              <div className="min-w-0">
                 <p className="font-display text-sm font-semibold">Notifications</p>
                 <p className="text-xs text-muted-foreground">
                   {unread > 0 ? `${unread} unread` : 'You are caught up'}
@@ -61,6 +61,7 @@ export function NotificationBell() {
               <Button
                 size="sm"
                 variant="ghost"
+                className="shrink-0"
                 disabled={unread === 0 || markAll.isPending}
                 onClick={async () => {
                   try {
@@ -75,7 +76,7 @@ export function NotificationBell() {
               </Button>
             </div>
 
-            <div className="max-h-80 space-y-2 overflow-y-auto">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto sm:max-h-80">
               {isError ? (
                 <p className="px-1 py-6 text-center text-sm text-muted-foreground">
                   We could not load your notifications. Please try again.
