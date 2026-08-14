@@ -46,7 +46,7 @@ import {
   roleLabel,
   warrantyStatusLabel,
 } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, UPLOAD_FOLDER_HINT, confirmAction, isImageUploadFile, resolvedDocumentUploadAccept } from '@/lib/uploads'
+import { IMAGE_UPLOAD_ACCEPT, confirmAction, isImageUploadFile, resolvedDocumentUploadAccept, uploadFolderHint } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 
@@ -156,14 +156,17 @@ export function ProjectDetailPage() {
           <h1 className="font-display text-3xl font-semibold">{project.name}</h1>
           <p className="text-muted-foreground">{project.location || 'Location not set'}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {project.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
-          <Badge>{projectStatusLabel(project.status)}</Badge>
-          <Badge variant="secondary">{project.priority}</Badge>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-wrap items-center gap-2">
+            {project.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
+            <Badge>{projectStatusLabel(project.status)}</Badge>
+            <Badge variant="secondary">{project.priority}</Badge>
+          </div>
           {canManage && !project.archived_at ? (
             <Button
               size="sm"
               variant="outline"
+              className="min-h-11 w-full sm:w-auto"
               onClick={async () => {
                 if (
                   !confirmAction(
@@ -187,6 +190,7 @@ export function ProjectDetailPage() {
             <Button
               size="sm"
               variant="outline"
+              className="min-h-11 w-full sm:w-auto"
               onClick={async () => {
                 try {
                   await restoreProject.mutateAsync(project.id)
@@ -203,6 +207,7 @@ export function ProjectDetailPage() {
             <Button
               size="sm"
               variant="destructive"
+              className="min-h-11 w-full sm:w-auto"
               disabled={hardDeleteProject.isPending}
               onClick={async () => {
                 if (
@@ -213,7 +218,7 @@ export function ProjectDetailPage() {
                   return
                 }
                 if (
-                  !confirmAction(`Type confirmation: really delete "${project.name}" forever?`)
+                  !confirmAction(`Really delete "${project.name}" forever?`)
                 ) {
                   return
                 }
@@ -226,13 +231,13 @@ export function ProjectDetailPage() {
                 }
               }}
             >
-              Delete permanently
+              Delete forever
             </Button>
           ) : null}
           {canManage ? (
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" className="min-h-11 w-full sm:w-auto">
                   Edit project
                 </Button>
               </DialogTrigger>
@@ -264,7 +269,7 @@ export function ProjectDetailPage() {
                     <Label>Description</Label>
                     <Textarea {...editForm.register('description')} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label>Status</Label>
                       <Select
@@ -300,7 +305,7 @@ export function ProjectDetailPage() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label>Start date</Label>
                       <Input type="date" {...editForm.register('start_date')} />
@@ -385,7 +390,7 @@ export function ProjectDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <FilePickerButton
                     accept={IMAGE_UPLOAD_ACCEPT}
                     label="Upload photos"
@@ -579,7 +584,7 @@ export function ProjectDetailPage() {
                     }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
+                <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
               </div>
               {documents.length === 0 ? (
                 <EmptyState title="No files uploaded" />
@@ -702,7 +707,7 @@ export function ProjectDetailPage() {
                   workerAssignments.map((assignment) => (
                     <div
                       key={assignment.id}
-                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div>
                         <p className="font-medium">
@@ -719,6 +724,7 @@ export function ProjectDetailPage() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="min-h-11 w-full sm:w-auto"
                           onClick={async () => {
                             try {
                               await removeAssignment.mutateAsync({
@@ -796,7 +802,7 @@ export function ProjectDetailPage() {
                   clientAssignments.map((assignment) => (
                     <div
                       key={assignment.id}
-                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div>
                         <p className="font-medium">
@@ -816,6 +822,7 @@ export function ProjectDetailPage() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="min-h-11 w-full sm:w-auto"
                           onClick={async () => {
                             try {
                               await removeAssignment.mutateAsync({

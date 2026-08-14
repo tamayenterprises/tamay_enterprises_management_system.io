@@ -440,14 +440,15 @@ export function ProjectsPage() {
                     {warrantyStatusLabel(project.warranty_ends_on)}
                   </p>
                 ) : null}
-                <div className="flex flex-wrap gap-2 pt-2">
-                  <Button asChild size="sm">
+                <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap">
+                  <Button asChild size="sm" className="min-h-11 w-full sm:w-auto">
                     <Link to={`/projects/${project.id}`}>Open</Link>
                   </Button>
                   {canManage && !project.archived_at ? (
                     <Button
                       size="sm"
                       variant="outline"
+                      className="min-h-11 w-full sm:w-auto"
                       onClick={async () => {
                         if (
                           !confirmAction(
@@ -471,6 +472,7 @@ export function ProjectsPage() {
                     <Button
                       size="sm"
                       variant="outline"
+                      className="min-h-11 w-full sm:w-auto"
                       onClick={async () => {
                         try {
                           await restoreProject.mutateAsync(project.id)
@@ -487,6 +489,7 @@ export function ProjectsPage() {
                     <Button
                       size="sm"
                       variant="destructive"
+                      className="min-h-11 w-full sm:w-auto"
                       disabled={hardDeleteProject.isPending}
                       onClick={async () => {
                         if (
@@ -498,7 +501,7 @@ export function ProjectsPage() {
                         }
                         if (
                           !confirmAction(
-                            `Type confirmation: really delete "${project.name}" forever?`,
+                            `Really delete "${project.name}" forever?`,
                           )
                         ) {
                           return
@@ -511,7 +514,7 @@ export function ProjectsPage() {
                         }
                       }}
                     >
-                      Delete permanently
+                      Delete forever
                     </Button>
                   ) : null}
                 </div>

@@ -18,10 +18,10 @@ import {
 import { documentCategoryLabel, formatDate, formatFileSize, projectStatusLabel } from '@/lib/utils'
 import {
   IMAGE_UPLOAD_ACCEPT,
-  UPLOAD_FOLDER_HINT,
   categoryForUploadFile,
   confirmAction,
   resolvedDocumentUploadAccept,
+  uploadFolderHint,
 } from '@/lib/uploads'
 
 export function ClientProjectDetailPage() {
@@ -153,7 +153,7 @@ export function ClientProjectDetailPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <FilePickerButton
               accept={IMAGE_UPLOAD_ACCEPT}
               label="Add photos"
@@ -177,7 +177,7 @@ export function ClientProjectDetailPage() {
               onFiles={setFiles}
             />
           </div>
-          <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
+          <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
           <SelectedFilesList files={files} onChange={setFiles} />
           <Button disabled={files.length === 0 || uploading} onClick={() => void onUpload()}>
             {uploading

@@ -46,7 +46,7 @@ export function ProfileAssignmentsPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="h-7 text-xs"
+            className="min-h-11 w-full sm:w-auto"
             disabled={clearAll.isPending || removeAssignment.isPending}
             onClick={async () => {
               if (
@@ -77,7 +77,7 @@ export function ProfileAssignmentsPanel({
           return (
             <li
               key={assignment.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-2.5 py-1.5 text-xs"
+              className="flex flex-col gap-2 rounded-md border border-border px-2.5 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0">
                 <Link
@@ -87,7 +87,7 @@ export function ProfileAssignmentsPanel({
                   {name}
                 </Link>
                 {project?.status ? (
-                  <span className="ml-2 text-muted-foreground">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     {projectStatusLabel(project.status)}
                   </span>
                 ) : null}
@@ -96,7 +96,7 @@ export function ProfileAssignmentsPanel({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 shrink-0 text-xs"
+                className="min-h-11 w-full shrink-0 sm:w-auto"
                 disabled={removeAssignment.isPending || clearAll.isPending}
                 onClick={async () => {
                   if (
