@@ -17,6 +17,7 @@ import {
   useAssignWorker,
   useCreateProject,
   useArchiveProject,
+  useHardDeleteProject,
   useProfiles,
   useProjectClientAssignees,
   useRestoreProject,
@@ -72,6 +73,7 @@ export function ProjectsPage() {
   const assignWorker = useAssignWorker()
   const archiveProject = useArchiveProject()
   const restoreProject = useRestoreProject()
+  const hardDeleteProject = useHardDeleteProject()
 
   const availableClients = useMemo(
     () =>
@@ -149,7 +151,7 @@ export function ProjectsPage() {
           <p className="text-sm text-muted-foreground">
             {canManage
               ? archivedView === 'archived'
-                ? 'Soft-archived jobs kept for warranty lookup (typically 7 years).'
+                ? 'Soft-archived jobs kept for warranty lookup (typically 7 years). Use Delete permanently to erase a job forever.'
                 : 'Create projects, set deadlines, and track jobsite progress.'
               : 'Projects assigned to you.'}
           </p>
@@ -438,7 +440,7 @@ export function ProjectsPage() {
                     {warrantyStatusLabel(project.warranty_ends_on)}
                   </p>
                 ) : null}
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-wrap gap-2 pt-2">
                   <Button asChild size="sm">
                     <Link to={`/projects/${project.id}`}>Open</Link>
                   </Button>
@@ -449,7 +451,7 @@ export function ProjectsPage() {
                       onClick={async () => {
                         if (
                           !confirmAction(
-                            `Archive project "${project.name}"? It will stay available under Archived for warranty records and cannot be hard-deleted while warranty is active.`,
+                            `Archive project "${project.name}"? It stays under Archived for warranty lookup. You can restore it later.`,
                           )
                         ) {
                           return
@@ -479,6 +481,37 @@ export function ProjectsPage() {
                       }}
                     >
                       Restore
+                    </Button>
+                  ) : null}
+                  {canManage ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={hardDeleteProject.isPending}
+                      onClick={async () => {
+                        if (
+                          !confirmAction(
+                            `PERMANENTLY delete "${project.name}"? This cannot be undone. Assignments, messages, and project files for this job will be deleted.`,
+                          )
+                        ) {
+                          return
+                        }
+                        if (
+                          !confirmAction(
+                            `Type confirmation: really delete "${project.name}" forever?`,
+                          )
+                        ) {
+                          return
+                        }
+                        try {
+                          await hardDeleteProject.mutateAsync(project.id)
+                          toast.success('Project permanently deleted')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Delete failed')
+                        }
+                      }}
+                    >
+                      Delete permanently
                     </Button>
                   ) : null}
                 </div>

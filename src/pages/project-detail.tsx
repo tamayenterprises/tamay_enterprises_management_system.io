@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -21,6 +21,7 @@ import {
   useAssignWorker,
   useAssignmentHistory,
   useDeleteDocument,
+  useHardDeleteProject,
   usePostProjectDocumentsToThread,
   usePostProjectPhotosToThread,
   useProfiles,
@@ -53,6 +54,7 @@ export function ProjectDetailPage() {
   const { projectId } = useParams()
   const [params] = useSearchParams()
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const { data: project, isLoading, isError } = useProject(projectId)
   const { data: assignments = [] } = useProjectAssignments(projectId)
   const { data: documents = [] } = useProjectDocuments(projectId)
@@ -63,6 +65,7 @@ export function ProjectDetailPage() {
   const updateProject = useUpdateProject(projectId ?? '')
   const archiveProject = useArchiveProject()
   const restoreProject = useRestoreProject()
+  const hardDeleteProject = useHardDeleteProject()
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
   const uploadDocument = useUploadDocument()
@@ -164,7 +167,7 @@ export function ProjectDetailPage() {
               onClick={async () => {
                 if (
                   !confirmAction(
-                    `Archive project "${project.name}"? It will stay available under Archived for warranty records.`,
+                    `Archive project "${project.name}"? It stays under Archived for warranty lookup. You can restore it later.`,
                   )
                 ) {
                   return
@@ -194,6 +197,36 @@ export function ProjectDetailPage() {
               }}
             >
               Restore
+            </Button>
+          ) : null}
+          {canManage ? (
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={hardDeleteProject.isPending}
+              onClick={async () => {
+                if (
+                  !confirmAction(
+                    `PERMANENTLY delete "${project.name}"? This cannot be undone. Assignments, messages, and project files for this job will be deleted.`,
+                  )
+                ) {
+                  return
+                }
+                if (
+                  !confirmAction(`Type confirmation: really delete "${project.name}" forever?`)
+                ) {
+                  return
+                }
+                try {
+                  await hardDeleteProject.mutateAsync(project.id)
+                  toast.success('Project permanently deleted')
+                  navigate('/projects')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Delete failed')
+                }
+              }}
+            >
+              Delete permanently
             </Button>
           ) : null}
           {canManage ? (

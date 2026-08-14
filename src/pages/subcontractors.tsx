@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
+import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import { fullName } from '@/lib/utils'
@@ -42,7 +43,8 @@ export function SubcontractorsPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Subcontractors</h1>
           <p className="text-sm text-muted-foreground">
-            Manage trade partners, insurance, licenses, and availability.
+            Manage trade partners, remove them when Tamay is done, and unassign projects when they are
+            finished or replaced.
           </p>
         </div>
         <Input
@@ -78,14 +80,23 @@ export function SubcontractorsPage() {
                 }
               }}
               onArchive={async () => {
-                if (!confirmAction(`Archive ${person.company_name || fullName(person.first_name, person.last_name)}?`)) {
+                const name = person.company_name || fullName(person.first_name, person.last_name)
+                if (
+                  !confirmAction(
+                    `Remove ${name}? They will be archived, deactivated, and unassigned from all projects. You can restore them later.`,
+                  )
+                ) {
                   return
                 }
                 try {
-                  await setAccess.mutateAsync({ id: person.id, archived: true })
-                  toast.success('Subcontractor archived')
+                  const result = await setAccess.mutateAsync({ id: person.id, archived: true })
+                  toast.success(
+                    result.unassignedCount > 0
+                      ? `Removed and unassigned from ${result.unassignedCount} project${result.unassignedCount === 1 ? '' : 's'}`
+                      : 'Subcontractor removed',
+                  )
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Archive failed')
+                  toast.error(error instanceof Error ? error.message : 'Remove failed')
                 }
               }}
             />
@@ -191,8 +202,14 @@ function SubcontractorCard({
             {person.is_active ? 'Deactivate' : 'Activate'}
           </Button>
           <Button size="sm" variant="destructive" onClick={onArchive}>
-            Archive
+            Remove
           </Button>
+        </div>
+        <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
+          <ProfileAssignmentsPanel
+            profileId={person.id}
+            personLabel={person.company_name || fullName(person.first_name, person.last_name)}
+          />
         </div>
       </CardContent>
     </Card>
