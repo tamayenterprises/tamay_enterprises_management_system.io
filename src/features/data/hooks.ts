@@ -222,7 +222,7 @@ export function useCreateProjectUpdate() {
       mentionedUserIds,
       requiresAttention,
       referencedProjectIds,
-      visibleToClient = true,
+      visibleToClient = false,
     }: {
       projectId: string
       content: string
@@ -231,6 +231,7 @@ export function useCreateProjectUpdate() {
       mentionedUserIds?: string[]
       requiresAttention?: boolean
       referencedProjectIds?: string[]
+      /** When false, clients on the project do not see this note (staff-only). */
       visibleToClient?: boolean
     }) => {
       if (!profile?.id) throw new Error('Missing profile')
@@ -260,12 +261,13 @@ export function useCreateProjectUpdate() {
         parent_id?: string
         photo_path?: string
         requires_attention?: boolean
-        visible_to_client?: boolean
+        visible_to_client: boolean
       } = {
         project_id: projectId,
         author_id: profile.id,
         content: trimmed || null,
-        visible_to_client: visibleToClient !== false,
+        // Explicit boolean — never omit/undefined (that previously defaulted to true).
+        visible_to_client: visibleToClient === true,
       }
       if (parentId) payload.parent_id = parentId
       if (photoPath) payload.photo_path = photoPath

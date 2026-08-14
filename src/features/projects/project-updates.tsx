@@ -72,6 +72,7 @@ function UpdateComposer({
   submitLabel,
   mentionCandidates,
   projects,
+  defaultVisibleToClient = false,
   onDone,
 }: {
   projectId: string
@@ -80,12 +81,15 @@ function UpdateComposer({
   submitLabel: string
   mentionCandidates: Profile[]
   projects: Project[]
+  /** When true (reply under a client-visible root), keep the whole chain shared. */
+  defaultVisibleToClient?: boolean
   onDone?: () => void
 }) {
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
   const [requiresAttention, setRequiresAttention] = useState(false)
+  const [visibleToClient, setVisibleToClient] = useState(defaultVisibleToClient)
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
   const [projectIds, setProjectIds] = useState<string[]>([projectId])
   const [mentionPicker, setMentionPicker] = useState('')
@@ -96,6 +100,7 @@ function UpdateComposer({
   const draft = useFormDraft<{
     content: string
     requiresAttention: boolean
+    visibleToClient: boolean
     mentionedIds: string[]
     projectIds: string[]
   }>({
@@ -113,12 +118,19 @@ function UpdateComposer({
     if (typeof payload.content === 'string' && payload.content.trim()) {
       setContent(payload.content)
       setRequiresAttention(Boolean(payload.requiresAttention))
+      if (typeof payload.visibleToClient === 'boolean') {
+        setVisibleToClient(payload.visibleToClient || defaultVisibleToClient)
+      }
       if (Array.isArray(payload.mentionedIds)) setMentionedIds(payload.mentionedIds as string[])
       if (Array.isArray(payload.projectIds)) setProjectIds(payload.projectIds as string[])
       setDraftBanner(`Your unfinished draft was restored from ${new Date(draft.draft.last_saved_at).toLocaleString()}.`)
       draftRestoredRef.current = true
     }
-  }, [draft.draft])
+  }, [draft.draft, defaultVisibleToClient])
+
+  useEffect(() => {
+    if (defaultVisibleToClient) setVisibleToClient(true)
+  }, [defaultVisibleToClient])
 
   const mentionSuggestions = useMemo(
     () => filterMentionSuggestions(content, mentionCandidates),
@@ -135,7 +147,9 @@ function UpdateComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
-          // Project thread is shared with assigned clients — no per-message opt-in.
+          // Replies under a client-visible root always stay client-visible so the
+          // customer sees the full conversation chain, not only the first message.
+          const shareWithClient = Boolean(defaultVisibleToClient) || visibleToClient
           const mentionIds = Array.from(
             new Set([
               ...mentionedIds,
@@ -157,7 +171,7 @@ function UpdateComposer({
               mentionedUserIds: mentionIds,
               requiresAttention,
               referencedProjectIds: referencedIds,
-              visibleToClient: true,
+              visibleToClient: shareWithClient,
             })
           } else if (parentId) {
             // Replies are one level deep — keep every photo under the same parent.
@@ -170,7 +184,7 @@ function UpdateComposer({
                 mentionedUserIds: index === 0 ? mentionIds : undefined,
                 requiresAttention: index === 0 ? requiresAttention : false,
                 referencedProjectIds: index === 0 ? referencedIds : undefined,
-                visibleToClient: true,
+                visibleToClient: shareWithClient,
               })
             }
           } else {
@@ -182,7 +196,7 @@ function UpdateComposer({
               mentionedUserIds: mentionIds,
               requiresAttention,
               referencedProjectIds: referencedIds,
-              visibleToClient: true,
+              visibleToClient: shareWithClient,
             })
             for (let index = 1; index < photos.length; index += 1) {
               await createUpdate.mutateAsync({
@@ -190,7 +204,7 @@ function UpdateComposer({
                 parentId: root.id,
                 content: '',
                 photo: photos[index],
-                visibleToClient: true,
+                visibleToClient: shareWithClient,
               })
             }
           }
@@ -198,6 +212,7 @@ function UpdateComposer({
           setContent('')
           setPhotos([])
           setRequiresAttention(false)
+          setVisibleToClient(defaultVisibleToClient)
           setMentionedIds([])
           setProjectIds([projectId])
           setDraftBanner(null)
@@ -248,6 +263,7 @@ function UpdateComposer({
           draft.scheduleSave({
             content: next,
             requiresAttention,
+            visibleToClient,
             mentionedIds,
             projectIds,
           })
@@ -337,10 +353,42 @@ function UpdateComposer({
           <input
             type="checkbox"
             checked={requiresAttention}
-            onChange={(e) => setRequiresAttention(e.target.checked)}
+            onChange={(e) => {
+              const next = e.target.checked
+              setRequiresAttention(next)
+              draft.scheduleSave({
+                content,
+                requiresAttention: next,
+                visibleToClient,
+                mentionedIds,
+                projectIds,
+              })
+            }}
           />
           Requires attention
         </label>
+        {!defaultVisibleToClient ? (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={visibleToClient}
+              onChange={(e) => {
+                const next = e.target.checked
+                setVisibleToClient(next)
+                draft.scheduleSave({
+                  content,
+                  requiresAttention,
+                  visibleToClient: next,
+                  mentionedIds,
+                  projectIds,
+                })
+              }}
+            />
+            Visible to client
+          </label>
+        ) : (
+          <span className="text-xs text-muted-foreground">Visible to client (whole thread)</span>
+        )}
       </div>
 
       {mentionedIds.length > 0 || projectIds.length > 1 ? (
@@ -422,6 +470,7 @@ function UpdateCard({
     >
       <div className="space-y-2">
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
+        {update.visible_to_client ? <Badge variant="secondary">Visible to client</Badge> : null}
         {update.content ? (
           <RichUpdateText content={update.content} people={mentionCandidates} projects={projects} />
         ) : null}
@@ -445,6 +494,9 @@ function UpdateCard({
               }`}
             >
               <p className="text-xs text-muted-foreground">Replying to {authorName}</p>
+              {reply.visible_to_client ? (
+                <Badge variant="secondary">Visible to client</Badge>
+              ) : null}
               {reply.content ? (
                 <RichUpdateText content={reply.content} people={mentionCandidates} projects={projects} />
               ) : null}
@@ -463,6 +515,7 @@ function UpdateCard({
           parentId={update.id}
           mentionCandidates={mentionCandidates}
           projects={projects}
+          defaultVisibleToClient={Boolean(update.visible_to_client)}
           placeholder={`Reply to ${authorName}…`}
           submitLabel="Post reply"
           onDone={() => setReplyOpen(false)}
@@ -523,12 +576,8 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
           <div>
             <CardTitle>Project Updates</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Project-only conversation for assigned workers and management. Company-wide project
-              discussions belong in{' '}
-              <Link className="underline" to="/updates?tab=company">
-                Company Updates
-              </Link>
-              .
+              Internal by default. Check <span className="font-medium text-foreground">Visible to client</span>{' '}
+              to share a message with assigned clients. Replies on a shared thread stay shared.
             </p>
           </div>
           <Button asChild size="sm" variant="outline">
