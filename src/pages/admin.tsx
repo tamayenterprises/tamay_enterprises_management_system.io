@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   useActivityLog,
@@ -24,6 +25,7 @@ import {
   fullName,
   roleLabel,
 } from '@/lib/utils'
+import { confirmAction } from '@/lib/uploads'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import type { ApprovalStatus, Profile, UserRole } from '@/types/database'
 
@@ -79,7 +81,8 @@ export function AdminPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Admin panel</h1>
           <p className="text-sm text-muted-foreground">
-            Approve registrations, assign roles, and manage company-wide access.
+            Approve registrations, assign roles, remove people when Tamay is done with them, and
+            unassign projects when a worker is finished or replaced.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -87,10 +90,13 @@ export function AdminPage() {
             <Link to="/employees">Employees</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link to="/notifications">Notifications</Link>
+            <Link to="/subcontractors">Subcontractors</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link to="/change-password">Change password</Link>
+            <Link to="/projects">Projects</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/notifications">Notifications</Link>
           </Button>
         </div>
       </div>
@@ -98,7 +104,7 @@ export function AdminPage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Pending approvals" value={counts.pending} tone="warning" />
         <SummaryCard label="Active users" value={counts.active} />
-        <SummaryCard label="Archived" value={counts.archived} />
+        <SummaryCard label="Removed / archived" value={counts.archived} />
         <SummaryCard label="Total profiles" value={counts.total} />
       </div>
 
@@ -177,7 +183,13 @@ export function AdminPage() {
 
       <Card>
         <CardHeader className="space-y-4">
-          <CardTitle>User directory</CardTitle>
+          <div>
+            <CardTitle>User directory</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Filter by Clients, Employees, Subcontractors, or Project managers. Remove archives the
+              person and unassigns them from all projects (restorable later).
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Input
               className="w-56"
@@ -214,7 +226,7 @@ export function AdminPage() {
               size="sm"
               onClick={() => setShowArchived((value) => !value)}
             >
-              {showArchived ? 'Hide archived' : 'Show archived'}
+              {showArchived ? 'Hide removed' : 'Show removed'}
             </Button>
           </div>
         </CardHeader>
@@ -244,12 +256,36 @@ export function AdminPage() {
                     toast.error(error instanceof Error ? error.message : 'Update failed')
                   }
                 }}
-                onToggleArchive={async () => {
+                onToggleRemove={async () => {
+                  const name = fullName(user.first_name, user.last_name)
+                  if (user.archived_at) {
+                    if (!confirmAction(`Restore ${name}? They stay unassigned until you assign projects again.`)) {
+                      return
+                    }
+                    try {
+                      await setAccess.mutateAsync({ id: user.id, archived: false })
+                      toast.success('User restored')
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Restore failed')
+                    }
+                    return
+                  }
+                  if (
+                    !confirmAction(
+                      `Remove ${name} (${roleLabel(user.role)})? They will be archived, deactivated, and unassigned from all projects. You can restore them later.`,
+                    )
+                  ) {
+                    return
+                  }
                   try {
-                    await setAccess.mutateAsync({ id: user.id, archived: !user.archived_at })
-                    toast.success(user.archived_at ? 'User restored' : 'User archived')
+                    const result = await setAccess.mutateAsync({ id: user.id, archived: true })
+                    toast.success(
+                      result.unassignedCount > 0
+                        ? `Removed and unassigned from ${result.unassignedCount} project${result.unassignedCount === 1 ? '' : 's'}`
+                        : 'User removed',
+                    )
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : 'Update failed')
+                    toast.error(error instanceof Error ? error.message : 'Remove failed')
                   }
                 }}
                 onReapprove={async () => {
@@ -332,7 +368,7 @@ function UserRow({
   roleOptions,
   onRoleChange,
   onToggleActive,
-  onToggleArchive,
+  onToggleRemove,
   onReapprove,
 }: {
   user: Profile
@@ -340,77 +376,98 @@ function UserRow({
   roleOptions: Array<{ id: UserRole; label: string }>
   onRoleChange: (role: UserRole) => Promise<void>
   onToggleActive: () => Promise<void>
-  onToggleArchive: () => Promise<void>
+  onToggleRemove: () => Promise<void>
   onReapprove: () => Promise<void>
 }) {
+  const [showProjects, setShowProjects] = useState(false)
+  const personLabel = fullName(user.first_name, user.last_name)
+
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-border p-4 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 items-start gap-3">
-        <ProfileAvatar
-          firstName={user.first_name}
-          lastName={user.last_name}
-          avatarUrl={user.avatar_url}
-          className="mt-0.5 h-11 w-11"
-          fallbackClassName="bg-muted text-sm"
-        />
-        <div className="min-w-0">
-          <p className="font-medium">
-            {fullName(user.first_name, user.last_name)}
-            {isSelf ? ' (you)' : ''}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {user.email}
-            {user.company_name ? ` · ${user.company_name}` : ''}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge variant="secondary">{roleLabel(user.role)}</Badge>
-            <Badge
-              variant={
-                user.approval_status === 'approved'
-                  ? 'success'
-                  : user.approval_status === 'pending'
-                    ? 'warning'
-                    : 'destructive'
-              }
-            >
-              {approvalStatusLabel(user.approval_status as ApprovalStatus)}
-            </Badge>
-            <Badge variant={user.is_active ? 'success' : 'destructive'}>
-              {user.is_active ? 'Active' : 'Inactive'}
-            </Badge>
-            {user.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
+    <div className="space-y-3 rounded-md border border-border p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <ProfileAvatar
+            firstName={user.first_name}
+            lastName={user.last_name}
+            avatarUrl={user.avatar_url}
+            className="mt-0.5 h-11 w-11"
+            fallbackClassName="bg-muted text-sm"
+          />
+          <div className="min-w-0">
+            <p className="font-medium">
+              {personLabel}
+              {isSelf ? ' (you)' : ''}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {user.email}
+              {user.company_name ? ` · ${user.company_name}` : ''}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Badge variant="secondary">{roleLabel(user.role)}</Badge>
+              <Badge
+                variant={
+                  user.approval_status === 'approved'
+                    ? 'success'
+                    : user.approval_status === 'pending'
+                      ? 'warning'
+                      : 'destructive'
+                }
+              >
+                {approvalStatusLabel(user.approval_status as ApprovalStatus)}
+              </Badge>
+              <Badge variant={user.is_active ? 'success' : 'destructive'}>
+                {user.is_active ? 'Active' : 'Inactive'}
+              </Badge>
+              {user.archived_at ? <Badge variant="secondary">Removed</Badge> : null}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={user.role}
-          disabled={isSelf}
-          onValueChange={(value) => void onRoleChange(value as UserRole)}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {roleOptions.map((role) => (
-              <SelectItem key={role.id} value={role.id}>
-                {role.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {user.approval_status === 'rejected' ? (
-          <Button size="sm" variant="outline" onClick={onReapprove}>
-            Re-approve
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={user.role}
+            disabled={isSelf}
+            onValueChange={(value) => void onRoleChange(value as UserRole)}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {roleOptions.map((role) => (
+                <SelectItem key={role.id} value={role.id}>
+                  {role.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {user.approval_status === 'rejected' ? (
+            <Button size="sm" variant="outline" onClick={onReapprove}>
+              Re-approve
+            </Button>
+          ) : null}
+          <Button size="sm" variant="outline" disabled={isSelf} onClick={onToggleActive}>
+            {user.is_active ? 'Deactivate' : 'Activate'}
           </Button>
-        ) : null}
-        <Button size="sm" variant="outline" disabled={isSelf} onClick={onToggleActive}>
-          {user.is_active ? 'Deactivate' : 'Activate'}
-        </Button>
-        <Button size="sm" variant="destructive" disabled={isSelf} onClick={onToggleArchive}>
-          {user.archived_at ? 'Restore' : 'Archive'}
-        </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowProjects((open) => !open)}
+          >
+            {showProjects ? 'Hide projects' : 'Projects'}
+          </Button>
+          <Button size="sm" variant="destructive" disabled={isSelf} onClick={onToggleRemove}>
+            {user.archived_at ? 'Restore' : 'Remove'}
+          </Button>
+        </div>
       </div>
+      {showProjects ? (
+        <div className="rounded-md border border-border/80 bg-[#fbfcff] px-3 py-2">
+          <ProfileAssignmentsPanel
+            profileId={user.id}
+            personLabel={personLabel}
+            compact
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -421,6 +478,7 @@ function formatActivityAction(action: string) {
     rejected_user: 'Rejected registration',
     updated_role: 'Updated user role',
     updated_access: 'Updated user access',
+    removed_user: 'Removed user (archived + unassigned)',
   }
   return labels[action] ?? action.replaceAll('_', ' ')
 }

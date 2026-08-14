@@ -576,6 +576,51 @@ export function useRestoreProject() {
   })
 }
 
+/** Permanently deletes a project (active or archived). Requires migration 000008. */
+export function useHardDeleteProject() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      // Best-effort: remove storage objects linked to this project before DB cascade.
+      const { data: docs } = await supabase
+        .from('documents')
+        .select('storage_path')
+        .eq('project_id', projectId)
+
+      const paths = (docs ?? [])
+        .map((doc) => doc.storage_path)
+        .filter((path): path is string => Boolean(path))
+
+      if (paths.length > 0) {
+        await supabase.storage.from('project-files').remove(paths)
+        await supabase.storage.from('documents').remove(paths)
+      }
+
+      const { data, error } = await supabase.rpc('admin_hard_delete_project', {
+        p_project_id: projectId,
+      })
+      if (error) {
+        if (/admin_hard_delete_project|schema cache|PGRST202|function .* does not exist/i.test(error.message)) {
+          throw new Error(
+            'Permanent delete is not set up in the database yet. Run migration 20260338000008_admin_hard_delete_project.sql in Supabase, then try again.',
+          )
+        }
+        throw error
+      }
+      return data as { ok: boolean; id: string; name: string }
+    },
+    onSuccess: (_data, projectId) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.removeQueries({ queryKey: ['project', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['project-assignments'] })
+      queryClient.invalidateQueries({ queryKey: ['profile-assignments'] })
+    },
+  })
+}
+
 export function useProfiles(filters?: { role?: UserRole | UserRole[]; search?: string; includeArchived?: boolean }) {
   return useQuery({
     queryKey: ['profiles', filters],
@@ -752,23 +797,36 @@ export function useAdminSetUserAccess() {
       const { data, error } = await supabase.from('profiles').update(payload).eq('id', id).select().single()
       if (error) throw error
 
+      // Removing someone from Tamay also pulls them off active jobs (replace / done).
+      let unassignedCount = 0
+      if (archived === true && profile?.id) {
+        unassignedCount = await softUnassignAllForProfile(
+          id,
+          profile.id,
+          profile.organization_id,
+        )
+      }
+
       if (profile?.organization_id) {
         await supabase.from('activity_log').insert({
           organization_id: profile.organization_id,
           actor_id: profile.id,
           entity_type: 'profile',
           entity_id: id,
-          action: 'updated_access',
-          metadata: payload,
+          action: archived === true ? 'removed_user' : 'updated_access',
+          metadata: { ...payload, unassigned_projects: unassignedCount },
         })
       }
 
-      return data as Profile
+      return { profile: data as Profile, unassignedCount }
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       queryClient.invalidateQueries({ queryKey: ['worker-eligibility'] })
+      queryClient.invalidateQueries({ queryKey: ['profile-assignments', vars.id] })
+      queryClient.invalidateQueries({ queryKey: ['project-assignments'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
   })
 }
@@ -789,6 +847,7 @@ export function useWorkerEligibility(workerId?: string | null) {
 
 export function useSetWorkerStatus() {
   const queryClient = useQueryClient()
+  const { profile } = useAuth()
   return useMutation({
     mutationFn: async ({
       workerId,
@@ -805,11 +864,24 @@ export function useSetWorkerStatus() {
         p_reason: reason,
       })
       if (error) throw error
-      return data as {
-        ok: boolean
-        message?: string
-        eligibility?: import('@/lib/worker-eligibility').WorkerEligibility
-        profile?: Profile
+
+      let unassignedCount = 0
+      if (action === 'archive' && profile?.id) {
+        unassignedCount = await softUnassignAllForProfile(
+          workerId,
+          profile.id,
+          profile.organization_id,
+        )
+      }
+
+      return {
+        ...(data as {
+          ok: boolean
+          message?: string
+          eligibility?: import('@/lib/worker-eligibility').WorkerEligibility
+          profile?: Profile
+        }),
+        unassignedCount,
       }
     },
     onSuccess: (_data, vars) => {
@@ -817,6 +889,11 @@ export function useSetWorkerStatus() {
       queryClient.invalidateQueries({ queryKey: ['worker-eligibility', vars.workerId] })
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       queryClient.invalidateQueries({ queryKey: ['worker-status-history'] })
+      if (vars.action === 'archive') {
+        queryClient.invalidateQueries({ queryKey: ['profile-assignments', vars.workerId] })
+        queryClient.invalidateQueries({ queryKey: ['project-assignments'] })
+        queryClient.invalidateQueries({ queryKey: ['projects'] })
+      }
     },
   })
 }
@@ -1273,6 +1350,89 @@ export function useAssignWorker() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-assignments', variables.projectId] })
       queryClient.invalidateQueries({ queryKey: ['assignment-history', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['profile-assignments', variables.profileId] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
+export function useProfileAssignments(profileId?: string | null) {
+  return useQuery({
+    queryKey: ['profile-assignments', profileId],
+    enabled: Boolean(profileId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('project_assignments')
+        .select('*, project:projects(*)')
+        .eq('profile_id', profileId!)
+        .eq('is_active', true)
+        .order('assigned_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as ProjectAssignment[]
+    },
+  })
+}
+
+/** Soft-unassign every active project for a person (done / replaced). */
+async function softUnassignAllForProfile(
+  profileId: string,
+  performedBy: string,
+  organizationId?: string | null,
+) {
+  const { data: rows, error } = await supabase
+    .from('project_assignments')
+    .select('id, project_id')
+    .eq('profile_id', profileId)
+    .eq('is_active', true)
+  if (error) throw error
+  if (!rows?.length) return 0
+
+  const now = new Date().toISOString()
+  const { error: updateError } = await supabase
+    .from('project_assignments')
+    .update({ is_active: false, removed_at: now })
+    .eq('profile_id', profileId)
+    .eq('is_active', true)
+  if (updateError) throw updateError
+
+  await supabase.from('assignment_history').insert(
+    rows.map((row) => ({
+      project_id: row.project_id,
+      profile_id: profileId,
+      action: 'removed',
+      performed_by: performedBy,
+    })),
+  )
+
+  if (organizationId) {
+    await supabase.from('notifications').insert({
+      organization_id: organizationId,
+      recipient_id: profileId,
+      title: 'Removed from projects',
+      message:
+        rows.length === 1
+          ? 'You were unassigned from a project.'
+          : `You were unassigned from ${rows.length} projects.`,
+      link: '/projects',
+    })
+  }
+
+  return rows.length
+}
+
+export function useClearProfileAssignments() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async (profileId: string) => {
+      if (!profile?.id) throw new Error('Missing profile')
+      return softUnassignAllForProfile(profileId, profile.id, profile.organization_id)
+    },
+    onSuccess: (_count, profileId) => {
+      queryClient.invalidateQueries({ queryKey: ['profile-assignments', profileId] })
+      queryClient.invalidateQueries({ queryKey: ['project-assignments'] })
+      queryClient.invalidateQueries({ queryKey: ['assignment-history'] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
     },
   })
@@ -1318,6 +1478,7 @@ export function useRemoveAssignment() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-assignments', variables.projectId] })
       queryClient.invalidateQueries({ queryKey: ['assignment-history', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: ['profile-assignments', variables.profileId] })
     },
   })
 }
