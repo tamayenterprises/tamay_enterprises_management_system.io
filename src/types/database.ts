@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'project_manager' | 'employee' | 'subcontractor'
+export type UserRole = 'admin' | 'project_manager' | 'employee' | 'subcontractor' | 'client'
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
 export type ProjectStatus = 'not_started' | 'in_progress' | 'waiting' | 'completed'
 export type ProjectPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -78,7 +78,13 @@ export type AttendanceValidationResult =
   | 'rejected_invalid_transition'
   | 'rejected_duplicate'
   | 'rejected_other'
-export type ExceptionRequestStatus = 'pending' | 'approved' | 'rejected'
+export type ExceptionRequestStatus =
+  | 'pending'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'cancelled'
+  | 'resolved'
 
 export interface Project {
   id: string
@@ -97,6 +103,7 @@ export interface Project {
   priority: ProjectPriority
   start_date: string | null
   deadline: string | null
+  warranty_ends_on: string | null
   created_by: string | null
   archived_at: string | null
   created_at: string
@@ -133,9 +140,45 @@ export interface ProjectNote {
   content: string | null
   photo_path: string | null
   requires_attention?: boolean
+  visible_to_client?: boolean
   created_at: string
   updated_at: string
   author?: Profile
+}
+
+export type ProjectRequestStatus = 'pending' | 'under_review' | 'approved' | 'declined' | 'converted'
+
+export interface ProjectRequest {
+  id: string
+  organization_id: string
+  client_id: string
+  title: string
+  description: string | null
+  location: string | null
+  preferred_start_date: string | null
+  status: ProjectRequestStatus
+  converted_project_id: string | null
+  admin_notes: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+  client?: Profile
+  converted_project?: Project | null
+  files?: ProjectRequestFile[]
+}
+
+export interface ProjectRequestFile {
+  id: string
+  organization_id: string
+  request_id: string
+  uploaded_by: string
+  name: string
+  file_kind: 'document' | 'photo'
+  storage_path: string
+  mime_type: string | null
+  file_size: number | null
+  created_at: string
 }
 
 export interface Certification {
@@ -421,6 +464,14 @@ export interface AttendanceExceptionRequest {
   admin_note: string | null
   decided_at: string | null
   resulting_attendance_record_id: string | null
+  attendance_record_id?: string | null
+  work_date?: string | null
+  idempotency_key?: string | null
+  correction_id?: string | null
+  duplicate_of_request_id?: string | null
+  follow_up_note?: string | null
+  review_started_at?: string | null
+  revision?: number
   created_at: string
   updated_at: string
   profile?: Profile | null
@@ -435,6 +486,17 @@ export interface AttendanceCorrection {
   reason: string
   original_values: Record<string, unknown>
   corrected_values: Record<string, unknown>
+  exception_request_id?: string | null
+  correction_mode?: string | null
+  correction_reason_code?: string | null
+  administrative_notes?: string | null
+  original_timeline?: unknown
+  corrected_timeline?: unknown
+  original_totals?: Record<string, unknown> | null
+  corrected_totals?: Record<string, unknown> | null
+  revision?: number
+  creation_source?: string | null
+  idempotency_key?: string | null
   created_at: string
   corrector?: Profile | null
 }

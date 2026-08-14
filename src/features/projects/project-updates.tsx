@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
@@ -17,15 +17,19 @@ import {
   useProjectNotes,
   useProjects,
 } from '@/features/data/hooks'
+import { useFormDraft } from '@/features/drafts/use-form-draft'
 import {
   filterMentionSuggestions,
   filterProjectSuggestions,
   insertAtTrigger,
   mentionToken,
   projectHashToken,
+  resolveMentionedUserIds,
+  resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
+import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
+import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
 import { useAuth } from '@/features/auth/auth-context'
 import type { Profile, Project, ProjectNote } from '@/types/database'
 
@@ -51,8 +55,12 @@ function UpdatePhoto({ path }: { path: string }) {
   }
 
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border">
-      <img src={url} alt="Project update" className="max-h-72 w-full object-cover" />
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border bg-muted/30">
+      <img
+        src={url}
+        alt="Project update"
+        className="mx-auto max-h-80 w-auto max-w-full object-contain"
+      />
     </a>
   )
 }
@@ -76,12 +84,41 @@ function UpdateComposer({
 }) {
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
-  const [photo, setPhoto] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
   const [requiresAttention, setRequiresAttention] = useState(false)
   const [mentionedIds, setMentionedIds] = useState<string[]>([])
   const [projectIds, setProjectIds] = useState<string[]>([projectId])
   const [mentionPicker, setMentionPicker] = useState('')
   const [projectPicker, setProjectPicker] = useState('')
+  const [draftBanner, setDraftBanner] = useState<string | null>(null)
+  const draftRestoredRef = useRef(false)
+
+  const draft = useFormDraft<{
+    content: string
+    requiresAttention: boolean
+    mentionedIds: string[]
+    projectIds: string[]
+  }>({
+    draftType: parentId ? 'REPLY' : 'PROJECT_UPDATE',
+    contextKey: parentId ? `reply:${parentId}` : `project:${projectId}`,
+    projectId,
+    entityType: parentId ? 'project_note_parent' : 'project',
+    entityId: parentId || projectId,
+    isMeaningful: (payload) => payload.content.trim().length >= 8,
+  })
+
+  useEffect(() => {
+    if (draftRestoredRef.current || !draft.draft?.payload) return
+    const payload = draft.draft.payload
+    if (typeof payload.content === 'string' && payload.content.trim()) {
+      setContent(payload.content)
+      setRequiresAttention(Boolean(payload.requiresAttention))
+      if (Array.isArray(payload.mentionedIds)) setMentionedIds(payload.mentionedIds as string[])
+      if (Array.isArray(payload.projectIds)) setProjectIds(payload.projectIds as string[])
+      setDraftBanner(`Your unfinished draft was restored from ${new Date(draft.draft.last_saved_at).toLocaleString()}.`)
+      draftRestoredRef.current = true
+    }
+  }, [draft.draft])
 
   const mentionSuggestions = useMemo(
     () => filterMentionSuggestions(content, mentionCandidates),
@@ -98,20 +135,72 @@ function UpdateComposer({
       onSubmit={async (event) => {
         event.preventDefault()
         try {
-          await createUpdate.mutateAsync({
-            projectId,
-            content,
-            parentId,
-            photo,
-            mentionedUserIds: mentionedIds,
-            requiresAttention,
-            referencedProjectIds: projectIds,
-          })
+          // Project thread is shared with assigned clients — no per-message opt-in.
+          const mentionIds = Array.from(
+            new Set([
+              ...mentionedIds,
+              ...resolveMentionedUserIds(content, mentionCandidates),
+            ]),
+          )
+          const referencedIds = Array.from(
+            new Set([
+              ...projectIds,
+              ...resolveReferencedProjectIds(content, projects),
+            ]),
+          )
+
+          if (photos.length === 0) {
+            await createUpdate.mutateAsync({
+              projectId,
+              content,
+              parentId,
+              mentionedUserIds: mentionIds,
+              requiresAttention,
+              referencedProjectIds: referencedIds,
+              visibleToClient: true,
+            })
+          } else if (parentId) {
+            // Replies are one level deep — keep every photo under the same parent.
+            for (let index = 0; index < photos.length; index += 1) {
+              await createUpdate.mutateAsync({
+                projectId,
+                content: index === 0 ? content : '',
+                parentId,
+                photo: photos[index],
+                mentionedUserIds: index === 0 ? mentionIds : undefined,
+                requiresAttention: index === 0 ? requiresAttention : false,
+                referencedProjectIds: index === 0 ? referencedIds : undefined,
+                visibleToClient: true,
+              })
+            }
+          } else {
+            // Keep the written update with the photo group (extras nest as replies).
+            const root = await createUpdate.mutateAsync({
+              projectId,
+              content,
+              photo: photos[0],
+              mentionedUserIds: mentionIds,
+              requiresAttention,
+              referencedProjectIds: referencedIds,
+              visibleToClient: true,
+            })
+            for (let index = 1; index < photos.length; index += 1) {
+              await createUpdate.mutateAsync({
+                projectId,
+                parentId: root.id,
+                content: '',
+                photo: photos[index],
+                visibleToClient: true,
+              })
+            }
+          }
+          if (draft.draft?.id) await draft.publishDraft({ draftId: draft.draft.id })
           setContent('')
-          setPhoto(null)
+          setPhotos([])
           setRequiresAttention(false)
           setMentionedIds([])
           setProjectIds([projectId])
+          setDraftBanner(null)
           toast.success(parentId ? 'Reply posted' : 'Update posted')
           onDone?.()
         } catch (error) {
@@ -119,9 +208,50 @@ function UpdateComposer({
         }
       }}
     >
+      {draftBanner ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-[#fbfcff] px-3 py-2 text-xs">
+          <span>{draftBanner}</span>
+          {draft.draft?.id ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                if (!confirmAction('Delete this unfinished draft? This action cannot be undone.')) return
+                await draft.discardDraft(draft.draft!.id)
+                setContent('')
+                setDraftBanner(null)
+                toast.success('Draft deleted.')
+              }}
+            >
+              Delete draft
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      <p className="text-[11px] text-muted-foreground">
+        {draft.saveState === 'saving'
+          ? 'Saving…'
+          : draft.saveState === 'saved' && draft.lastSavedAt
+            ? `Draft saved at ${new Date(draft.lastSavedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+            : draft.saveState === 'offline'
+              ? 'Offline — changes will sync when connection returns'
+              : draft.saveState === 'error'
+                ? 'We could not save your latest changes. Your local copy is still available.'
+                : null}
+      </p>
       <Textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => {
+          const next = e.target.value
+          setContent(next)
+          draft.scheduleSave({
+            content: next,
+            requiresAttention,
+            mentionedIds,
+            projectIds,
+          })
+        }}
         placeholder={`${placeholder} Use @ to mention someone or # to reference a project.`}
         rows={parentId ? 2 : 3}
       />
@@ -219,7 +349,7 @@ function UpdateComposer({
             const person = mentionCandidates.find((p) => p.id === id)
             if (!person) return null
             return (
-              <Badge key={id} variant="secondary">
+              <Badge key={id} className="bg-[#35558f]/10 text-[#35558f]">
                 {mentionToken(person)}
               </Badge>
             )
@@ -238,25 +368,26 @@ function UpdateComposer({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <FilePickerButton
-          accept={IMAGE_UPLOAD_ACCEPT}
-          label={photo ? 'Change photo' : 'Add photo'}
-          variant="outline"
-          disabled={createUpdate.isPending}
-          onFile={(file) => setPhoto(file)}
-        />
-        {photo ? (
-          <span className="max-w-[12rem] truncate text-xs text-muted-foreground">{photo.name}</span>
-        ) : null}
-        {photo ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPhoto(null)}>
-            Remove photo
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilePickerButton
+            accept={IMAGE_UPLOAD_ACCEPT}
+            label="Add photos"
+            variant="outline"
+            multiple
+            selectedFiles={photos}
+            disabled={createUpdate.isPending}
+            onFiles={setPhotos}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={createUpdate.isPending || (!content.trim() && photos.length === 0)}
+          >
+            {createUpdate.isPending ? 'Posting…' : submitLabel}
           </Button>
-        ) : null}
-        <Button type="submit" size="sm" disabled={createUpdate.isPending || (!content.trim() && !photo)}>
-          {createUpdate.isPending ? 'Posting…' : submitLabel}
-        </Button>
+        </div>
+        <SelectedFilesList files={photos} onChange={setPhotos} />
       </div>
     </form>
   )
@@ -291,7 +422,9 @@ function UpdateCard({
     >
       <div className="space-y-2">
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
-        {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
+        {update.content ? (
+          <RichUpdateText content={update.content} people={mentionCandidates} projects={projects} />
+        ) : null}
         {update.photo_path ? <UpdatePhoto path={update.photo_path} /> : null}
         <p className="text-xs text-muted-foreground">
           {authorName} · {formatRelative(update.created_at)}
@@ -312,7 +445,9 @@ function UpdateCard({
               }`}
             >
               <p className="text-xs text-muted-foreground">Replying to {authorName}</p>
-              {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
+              {reply.content ? (
+                <RichUpdateText content={reply.content} people={mentionCandidates} projects={projects} />
+              ) : null}
               {reply.photo_path ? <UpdatePhoto path={reply.photo_path} /> : null}
               <p className="text-xs text-muted-foreground">
                 {replyAuthor} · {formatRelative(reply.created_at)}
@@ -336,8 +471,7 @@ function UpdateCard({
         <Button type="button" size="sm" variant="outline" onClick={() => setReplyOpen(true)}>
           Reply
         </Button>
-      )}
-    </div>
+      )}    </div>
   )
 }
 

@@ -49,7 +49,8 @@ npm run dev
 
 ## Authentication & approval flow
 
-- Users can register as **Employee** or **Subcontractor**
+- Staff can register as **Employee** or **Subcontractor**
+- Clients register separately via **Client / homeowner** signup
 - New accounts are created in `pending` approval status
 - Unapproved users cannot enter the application
 - Admins approve/reject registrations from `/admin`
@@ -60,12 +61,14 @@ npm run dev
 - **Project Manager** — projects, assignments, documents, timesheets
 - **Employee** — assigned projects, clock in/out, work status, personal docs/certs
 - **Subcontractor** — same operational access as employees, plus trade/company fields
+- **Client** — client portal only: project requests, documents/photos, replies to client-visible updates
 
 ## Core features
 
 - Dashboard (role-aware)
 - Employees & subcontractors directory
 - Projects, assignments, notes, and history
+- **Client portal** (request project, documents, space photos, project messages)
 - Certifications with proof uploads + expiry maintenance
 - Documents & secure storage
 - In-app notifications

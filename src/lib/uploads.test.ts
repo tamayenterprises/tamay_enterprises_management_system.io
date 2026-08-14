@@ -14,6 +14,6 @@ describe('validateUploadFile', () => {
 
   it('rejects unsupported extensions', () => {
     const file = new File(['hello'], 'notes.exe', { type: 'application/octet-stream' })
-    expect(validateUploadFile(file)).toMatch(/unsupported/i)
+    expect(validateUploadFile(file)).toMatch(/isn’t a supported type/i)
   })
 })

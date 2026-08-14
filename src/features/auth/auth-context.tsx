@@ -30,15 +30,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const syncSession = async (nextSession: Session | null) => {
       if (!mounted) return
-      setSession(nextSession)
 
       if (!nextSession?.user) {
+        setSession(null)
         setProfile(null)
         setLoading(false)
         return
       }
 
+      // Mark loading before exposing the session so route guards never see
+      // "signed in but no profile yet" and bounce back to /sign-in.
       setLoading(true)
+      setSession(nextSession)
       try {
         const nextProfile = await fetchProfile(nextSession.user.id)
         if (mounted) setProfile(nextProfile)

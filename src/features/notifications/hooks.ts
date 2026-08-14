@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { relevanceLabel } from '@/features/notifications/relevance'
 import type {
   Notification,
   NotificationPreferences,

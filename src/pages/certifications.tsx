@@ -23,7 +23,7 @@ import {
   useUpdateCertification,
 } from '@/features/data/hooks'
 import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
+import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
 import type { Certification } from '@/types/database'
 
@@ -222,10 +222,11 @@ export function CertificationsPage() {
                   <Label>Proof file</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <FilePickerButton
-                      accept={UPLOAD_ACCEPT}
+                      accept={resolvedDocumentUploadAccept()}
                       label={proofFile ? 'Change proof file' : 'Upload proof file'}
                       size="sm"
                       variant="outline"
+                      multiple={false}
                       onFile={(selected) => setProofFile(selected)}
                     />
                     <p className="text-sm text-muted-foreground">
@@ -477,10 +478,11 @@ function CertificationCard({
                   <Label>Replace proof file (optional)</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <FilePickerButton
-                      accept={UPLOAD_ACCEPT}
+                      accept={resolvedDocumentUploadAccept()}
                       label={proofFile ? 'Change proof file' : 'Upload proof file'}
                       size="sm"
                       variant="outline"
+                      multiple={false}
                       onFile={(selected) => setProofFile(selected)}
                     />
                     <p className="text-sm text-muted-foreground">

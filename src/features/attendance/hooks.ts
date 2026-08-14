@@ -159,7 +159,9 @@ export function useExceptionRequests(status?: 'pending' | 'all') {
         .select('*, profile:profiles!user_id(*), project:projects(*)')
         .order('created_at', { ascending: false })
         .limit(100)
-      if (status === 'pending') query = query.eq('status', 'pending')
+      if (status === 'pending') {
+        query = query.in('status', ['pending', 'under_review'])
+      }
       const { data, error } = await query
       if (error) throw error
       return (data ?? []) as AttendanceExceptionRequest[]
@@ -267,6 +269,12 @@ export function useCorrectAttendance() {
       breakSeconds,
       reason,
       notes,
+      exceptionRequestId,
+      correctionMode,
+      timeline,
+      idempotencyKey,
+      expectedUpdatedAt,
+      reasonCode,
     }: {
       id: string
       clockInTime: string
@@ -275,23 +283,48 @@ export function useCorrectAttendance() {
       breakSeconds?: number
       reason: string
       notes?: string | null
+      exceptionRequestId?: string | null
+      correctionMode?: 'simple' | 'detailed'
+      timeline?: Array<{ action: string; timestamp: string; exclude?: boolean }> | null
+      idempotencyKey?: string | null
+      expectedUpdatedAt?: string | null
+      reasonCode?: string | null
     }) => {
+      if (!projectId) {
+        throw new Error('The project selected for this correction is not valid.')
+      }
       const { data, error } = await supabase.rpc('correct_attendance_record', {
         p_record_id: id,
         p_clock_in_time: clockInTime,
         p_clock_out_time: clockOutTime,
-        p_project_id: projectId || null,
+        p_project_id: projectId,
         p_break_seconds: breakSeconds ?? null,
         p_reason: reason,
         p_notes: notes || null,
+        p_exception_request_id: exceptionRequestId || null,
+        p_correction_mode: correctionMode || 'simple',
+        p_timeline: timeline || null,
+        p_idempotency_key: idempotencyKey || null,
+        p_expected_updated_at: expectedUpdatedAt || null,
+        p_reason_code: reasonCode || null,
       })
-      if (error) throw error
-      return data as { ok: boolean; record: AttendanceRecord }
+      if (error) throw asAppError(error, 'We could not save this correction because of a server error.')
+      return data as {
+        ok: boolean
+        message?: string
+        correction_id?: string
+        record: AttendanceRecord
+        request_status?: string | null
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
       queryClient.invalidateQueries({ queryKey: ['attendance-corrections'] })
+      queryClient.invalidateQueries({ queryKey: ['attendance-events'] })
+      queryClient.invalidateQueries({ queryKey: ['attendance-exceptions'] })
       queryClient.invalidateQueries({ queryKey: ['worker-status'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['activity'] })
     },
   })
 }
@@ -310,6 +343,9 @@ export function useSubmitExceptionRequest() {
       accuracyMeters,
       distanceMeters,
       photo,
+      attendanceRecordId,
+      idempotencyKey,
+      followUpNote,
     }: {
       projectId: string
       action: AttendanceActionType
@@ -319,6 +355,9 @@ export function useSubmitExceptionRequest() {
       accuracyMeters?: number | null
       distanceMeters?: number | null
       photo?: File | null
+      attendanceRecordId?: string | null
+      idempotencyKey?: string | null
+      followUpNote?: string | null
     }) => {
       if (!profile?.organization_id) throw new Error('Missing organization')
       if (!explanation.trim()) throw new Error('Please explain the location problem')
@@ -330,30 +369,71 @@ export function useSubmitExceptionRequest() {
         const { error: uploadError } = await supabase.storage
           .from('attendance-exceptions')
           .upload(photoPath, photo)
-        if (uploadError) throw uploadError
+        if (uploadError) throw asAppError(uploadError, 'Photo upload failed')
       }
 
-      const { data, error } = await supabase
-        .from('attendance_exception_requests')
-        .insert({
-          organization_id: profile.organization_id,
-          user_id: profile.id,
-          project_id: projectId,
-          requested_action: action,
-          explanation: explanation.trim(),
-          employee_latitude: latitude ?? null,
-          employee_longitude: longitude ?? null,
-          device_accuracy_meters: accuracyMeters ?? null,
-          calculated_distance_meters: distanceMeters ?? null,
-          photo_path: photoPath,
-        })
-        .select('*')
-        .single()
-      if (error) throw error
-      return data as AttendanceExceptionRequest
+      const { data, error } = await supabase.rpc('submit_attendance_exception', {
+        p_project_id: projectId,
+        p_requested_action: action,
+        p_explanation: explanation.trim(),
+        p_employee_latitude: latitude ?? null,
+        p_employee_longitude: longitude ?? null,
+        p_device_accuracy_meters: accuracyMeters ?? null,
+        p_calculated_distance_meters: distanceMeters ?? null,
+        p_photo_path: photoPath,
+        p_attendance_record_id: attendanceRecordId ?? null,
+        p_idempotency_key: idempotencyKey || newIdempotencyKey(),
+        p_follow_up_note: followUpNote || null,
+      })
+      if (error) throw asAppError(error, 'Submit failed')
+
+      const result = data as {
+        ok: boolean
+        duplicate?: boolean
+        message?: string
+        code?: string
+        request?: AttendanceExceptionRequest
+      }
+
+      if (result?.duplicate) {
+        const err = asAppError(
+          result.message ||
+            'You already submitted a request for this attendance issue. Management has not completed its review yet.',
+        ) as Error & { result?: typeof result }
+        err.result = result
+        throw err
+      }
+      if (!result?.ok) {
+        throw asAppError(result?.message || 'Submit failed')
+      }
+      return result
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance-exceptions'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['activity'] })
+    },
+  })
+}
+
+export function useMyActiveExceptionRequest(projectId?: string, action?: AttendanceActionType) {
+  const { profile } = useAuth()
+  return useQuery({
+    queryKey: ['attendance-exceptions', 'mine-active', profile?.id, projectId, action],
+    enabled: Boolean(profile?.id && projectId && action),
+    queryFn: async () => {
+      let query = supabase
+        .from('attendance_exception_requests')
+        .select('*, project:projects(*)')
+        .eq('user_id', profile!.id)
+        .eq('project_id', projectId!)
+        .eq('requested_action', action!)
+        .in('status', ['pending', 'under_review'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+      const { data, error } = await query.maybeSingle()
+      if (error) throw error
+      return (data as AttendanceExceptionRequest | null) ?? null
     },
   })
 }
@@ -378,12 +458,14 @@ export function useResolveExceptionRequest() {
         p_admin_note: adminNote || null,
         p_create_attendance: Boolean(createAttendance),
       })
-      if (error) throw error
-      return data
+      if (error) throw asAppError(error, 'Failed to resolve exception')
+      return data as { ok: boolean; status?: string; message?: string; attendance_record_id?: string }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance-exceptions'] })
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['activity'] })
     },
   })
 }

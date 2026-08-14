@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Briefcase,
+  ClipboardList,
   Clock3,
   FileText,
   HardHat,
@@ -10,6 +11,7 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
+  NotebookPen,
   Search,
   ShieldCheck,
   Users,
@@ -28,6 +30,7 @@ import { useUnreadNotifications } from '@/features/notifications/hooks'
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: Briefcase },
+  { to: '/client-requests', label: 'Client requests', icon: ClipboardList, management: true },
   { to: '/updates', label: 'Updates', icon: MessageSquareText },
   { to: '/employees', label: 'Employees', icon: Users, management: true },
   { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, management: true },
@@ -35,6 +38,7 @@ const navItems = [
   { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/drafts', label: 'Drafts', icon: NotebookPen },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/admin', label: 'Admin', icon: UserCog, admin: true },
 ]
@@ -68,12 +72,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     closeMenu()
   }
 
-  // Close drawer on route change and unlock body scroll
   useEffect(() => {
     setOpen(false)
   }, [location.pathname])
 
-  // Lock background page scroll while the mobile sidebar is open
   useEffect(() => {
     if (!open) return
 
@@ -114,7 +116,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [open])
 
-  // Escape closes the mobile menu
   useEffect(() => {
     if (!open) return
     const onKeyDown = (event: KeyboardEvent) => {
@@ -125,83 +126,72 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [open])
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[272px_1fr]">
+    <div className="min-h-screen lg:flex">
       <aside
         id="app-sidebar"
         aria-label="Main navigation"
         className={cn(
-          // Mobile: fixed full-height drawer; content scrolls inside. Desktop: static column with pinned footer.
-          'fixed inset-y-0 left-0 z-40 flex h-[100vh] h-[100dvh] max-h-[100dvh] w-[272px] flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:static lg:h-auto lg:max-h-none lg:min-h-screen lg:translate-x-0',
+          // Full viewport height on mobile + desktop; sticky so long pages never stretch empty navy.
+          'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[240px] shrink-0 flex-col border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
+          'overflow-hidden overscroll-contain shadow-lg lg:sticky lg:top-0 lg:shadow-none lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
       >
-        {/*
-          Mobile: ONE continuous scroll (logo → nav → profile → Sign out → bottom spacer).
-          Desktop: flex column; nav grows/scrolls; account stays at bottom.
-        */}
-        <div
-          className={cn(
-            'flex h-full min-h-0 flex-col',
-            // Mobile: entire panel scrolls as one continuous area
-            'overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]',
-            'pb-[calc(env(safe-area-inset-bottom,0px)+5rem)]',
-            // Desktop: fill column height; only nav scrolls; account stays pinned
-            'lg:h-full lg:min-h-screen lg:overflow-hidden lg:pb-0',
-          )}
-          style={{
-            paddingTop: 'env(safe-area-inset-top, 0px)',
-          }}
+        <div className="shrink-0 border-b border-white/10 px-3 py-2.5">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white p-1.5 shadow-[0_0_0_2px_rgba(255,255,255,0.2)]">
+            <img
+              src="/tamay-logo.png"
+              alt="Tamay Enterprises"
+              className="h-full w-full rounded-full object-contain"
+            />
+          </div>
+          <p className="mt-1 text-center text-[11px] leading-tight text-sidebar-muted">
+            Workforce & field operations
+          </p>
+        </div>
+
+        <nav
+          className="flex min-h-0 flex-1 flex-col justify-evenly overflow-y-auto overscroll-contain px-1.5 py-1"
+          aria-label="Application sections"
         >
-          <div className="shrink-0 border-b border-white/10 px-4 py-5">
-            <div className="mx-auto flex h-[148px] w-[148px] items-center justify-center rounded-full bg-white p-3 shadow-[0_0_0_3px_rgba(255,255,255,0.2)]">
-              <img
-                src="/tamay-logo.png"
-                alt="Tamay Enterprises"
-                className="h-full w-full rounded-full object-contain"
-              />
-            </div>
-            <p className="mt-3 text-center text-xs text-sidebar-muted">Workforce & field operations</p>
-          </div>
-
-          <nav
-            className="shrink-0 space-y-1 p-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
-            aria-label="Application sections"
-          >
-            {visibleNav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={closeMenu}
-                className={({ isActive }) =>
-                  cn(
-                    'group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-white/80 transition duration-200 hover:bg-white/10 hover:text-white',
-                    isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4 shrink-0 transition group-hover:scale-105" />
-                <span className="flex-1 font-medium">{item.label}</span>
-                {item.to === '/notifications' && unread > 0 ? (
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">
-                    {unread}
-                  </span>
-                ) : null}
-              </NavLink>
-            ))}
-          </nav>
-
-          {/* Mobile: scrolls with nav. Desktop: pinned footer. Never fixed/absolute on mobile. */}
-          <div className="static shrink-0 border-t border-white/10 bg-sidebar p-4 lg:mt-auto">
-            <SidebarProfileAvatar />
-            <Button
-              variant="secondary"
-              className="min-h-11 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
-              onClick={handleSignOut}
+          {visibleNav.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={closeMenu}
+              className={({ isActive }) =>
+                cn(
+                  'group flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-white/80 transition duration-150 hover:bg-white/10 hover:text-white',
+                  isActive && 'bg-white/15 text-white shadow-[inset_3px_0_0_0_var(--color-accent)]',
+                )
+              }
             >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </Button>
-          </div>
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1 font-medium leading-none">{item.label}</span>
+              {item.to === '/notifications' && unread > 0 ? (
+                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-accent-foreground">
+                  {unread}
+                </span>
+              ) : null}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="shrink-0 border-t border-white/10 p-2">
+          <SidebarProfileAvatar />
+          <Button
+            variant="secondary"
+            size="sm"
+            className="min-h-8 w-full justify-start gap-2 border-0 bg-white/10 text-white hover:bg-white/20"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
         </div>
       </aside>
 
@@ -214,13 +204,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       ) : null}
 
-      <div className="min-w-0">
-        <header className="sticky top-0 z-20 border-b border-border/80 bg-white/90 backdrop-blur-md">
-          <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-20 border-b border-border/80 bg-white/95 backdrop-blur-md">
+          <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="h-9 w-9 lg:hidden"
               aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={open}
               aria-controls="app-sidebar"
@@ -234,16 +224,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search employees, projects, documents..."
-                className="border-border bg-[#fbfcff] pl-9"
+                className="h-9 border-border bg-[#fbfcff] pl-9"
               />
             </form>
             <NotificationBell />
-            <Button variant="outline" size="sm" onClick={() => navigate('/change-password')}>
+            <Button variant="outline" size="sm" className="h-9" onClick={() => navigate('/change-password')}>
               Password
             </Button>
           </div>
         </header>
-        <main className="animate-fade-in px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="animate-fade-in px-3 py-3 sm:px-4 sm:py-4 lg:px-5">{children}</main>
       </div>
     </div>
   )

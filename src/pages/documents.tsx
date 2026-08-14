@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -25,7 +25,13 @@ import {
   fullName,
   isManagementRole,
 } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
+import {
+  IMAGE_UPLOAD_ACCEPT,
+  UPLOAD_FOLDER_HINT,
+  categoryForUploadFile,
+  confirmAction,
+  resolvedDocumentUploadAccept,
+} from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
 
 const CATEGORIES: DocumentCategory[] = [
@@ -48,8 +54,7 @@ export function DocumentsPage() {
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [scope, setScope] = useState<string>(canManage ? 'all' : 'all')
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
-  const [uploadCategory, setUploadCategory] = useState<DocumentCategory>('miscellaneous')
+  const [files, setFiles] = useState<File[]>([])
   const [uploadProjectId, setUploadProjectId] = useState<string>('none')
 
   const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
@@ -102,37 +107,36 @@ export function DocumentsPage() {
             </DialogHeader>
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label>File</Label>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Label>Files</Label>
+                <div className="flex flex-wrap gap-2">
                   <FilePickerButton
-                    accept={UPLOAD_ACCEPT}
-                    label={file ? 'Change file' : 'Choose file'}
+                    accept={IMAGE_UPLOAD_ACCEPT}
+                    label="Add photos"
                     size="sm"
                     variant="outline"
-                    onFile={(selected) => setFile(selected)}
+                    multiple
+                    selectedFiles={files}
+                    onFiles={setFiles}
                   />
-                  <p className="text-sm text-muted-foreground">
-                    {file ? file.name : 'No file selected yet'}
-                  </p>
+                  <FilePickerButton
+                    accept={resolvedDocumentUploadAccept()}
+                    label="Add documents"
+                    size="sm"
+                    variant="outline"
+                    multiple
+                    selectedFiles={files}
+                    onFiles={setFiles}
+                  />
+                  <FilePickerButton
+                    size="sm"
+                    variant="outline"
+                    directory
+                    selectedFiles={files}
+                    onFiles={setFiles}
+                  />
                 </div>
-              </div>
-              <div className="space-y-1">
-                <Label>Category</Label>
-                <Select
-                  value={uploadCategory}
-                  onValueChange={(value) => setUploadCategory(value as DocumentCategory)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {documentCategoryLabel(item)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <p className="text-xs text-muted-foreground">{UPLOAD_FOLDER_HINT}</p>
+                <SelectedFilesList files={files} onChange={setFiles} />
               </div>
               <div className="space-y-1">
                 <Label>Link to project (optional)</Label>
@@ -151,28 +155,56 @@ export function DocumentsPage() {
                 </Select>
               </div>
               <Button
-                disabled={!file || uploadDocument.isPending}
+                disabled={files.length === 0 || uploadDocument.isPending}
                 onClick={async () => {
-                  if (!file) return
+                  if (files.length === 0) return
                   try {
                     const projectId = uploadProjectId === 'none' ? null : uploadProjectId
-                    await uploadDocument.mutateAsync({
-                      file,
-                      category: uploadCategory,
-                      projectId,
-                      bucket: projectId ? 'project-files' : 'documents',
-                    })
-                    toast.success('Document uploaded')
-                    setFile(null)
-                    setUploadCategory('miscellaneous')
-                    setUploadProjectId('none')
-                    setUploadOpen(false)
+                    const failures: string[] = []
+                    let uploadedCount = 0
+                    for (const file of files) {
+                      try {
+                        await uploadDocument.mutateAsync({
+                          file,
+                          category: categoryForUploadFile(file),
+                          projectId,
+                          bucket: projectId ? 'project-files' : 'documents',
+                        })
+                        uploadedCount += 1
+                      } catch (error) {
+                        failures.push(
+                          error instanceof Error ? error.message : `Failed: ${file.name}`,
+                        )
+                      }
+                    }
+                    if (failures.length > 0) {
+                      toast.error(
+                        uploadedCount > 0
+                          ? `${uploadedCount} uploaded; ${failures.length} failed. ${failures[0]}`
+                          : failures[0]!,
+                      )
+                    } else {
+                      toast.success(
+                        uploadedCount === 1
+                          ? 'Document uploaded'
+                          : `${uploadedCount} documents uploaded`,
+                      )
+                    }
+                    if (uploadedCount > 0) {
+                      setFiles([])
+                      setUploadProjectId('none')
+                      setUploadOpen(false)
+                    }
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : 'Upload failed')
                   }
                 }}
               >
-                {uploadDocument.isPending ? 'Uploading…' : 'Upload'}
+                {uploadDocument.isPending
+                  ? 'Uploading…'
+                  : files.length > 1
+                    ? `Upload ${files.length} files`
+                    : 'Upload'}
               </Button>
             </div>
           </DialogContent>

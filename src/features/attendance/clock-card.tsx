@@ -12,6 +12,7 @@ import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  useMyActiveExceptionRequest,
   useMyAttendanceHistory,
   useMyOpenAttendance,
   useRecordAttendanceAction,
@@ -22,12 +23,13 @@ import {
   actionButtonLabel,
   formatBreakDuration,
   formatDistance,
+  newIdempotencyKey,
   nextAttendanceActions,
   type AttendanceActionType,
 } from '@/lib/geo'
 import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
 import { formatHoursDuration, formatRelative } from '@/lib/utils'
-import type { AttendanceActionResult } from '@/types/database'
+import type { AttendanceActionResult, AttendanceExceptionRequest } from '@/types/database'
 
 export function ClockInOutCard() {
   const { data: openRecord, isLoading, isError } = useMyOpenAttendance()
@@ -43,10 +45,16 @@ export function ClockInOutCard() {
   const [exceptionText, setExceptionText] = useState('')
   const [exceptionPhoto, setExceptionPhoto] = useState<File | null>(null)
   const [lastResult, setLastResult] = useState<AttendanceActionResult | null>(null)
+  const [activeRequest, setActiveRequest] = useState<AttendanceExceptionRequest | null>(null)
+  const [submitToken, setSubmitToken] = useState(() => newIdempotencyKey())
 
   const activeProjectId = openRecord?.project_id || projectId
   const workflowStatus = openRecord?.workflow_status ?? null
   const actions = useMemo(() => nextAttendanceActions(workflowStatus), [workflowStatus])
+  const { data: existingActive } = useMyActiveExceptionRequest(
+    exceptionOpen ? activeProjectId || undefined : undefined,
+    exceptionOpen ? exceptionAction : undefined,
+  )
 
   const verifiedProjects = projects.filter(
     (p) => p.location_verification_status === 'verified' && p.latitude != null && p.longitude != null,
@@ -83,12 +91,16 @@ export function ClockInOutCard() {
       toast.error(message)
       if (result?.allow_exception_request) {
         setExceptionAction(action)
+        setSubmitToken(newIdempotencyKey())
+        setActiveRequest(null)
         setExceptionOpen(true)
       }
     } finally {
       setBusyAction(null)
     }
   }
+
+  const shownRequest = activeRequest || existingActive
 
   return (
     <Card>
@@ -176,6 +188,8 @@ export function ClockInOutCard() {
             size="sm"
             onClick={() => {
               setExceptionAction(actions[0] ?? 'WORK_STARTED')
+              setSubmitToken(newIdempotencyKey())
+              setActiveRequest(null)
               setExceptionOpen(true)
             }}
           >
@@ -220,92 +234,161 @@ export function ClockInOutCard() {
           </div>
         ) : null}
 
-        <Dialog open={exceptionOpen} onOpenChange={setExceptionOpen}>
+        <Dialog
+          open={exceptionOpen}
+          onOpenChange={(open) => {
+            setExceptionOpen(open)
+            if (!open) {
+              setExceptionText('')
+              setExceptionPhoto(null)
+            }
+          }}
+        >
           <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Location exception request</DialogTitle>
+              <DialogTitle>Attendance exception request</DialogTitle>
             </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              This does not clock you in automatically. An administrator must review and approve.
-            </p>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label>Action</Label>
-                <Select
-                  value={exceptionAction}
-                  onValueChange={(v) => setExceptionAction(v as AttendanceActionType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(['WORK_STARTED', 'BREAK_STARTED', 'BREAK_ENDED', 'WORK_ENDED'] as const).map((a) => (
-                      <SelectItem key={a} value={a}>
-                        {actionButtonLabel(a)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {!openRecord ? (
-                <div className="space-y-1">
-                  <Label>Project</Label>
-                  <Select value={projectId || undefined} onValueChange={setProjectId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+            {shownRequest ? (
+              <div className="space-y-3 text-sm">
+                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">
+                  You already submitted a request for this attendance issue. Management has not completed
+                  its review yet.
+                </p>
+                <div className="space-y-1 rounded-md border border-border px-3 py-2">
+                  <p>
+                    <span className="text-muted-foreground">Status:</span> {shownRequest.status}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Submitted:</span>{' '}
+                    {format(new Date(shownRequest.created_at), 'MMM d, yyyy h:mm a')}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Requested action:</span>{' '}
+                    {actionButtonLabel(shownRequest.requested_action)}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Project:</span>{' '}
+                    {shownRequest.project?.name || '—'}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Explanation:</span> {shownRequest.explanation}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Reference: {shownRequest.id}</p>
                 </div>
-              ) : null}
-              <div className="space-y-1">
-                <Label>Explanation</Label>
-                <Textarea
-                  value={exceptionText}
-                  onChange={(e) => setExceptionText(e.target.value)}
-                  placeholder="Describe the legitimate location problem…"
-                  rows={4}
-                />
+                <Button type="button" variant="outline" onClick={() => setExceptionOpen(false)}>
+                  Close
+                </Button>
               </div>
-              <FilePickerButton
-                accept={IMAGE_UPLOAD_ACCEPT}
-                label={exceptionPhoto ? 'Change photo' : 'Optional photo'}
-                variant="outline"
-                onFile={(file) => setExceptionPhoto(file)}
-              />
-              <Button
-                disabled={submitException.isPending || !exceptionText.trim() || !activeProjectId}
-                onClick={async () => {
-                  if (!activeProjectId) return
-                  try {
-                    await submitException.mutateAsync({
-                      projectId: activeProjectId,
-                      action: exceptionAction,
-                      explanation: exceptionText,
-                      latitude: null,
-                      longitude: null,
-                      accuracyMeters: null,
-                      distanceMeters: lastResult?.distance_meters ?? null,
-                      photo: exceptionPhoto,
-                    })
-                    toast.success('Exception request submitted for review')
-                    setExceptionOpen(false)
-                    setExceptionText('')
-                    setExceptionPhoto(null)
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : 'Submit failed')
-                  }
-                }}
-              >
-                {submitException.isPending ? 'Submitting…' : 'Submit request'}
-              </Button>
-            </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  This does not change your timesheet automatically. An administrator must review and
+                  approve.
+                </p>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label>Action</Label>
+                    <Select
+                      value={exceptionAction}
+                      onValueChange={(v) => setExceptionAction(v as AttendanceActionType)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(['WORK_STARTED', 'BREAK_STARTED', 'BREAK_ENDED', 'WORK_ENDED'] as const).map(
+                          (a) => (
+                            <SelectItem key={a} value={a}>
+                              {actionButtonLabel(a)}
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {!openRecord ? (
+                    <div className="space-y-1">
+                      <Label>Project</Label>
+                      <Select value={projectId || undefined} onValueChange={setProjectId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1">
+                    <Label>Explanation</Label>
+                    <Textarea
+                      value={exceptionText}
+                      onChange={(e) => setExceptionText(e.target.value)}
+                      placeholder="Describe the legitimate attendance problem…"
+                      rows={4}
+                    />
+                  </div>
+                  <FilePickerButton
+                    accept={IMAGE_UPLOAD_ACCEPT}
+                    label={exceptionPhoto ? 'Change photo' : 'Optional photo'}
+                    variant="outline"
+                    multiple={false}
+                    onFile={(file) => setExceptionPhoto(file)}
+                  />
+                  <Button
+                    className="min-h-11 w-full"
+                    disabled={submitException.isPending || !exceptionText.trim() || !activeProjectId}
+                    onClick={async () => {
+                      if (!activeProjectId) return
+                      try {
+                        const result = await submitException.mutateAsync({
+                          projectId: activeProjectId,
+                          action: exceptionAction,
+                          explanation: exceptionText,
+                          latitude: null,
+                          longitude: null,
+                          accuracyMeters: null,
+                          distanceMeters: lastResult?.distance_meters ?? null,
+                          photo: exceptionPhoto,
+                          attendanceRecordId: openRecord?.id ?? null,
+                          idempotencyKey: submitToken,
+                        })
+                        toast.success(
+                          result.message ||
+                            'Your attendance correction request was submitted successfully. Management will review it.',
+                        )
+                        setActiveRequest(result.request ?? null)
+                        setExceptionText('')
+                        setExceptionPhoto(null)
+                      } catch (error) {
+                        const duplicateResult = (
+                          error as Error & {
+                            result?: { request?: AttendanceExceptionRequest; message?: string }
+                          }
+                        ).result
+                        if (duplicateResult?.request) {
+                          setActiveRequest(duplicateResult.request)
+                          toast.error(
+                            duplicateResult.message ||
+                              'You already submitted a request for this attendance issue. Management has not completed its review yet.',
+                          )
+                          return
+                        }
+                        toast.error(error instanceof Error ? error.message : 'Submit failed')
+                        setSubmitToken(newIdempotencyKey())
+                      }
+                    }}
+                  >
+                    {submitException.isPending ? 'Submitting…' : 'Submit request'}
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </CardContent>

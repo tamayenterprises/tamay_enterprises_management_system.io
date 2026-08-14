@@ -54,6 +54,7 @@ export function AdminPage() {
       project_manager: users.filter((u) => u.role === 'project_manager' && !u.archived_at).length,
       employee: users.filter((u) => u.role === 'employee' && !u.archived_at).length,
       subcontractor: users.filter((u) => u.role === 'subcontractor' && !u.archived_at).length,
+      client: users.filter((u) => u.role === 'client' && !u.archived_at).length,
     }
     return { active, archived, pending: pendingCount, byRole, total: users.length }
   }, [profiles.data])
@@ -106,6 +107,7 @@ export function AdminPage() {
         <SummaryCard label="Project managers" value={counts.byRole.project_manager} />
         <SummaryCard label="Employees" value={counts.byRole.employee} />
         <SummaryCard label="Subcontractors" value={counts.byRole.subcontractor} />
+        <SummaryCard label="Clients" value={counts.byRole.client} />
       </div>
 
       <Card>

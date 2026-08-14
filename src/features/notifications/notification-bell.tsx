@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/features/auth/auth-context'
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -12,10 +13,12 @@ import {
   useUnreadNotifications,
   relevanceLabel,
 } from '@/features/notifications/hooks'
-import { cn } from '@/lib/utils'
+import { cn, isClientRole } from '@/lib/utils'
 
 export function NotificationBell() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
+  const notificationsPath = isClientRole(profile?.role) ? '/portal/notifications' : '/notifications'
   const [open, setOpen] = useState(false)
   const { data: unread = 0 } = useUnreadNotifications()
   const { data: items = [], isError } = useNotifications({ status: 'all', limit: 8 })
@@ -84,7 +87,10 @@ export function NotificationBell() {
                 </p>
               ) : null}
               {items.map((item) => {
-                const destination = item.destination_route || item.link
+                let destination = item.destination_route || item.link
+                if (isClientRole(profile?.role) && destination?.startsWith('/projects/')) {
+                  destination = destination.replace('/projects/', '/portal/projects/')
+                }
                 return (
                   <button
                     key={item.id}
@@ -101,7 +107,7 @@ export function NotificationBell() {
                       }
                       setOpen(false)
                       if (destination) navigate(destination)
-                      else navigate('/notifications')
+                      else navigate(notificationsPath)
                     }}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -135,22 +141,24 @@ export function NotificationBell() {
               size="sm"
               onClick={() => {
                 setOpen(false)
-                navigate('/notifications')
+                navigate(notificationsPath)
               }}
             >
               View all notifications
             </Button>
-            <Button
-              className="mt-2 w-full"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setOpen(false)
-                navigate('/activity')
-              }}
-            >
-              View recent activity
-            </Button>
+            {!isClientRole(profile?.role) ? (
+              <Button
+                className="mt-2 w-full"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOpen(false)
+                  navigate('/activity')
+                }}
+              >
+                View recent activity
+              </Button>
+            ) : null}
           </div>
         </>
       ) : null}

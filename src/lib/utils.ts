@@ -24,6 +24,32 @@ export function formatDate(value?: string | null, pattern = 'MMM d, yyyy') {
   return format(new Date(value), pattern)
 }
 
+/** Default Tamay warranty end date: 7 years from a completion (or given) date. */
+export function defaultWarrantyEndDate(from: Date | string = new Date()) {
+  const base = typeof from === 'string' ? new Date(from) : from
+  const end = new Date(base)
+  end.setFullYear(end.getFullYear() + 7)
+  return format(end, 'yyyy-MM-dd')
+}
+
+/** Warranty still covers the job (or date unknown on a kept record). */
+export function isWarrantyActive(warrantyEndsOn?: string | null) {
+  if (!warrantyEndsOn) return true
+  const end = new Date(`${warrantyEndsOn}T23:59:59`)
+  return !isPast(end)
+}
+
+export function warrantyStatusLabel(warrantyEndsOn?: string | null) {
+  if (!warrantyEndsOn) return 'Warranty date not set'
+  if (isWarrantyActive(warrantyEndsOn)) {
+    const days = differenceInDays(new Date(`${warrantyEndsOn}T23:59:59`), new Date())
+    if (days <= 0) return 'Warranty ends today'
+    if (days === 1) return 'Warranty active · 1 day left'
+    return `Warranty active · ${days} days left`
+  }
+  return 'Warranty expired'
+}
+
 export function formatRelative(value?: string | null) {
   if (!value) return '—'
   return formatDistanceToNow(new Date(value), { addSuffix: true })
@@ -46,6 +72,7 @@ export function roleLabel(role: UserRole) {
     project_manager: 'Project Manager',
     employee: 'Employee',
     subcontractor: 'Subcontractor',
+    client: 'Client',
   }
   return labels[role]
 }
@@ -154,6 +181,14 @@ export function deriveCertificationStatus(expirationDate?: string | null): Certi
 
 export function isManagementRole(role?: UserRole | null) {
   return role === 'admin' || role === 'project_manager'
+}
+
+export function isClientRole(role?: UserRole | null) {
+  return role === 'client'
+}
+
+export function homePathForRole(role?: UserRole | null) {
+  return isClientRole(role) ? '/portal' : '/dashboard'
 }
 
 export function canAccessAdmin(role?: UserRole | null) {

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -25,7 +25,10 @@ import {
   insertAtTrigger,
   mentionToken,
   projectHashToken,
+  resolveMentionedUserIds,
+  resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
+import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
 import type { CompanyUpdateAudience, Profile, Project } from '@/types/database'
@@ -47,8 +50,12 @@ function UpdatePhoto({ path }: { path: string }) {
   }, [path])
   if (!url) return <p className="text-xs text-muted-foreground">Loading photo…</p>
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border">
-      <img src={url} alt="Update" className="max-h-64 w-full object-cover" />
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border bg-muted/30">
+      <img
+        src={url}
+        alt="Update"
+        className="mx-auto max-h-80 w-auto max-w-full object-contain"
+      />
     </a>
   )
 }
@@ -68,7 +75,7 @@ function CompanyComposer({
   const canPublish = isManagementRole(profile?.role)
   const create = useCreateCompanyUpdate()
   const [content, setContent] = useState('')
-  const [photo, setPhoto] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
   const [audienceType, setAudienceType] = useState<CompanyUpdateAudience>('all_internal')
   const [audienceUserIds, setAudienceUserIds] = useState<string[]>([])
   const [repliesEnabled, setRepliesEnabled] = useState(true)
@@ -111,20 +118,78 @@ function CompanyComposer({
           }
         }
         try {
-          await create.mutateAsync({
-            content,
-            parentId,
-            photo,
-            audienceType,
-            audienceUserIds,
-            repliesEnabled,
-            requiresAttention,
-            notifyProjectTeam: notifyProjectTeam && projectIds.length > 0,
-            mentionedUserIds: mentionedIds,
-            projectIds,
-          })
+          const mentionIds = Array.from(
+            new Set([...mentionedIds, ...resolveMentionedUserIds(content, mentionCandidates)]),
+          )
+          const referencedIds = Array.from(
+            new Set([...projectIds, ...resolveReferencedProjectIds(content, projects)]),
+          )
+          for (const id of mentionIds) {
+            if (
+              audienceType === 'selected_users' &&
+              !audienceUserIds.includes(id) &&
+              !parentId
+            ) {
+              toast.error('Add mentioned users to the selected audience before posting')
+              return
+            }
+          }
+          if (photos.length === 0) {
+            await create.mutateAsync({
+              content,
+              parentId,
+              audienceType,
+              audienceUserIds,
+              repliesEnabled,
+              requiresAttention,
+              notifyProjectTeam: notifyProjectTeam && referencedIds.length > 0,
+              mentionedUserIds: mentionIds,
+              projectIds: referencedIds,
+            })
+          } else if (parentId) {
+            for (let index = 0; index < photos.length; index += 1) {
+              await create.mutateAsync({
+                content: index === 0 ? content : '',
+                parentId,
+                photo: photos[index],
+                audienceType,
+                audienceUserIds: [],
+                repliesEnabled,
+                requiresAttention: false,
+                notifyProjectTeam: false,
+                mentionedUserIds: index === 0 ? mentionIds : [],
+                projectIds: [],
+              })
+            }
+          } else {
+            const root = await create.mutateAsync({
+              content,
+              photo: photos[0],
+              audienceType,
+              audienceUserIds,
+              repliesEnabled,
+              requiresAttention,
+              notifyProjectTeam: notifyProjectTeam && referencedIds.length > 0,
+              mentionedUserIds: mentionIds,
+              projectIds: referencedIds,
+            })
+            for (let index = 1; index < photos.length; index += 1) {
+              await create.mutateAsync({
+                content: '',
+                parentId: root.id,
+                photo: photos[index],
+                audienceType,
+                audienceUserIds: [],
+                repliesEnabled,
+                requiresAttention: false,
+                notifyProjectTeam: false,
+                mentionedUserIds: [],
+                projectIds: [],
+              })
+            }
+          }
           setContent('')
-          setPhoto(null)
+          setPhotos([])
           setRequiresAttention(false)
           setNotifyProjectTeam(false)
           setMentionedIds([])
@@ -326,22 +391,26 @@ function CompanyComposer({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <FilePickerButton
-          accept={IMAGE_UPLOAD_ACCEPT}
-          label={photo ? 'Change photo' : 'Add photo'}
-          variant="outline"
-          disabled={create.isPending}
-          onFile={(file) => setPhoto(file)}
-        />
-        {photo ? (
-          <Button type="button" size="sm" variant="ghost" onClick={() => setPhoto(null)}>
-            Remove photo
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilePickerButton
+            accept={IMAGE_UPLOAD_ACCEPT}
+            label="Add photos"
+            variant="outline"
+            disabled={create.isPending}
+            multiple
+            selectedFiles={photos}
+            onFiles={setPhotos}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={create.isPending || (!content.trim() && photos.length === 0)}
+          >
+            {create.isPending ? 'Posting…' : parentId ? 'Post reply' : 'Add Update'}
           </Button>
-        ) : null}
-        <Button type="submit" size="sm" disabled={create.isPending || (!content.trim() && !photo)}>
-          {create.isPending ? 'Posting…' : parentId ? 'Post reply' : 'Add Update'}
-        </Button>
+        </div>
+        <SelectedFilesList files={photos} onChange={setPhotos} />
       </div>
     </form>
   )
@@ -377,7 +446,9 @@ function CompanyUpdateCard({
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
         {!update.replies_enabled ? <Badge variant="outline">Replies Disabled</Badge> : null}
       </div>
-      {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
+      {update.content ? (
+        <RichUpdateText content={update.content} people={mentionCandidates} projects={projects} />
+      ) : null}
       {update.photo_path ? <UpdatePhoto path={update.photo_path} /> : null}
       {update.refs && update.refs.length > 0 ? (
         <div className="flex flex-wrap gap-1">
@@ -401,7 +472,9 @@ function CompanyUpdateCard({
             id={`company-update-${reply.id}`}
             className="space-y-2 rounded-md bg-muted/40 px-3 py-2"
           >
-            {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
+            {reply.content ? (
+              <RichUpdateText content={reply.content} people={mentionCandidates} projects={projects} />
+            ) : null}
             {reply.photo_path ? <UpdatePhoto path={reply.photo_path} /> : null}
             <p className="text-xs text-muted-foreground">
               {reply.author
@@ -577,7 +650,7 @@ export function UpdatesPage() {
                     <Badge variant="secondary">Project Update</Badge>
                     {project?.name ? <Badge variant="outline">{project.name}</Badge> : null}
                   </div>
-                  {note.content ? <p className="whitespace-pre-wrap">{note.content}</p> : null}
+                  {note.content ? <RichUpdateText content={note.content} /> : null}
                   <p className="mt-2 text-xs text-muted-foreground">
                     {author ? fullName(author.first_name, author.last_name) : 'Unknown'} ·{' '}
                     {formatRelative(note.created_at)}

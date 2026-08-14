@@ -36,6 +36,27 @@ export const signUpSchema = z
     },
   )
 
+export const clientSignUpSchema = z
+  .object({
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
+    email: z.string().email('Enter a valid email'),
+    phone: z.string().min(7, 'Enter a valid phone number'),
+    password: passwordSchema,
+    confirmPassword: z.string().min(8, 'Confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+
+export const projectRequestSchema = z.object({
+  title: z.string().min(1, 'Project title is required'),
+  description: z.string().min(1, 'Describe the work you need'),
+  location: z.string().min(1, 'Job site address or location is required'),
+  preferred_start_date: z.string().optional().nullable(),
+})
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email('Enter a valid email'),
 })
@@ -73,7 +94,7 @@ export const profileSchema = z.object({
   trade_specialization: z.string().optional().nullable(),
   insurance_info: z.string().optional().nullable(),
   license_info: z.string().optional().nullable(),
-  role: z.enum(['admin', 'project_manager', 'employee', 'subcontractor']).optional(),
+  role: z.enum(['admin', 'project_manager', 'employee', 'subcontractor', 'client']).optional(),
   is_active: z.boolean().optional(),
 })
 
@@ -85,6 +106,7 @@ export const projectSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   start_date: z.string().optional().nullable(),
   deadline: z.string().optional().nullable(),
+  warranty_ends_on: z.string().optional().nullable(),
 })
 
 export const certificationSchema = z.object({
@@ -115,6 +137,8 @@ export const documentSchema = z.object({
 
 export type SignInValues = z.infer<typeof signInSchema>
 export type SignUpValues = z.infer<typeof signUpSchema>
+export type ClientSignUpValues = z.infer<typeof clientSignUpSchema>
+export type ProjectRequestFormValues = z.infer<typeof projectRequestSchema>
 export type ProjectFormValues = z.infer<typeof projectSchema>
 export type ProfileFormValues = z.infer<typeof profileSchema>
 export type CertificationFormValues = z.infer<typeof certificationSchema>
