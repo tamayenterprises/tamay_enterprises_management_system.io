@@ -17,8 +17,11 @@ import {
   useMyOpenAttendance,
   useRecordAttendanceAction,
   useSubmitExceptionRequest,
+  type AttendanceActionError,
+  type CapturedAttendanceLocation,
 } from '@/features/attendance/hooks'
-import { useProjects } from '@/features/data/hooks'
+import { useProjects, useWorkerEligibility } from '@/features/data/hooks'
+import { useAuth } from '@/features/auth/auth-context'
 import {
   actionButtonLabel,
   formatBreakDuration,
@@ -27,14 +30,17 @@ import {
   nextAttendanceActions,
   type AttendanceActionType,
 } from '@/lib/geo'
+import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
 import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
 import { formatHoursDuration, formatRelative } from '@/lib/utils'
 import type { AttendanceActionResult, AttendanceExceptionRequest } from '@/types/database'
 
 export function ClockInOutCard() {
+  const { profile } = useAuth()
   const { data: openRecord, isLoading, isError } = useMyOpenAttendance()
   const { data: history = [] } = useMyAttendanceHistory(5)
   const { data: projects = [] } = useProjects({ assignedOnly: true })
+  const { data: eligibilityRpc } = useWorkerEligibility(profile?.id)
   const recordAction = useRecordAttendanceAction()
   const submitException = useSubmitExceptionRequest()
 
@@ -45,8 +51,14 @@ export function ClockInOutCard() {
   const [exceptionText, setExceptionText] = useState('')
   const [exceptionPhoto, setExceptionPhoto] = useState<File | null>(null)
   const [lastResult, setLastResult] = useState<AttendanceActionResult | null>(null)
+  const [lastLocation, setLastLocation] = useState<CapturedAttendanceLocation | null>(null)
   const [activeRequest, setActiveRequest] = useState<AttendanceExceptionRequest | null>(null)
   const [submitToken, setSubmitToken] = useState(() => newIdempotencyKey())
+  const [actionToken, setActionToken] = useState(() => newIdempotencyKey())
+
+  const eligibility = eligibilityRpc ?? deriveWorkerEligibility(profile)
+  const canClock = eligibility.can_submit_attendance
+  const canRequestException = eligibility.can_submit_exception_request
 
   const activeProjectId = openRecord?.project_id || projectId
   const workflowStatus = openRecord?.workflow_status ?? null
@@ -64,6 +76,13 @@ export function ClockInOutCard() {
   if (isError) return <EmptyState title="Unable to load time clock" />
 
   async function runAction(action: AttendanceActionType) {
+    if (!canClock) {
+      toast.error(
+        eligibility.blocking_reason ||
+          'Your profile cannot submit attendance yet. Ask management to activate your worker profile.',
+      )
+      return
+    }
     const pid = action === 'WORK_STARTED' ? projectId : openRecord?.project_id || projectId
     if (!pid) {
       toast.error('Select an assigned project first')
@@ -74,27 +93,42 @@ export function ClockInOutCard() {
     }
 
     setBusyAction(action)
+    const pressKey = actionToken
     try {
-      const result = await recordAction.mutateAsync({ action, projectId: pid })
+      const result = await recordAction.mutateAsync({
+        action,
+        projectId: pid,
+        idempotencyKey: pressKey,
+      })
       setLastResult(result)
+      setActionToken(newIdempotencyKey())
       toast.success(`${actionButtonLabel(action)} recorded`)
       if (action === 'WORK_STARTED') setProjectId(pid)
     } catch (error) {
-      const result = (error as Error & { result?: AttendanceActionResult }).result
+      const attendanceError = error as AttendanceActionError
+      const result = attendanceError.result
       if (result) setLastResult(result)
+      if (attendanceError.capturedLocation) setLastLocation(attendanceError.capturedLocation)
       const message =
-        error instanceof Error && error.message
+        attendanceError.message ||
+        (error instanceof Error && error.message
           ? error.message
-          : typeof error === 'object' && error && 'message' in error
-            ? String((error as { message: unknown }).message)
-            : 'Attendance action failed'
+          : 'Attendance action failed')
       toast.error(message)
-      if (result?.allow_exception_request) {
+      const openException =
+        Boolean(result?.allow_exception_request) || Boolean(attendanceError.allowExceptionRequest)
+      if (openException && canRequestException) {
         setExceptionAction(action)
         setSubmitToken(newIdempotencyKey())
         setActiveRequest(null)
         setExceptionOpen(true)
+      } else if (openException && !canRequestException) {
+        toast.error(
+          eligibility.blocking_reason ||
+            'Exception requests are blocked until management activates your profile.',
+        )
       }
+      setActionToken(newIdempotencyKey())
     } finally {
       setBusyAction(null)
     }
@@ -115,6 +149,19 @@ export function ClockInOutCard() {
           Your location is checked only when you record a work or break action. Tamay Enterprises does not
           continuously track your location through this feature.
         </p>
+
+        {!canClock ? (
+          <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+            <p className="font-medium">Attendance blocked ({eligibility.derived_status})</p>
+            <p>
+              {eligibility.blocking_reason ||
+                'Your worker profile is inactive or not approved. Ask management to activate you before clocking in.'}
+            </p>
+            {eligibility.required_administrative_action ? (
+              <p className="text-muted-foreground">Needed: {eligibility.required_administrative_action}</p>
+            ) : null}
+          </div>
+        ) : null}
 
         {openRecord ? (
           <div className="space-y-1 rounded-xl border border-border bg-[#fbfcff] px-3 py-3">
@@ -176,7 +223,11 @@ export function ClockInOutCard() {
             <Button
               key={action}
               variant={action === 'WORK_ENDED' || action === 'BREAK_STARTED' ? 'outline' : 'default'}
-              disabled={Boolean(busyAction) || (action === 'WORK_STARTED' && !projectId)}
+              disabled={
+                Boolean(busyAction) ||
+                !canClock ||
+                (action === 'WORK_STARTED' && !projectId)
+              }
               onClick={() => void runAction(action)}
             >
               {busyAction === action ? 'Checking location…' : actionButtonLabel(action)}
@@ -186,7 +237,15 @@ export function ClockInOutCard() {
             type="button"
             variant="ghost"
             size="sm"
+            disabled={!canRequestException}
             onClick={() => {
+              if (!canRequestException) {
+                toast.error(
+                  eligibility.blocking_reason ||
+                    'Exception requests are blocked until management activates your profile.',
+                )
+                return
+              }
               setExceptionAction(actions[0] ?? 'WORK_STARTED')
               setSubmitToken(newIdempotencyKey())
               setActiveRequest(null)
@@ -350,9 +409,9 @@ export function ClockInOutCard() {
                           projectId: activeProjectId,
                           action: exceptionAction,
                           explanation: exceptionText,
-                          latitude: null,
-                          longitude: null,
-                          accuracyMeters: null,
+                          latitude: lastLocation?.latitude ?? null,
+                          longitude: lastLocation?.longitude ?? null,
+                          accuracyMeters: lastLocation?.accuracyMeters ?? null,
                           distanceMeters: lastResult?.distance_meters ?? null,
                           photo: exceptionPhoto,
                           attendanceRecordId: openRecord?.id ?? null,
