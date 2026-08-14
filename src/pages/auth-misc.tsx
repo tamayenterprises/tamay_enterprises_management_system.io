@@ -51,6 +51,9 @@ export function ForgotPasswordPage() {
               Send reset link
             </Button>
           </form>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            Don&apos;t know your email? Contact your admin.
+          </p>
           <p className="mt-4 text-center text-sm">
             <Link className="text-primary hover:underline" to="/sign-in">
               Back to sign in

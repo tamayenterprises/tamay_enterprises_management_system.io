@@ -85,9 +85,14 @@ export function SignInPage() {
           </form>
           <div className="mt-4 space-y-3 text-sm">
             <AuthBrowserTip />
-            <Link className="text-primary hover:underline" to="/forgot-password">
-              Forgot password?
-            </Link>
+            <div className="space-y-1">
+              <Link className="text-primary hover:underline" to="/forgot-password">
+                Forgot password?
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Don&apos;t know your email? Contact your admin.
+              </p>
+            </div>
             <div className="rounded-lg border border-border bg-[#fbfcff] px-3 py-2.5">
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">Create an account</p>
               <div className="flex flex-col gap-1.5 sm:flex-row sm:justify-between">
