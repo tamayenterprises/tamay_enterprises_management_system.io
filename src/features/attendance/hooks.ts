@@ -178,6 +178,25 @@ function asAppError(error: unknown, fallback = 'Attendance action failed'): Erro
   return new Error(typeof error === 'string' ? error : fallback)
 }
 
+export type CapturedAttendanceLocation = {
+  latitude: number
+  longitude: number
+  accuracyMeters: number
+}
+
+export type AttendanceActionError = Error & {
+  result?: AttendanceActionResult
+  capturedLocation?: CapturedAttendanceLocation | null
+  allowExceptionRequest?: boolean
+}
+
+function friendlyAttendanceRpcMessage(raw: string): string {
+  if (/approved active profile required/i.test(raw)) {
+    return 'Your worker profile is inactive or not approved for attendance. Ask management to activate your profile, then try again.'
+  }
+  return raw
+}
+
 export function useRecordAttendanceAction() {
   const queryClient = useQueryClient()
 
@@ -186,22 +205,34 @@ export function useRecordAttendanceAction() {
       action,
       projectId,
       skipLocation,
+      idempotencyKey,
     }: {
       action: AttendanceActionType
       projectId: string
       skipLocation?: boolean
+      /** Stable key for this button press (avoids duplicate rows under flaky network). */
+      idempotencyKey?: string
     }) => {
       if (!projectId) throw new Error('Select an assigned project first')
 
       let latitude: number | null = null
       let longitude: number | null = null
       let accuracyMeters: number | null = null
+      let capturedLocation: CapturedAttendanceLocation | null = null
 
       if (!skipLocation) {
-        const loc = await requestDeviceLocation()
-        latitude = loc.latitude
-        longitude = loc.longitude
-        accuracyMeters = loc.accuracyMeters
+        try {
+          const loc = await requestDeviceLocation()
+          latitude = loc.latitude
+          longitude = loc.longitude
+          accuracyMeters = loc.accuracyMeters
+          capturedLocation = loc
+        } catch (locationError) {
+          const err = asAppError(locationError) as AttendanceActionError
+          err.allowExceptionRequest = true
+          err.capturedLocation = null
+          throw err
+        }
       }
 
       const { data, error } = await supabase.rpc('record_attendance_action', {
@@ -211,18 +242,29 @@ export function useRecordAttendanceAction() {
         p_longitude: longitude,
         p_accuracy_meters: accuracyMeters,
         p_device_info: deviceInfoPayload(),
-        p_idempotency_key: newIdempotencyKey(),
+        p_idempotency_key: idempotencyKey || newIdempotencyKey(),
         p_session_id: null,
       })
 
-      if (error) throw asAppError(error, error.message || 'Attendance RPC failed')
+      if (error) {
+        const err = asAppError(
+          friendlyAttendanceRpcMessage(error.message || 'Attendance RPC failed'),
+        ) as AttendanceActionError
+        err.allowExceptionRequest = true
+        err.capturedLocation = capturedLocation
+        throw err
+      }
 
       const result = data as AttendanceActionResult
       if (!result?.ok) {
         const err = asAppError(
-          result?.rejection_reason || 'Attendance action was rejected by location or status checks',
-        ) as Error & { result?: AttendanceActionResult }
+          friendlyAttendanceRpcMessage(
+            result?.rejection_reason || 'Attendance action was rejected by location or status checks',
+          ),
+        ) as AttendanceActionError
         err.result = result
+        err.allowExceptionRequest = Boolean(result?.allow_exception_request)
+        err.capturedLocation = capturedLocation
         throw err
       }
       return result
