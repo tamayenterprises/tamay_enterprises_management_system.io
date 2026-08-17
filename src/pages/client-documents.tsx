@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { NativeSelect } from '@/components/ui/native-select'
 import { useAuth } from '@/features/auth/auth-context'
 import {
   createDocumentSignedUrl,
@@ -157,20 +157,19 @@ export function ClientDocumentsPage() {
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Project (optional)</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Personal file (no project)</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="client-upload-project">Project (optional)</Label>
+              <NativeSelect
+                id="client-upload-project"
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+              >
+                <option value="none">Personal file (no project)</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </NativeSelect>
             </div>
             <div className="space-y-1">
               <Label>Files</Label>
