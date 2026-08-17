@@ -1205,10 +1205,35 @@ export function useUploadDocument() {
 
       return data as DocumentRecord
     },
-    onSuccess: (doc) => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    onSuccess: async (doc) => {
+      // Keep the new row visible even if a slower in-flight refetch returns older data.
+      await queryClient.cancelQueries({ queryKey: ['documents'] })
       if (doc.project_id) {
-        queryClient.invalidateQueries({ queryKey: ['project-documents', doc.project_id] })
+        await queryClient.cancelQueries({ queryKey: ['project-documents', doc.project_id] })
+      }
+
+      const mergeDoc = (old: DocumentRecord[] | undefined) => {
+        // Only patch queries that already have data (active list views).
+        if (!old) return old
+        if (old.some((row) => row.id === doc.id)) return old
+        return [doc, ...old]
+      }
+
+      queryClient.setQueriesData<DocumentRecord[]>({ queryKey: ['documents'] }, mergeDoc)
+      if (doc.project_id) {
+        queryClient.setQueryData<DocumentRecord[]>(
+          ['project-documents', doc.project_id],
+          (old) => {
+            if (!old) return [doc]
+            if (old.some((row) => row.id === doc.id)) return old
+            return [doc, ...old]
+          },
+        )
+      }
+
+      void queryClient.invalidateQueries({ queryKey: ['documents'] })
+      if (doc.project_id) {
+        void queryClient.invalidateQueries({ queryKey: ['project-documents', doc.project_id] })
       }
     },
   })

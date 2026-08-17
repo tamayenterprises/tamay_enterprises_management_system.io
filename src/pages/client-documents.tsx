@@ -81,17 +81,37 @@ export function ClientDocumentsPage() {
         const threadDocs = uploaded.filter(
           (doc) => doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
         )
+        const threadErrors: string[] = []
         if (threadPhotos.length > 0) {
-          await postPhotosToThread.mutateAsync({
-            projectId: linkedProjectId,
-            photos: threadPhotos,
-          })
+          try {
+            await postPhotosToThread.mutateAsync({
+              projectId: linkedProjectId,
+              photos: threadPhotos,
+            })
+          } catch (error) {
+            threadErrors.push(error instanceof Error ? error.message : 'Photo thread update failed')
+          }
         }
         if (threadDocs.length > 0) {
-          await postDocumentsToThread.mutateAsync({
-            projectId: linkedProjectId,
-            documents: threadDocs,
-          })
+          try {
+            await postDocumentsToThread.mutateAsync({
+              projectId: linkedProjectId,
+              documents: threadDocs,
+            })
+          } catch (error) {
+            threadErrors.push(
+              error instanceof Error ? error.message : 'Document thread update failed',
+            )
+          }
+        }
+        if (failures.length === 0 && threadErrors.length > 0) {
+          toast.warning(
+            uploaded.length === 1
+              ? `File saved, but thread update failed: ${threadErrors[0]}`
+              : `${uploaded.length} files saved, but thread update failed: ${threadErrors[0]}`,
+          )
+          if (uploaded.length > 0) setFiles([])
+          return
         }
       }
 

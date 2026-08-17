@@ -429,17 +429,31 @@ export function ProjectDetailPage() {
                             )
                           }
                         }
+                        let threadError: string | null = null
                         if (uploaded.length > 0) {
-                          await postPhotosToThread.mutateAsync({
-                            projectId: project.id,
-                            photos: uploaded,
-                          })
+                          try {
+                            await postPhotosToThread.mutateAsync({
+                              projectId: project.id,
+                              photos: uploaded,
+                            })
+                          } catch (error) {
+                            threadError =
+                              error instanceof Error
+                                ? error.message
+                                : 'Could not post to the message thread'
+                          }
                         }
                         if (failures.length > 0) {
                           toast.error(
                             uploaded.length > 0
                               ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
                               : failures[0]!,
+                          )
+                        } else if (threadError) {
+                          toast.warning(
+                            uploaded.length === 1
+                              ? `Photo saved, but thread update failed: ${threadError}`
+                              : `${uploaded.length} photos saved, but thread update failed: ${threadError}`,
                           )
                         } else {
                           toast.success(
@@ -492,17 +506,31 @@ export function ProjectDetailPage() {
                             )
                           }
                         }
+                        let threadError: string | null = null
                         if (uploaded.length > 0) {
-                          await postDocumentsToThread.mutateAsync({
-                            projectId: project.id,
-                            documents: uploaded,
-                          })
+                          try {
+                            await postDocumentsToThread.mutateAsync({
+                              projectId: project.id,
+                              documents: uploaded,
+                            })
+                          } catch (error) {
+                            threadError =
+                              error instanceof Error
+                                ? error.message
+                                : 'Could not post to the message thread'
+                          }
                         }
                         if (failures.length > 0) {
                           toast.error(
                             uploaded.length > 0
                               ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
                               : failures[0]!,
+                          )
+                        } else if (threadError) {
+                          toast.warning(
+                            uploaded.length === 1
+                              ? `Document saved, but thread update failed: ${threadError}`
+                              : `${uploaded.length} documents saved, but thread update failed: ${threadError}`,
                           )
                         } else {
                           toast.success(
@@ -557,23 +585,42 @@ export function ProjectDetailPage() {
                           (doc) =>
                             doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
                         )
+                        const threadErrors: string[] = []
                         if (threadPhotos.length > 0) {
-                          await postPhotosToThread.mutateAsync({
-                            projectId: project.id,
-                            photos: threadPhotos,
-                          })
+                          try {
+                            await postPhotosToThread.mutateAsync({
+                              projectId: project.id,
+                              photos: threadPhotos,
+                            })
+                          } catch (error) {
+                            threadErrors.push(
+                              error instanceof Error ? error.message : 'Photo thread update failed',
+                            )
+                          }
                         }
                         if (threadDocs.length > 0) {
-                          await postDocumentsToThread.mutateAsync({
-                            projectId: project.id,
-                            documents: threadDocs,
-                          })
+                          try {
+                            await postDocumentsToThread.mutateAsync({
+                              projectId: project.id,
+                              documents: threadDocs,
+                            })
+                          } catch (error) {
+                            threadErrors.push(
+                              error instanceof Error
+                                ? error.message
+                                : 'Document thread update failed',
+                            )
+                          }
                         }
                         if (failures.length > 0) {
                           toast.error(
                             uploaded.length > 0
                               ? `${uploaded.length} uploaded; ${failures.length} skipped/failed. ${failures[0]}`
                               : failures[0]!,
+                          )
+                        } else if (threadErrors.length > 0) {
+                          toast.warning(
+                            `${uploaded.length} files saved, but thread update failed: ${threadErrors[0]}`,
                           )
                         } else {
                           toast.success(`${uploaded.length} files uploaded from folder`)
