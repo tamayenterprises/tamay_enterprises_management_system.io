@@ -35,19 +35,29 @@ import type { CompanyUpdateAudience, Profile, Project } from '@/types/database'
 
 function UpdatePhoto({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let cancelled = false
+    setFailed(false)
+    setUrl(null)
     createUpdatePhotoSignedUrl(path)
       .then((signed) => {
         if (!cancelled) setUrl(signed)
       })
       .catch(() => {
-        if (!cancelled) setUrl(null)
+        if (!cancelled) setFailed(true)
       })
     return () => {
       cancelled = true
     }
   }, [path])
+  if (failed) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Photo saved, but this device can’t preview it.
+      </p>
+    )
+  }
   if (!url) return <p className="text-xs text-muted-foreground">Loading photo…</p>
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border bg-muted/30">
@@ -55,6 +65,7 @@ function UpdatePhoto({ path }: { path: string }) {
         src={url}
         alt="Update"
         className="mx-auto max-h-80 w-auto max-w-full object-contain"
+        onError={() => setFailed(true)}
       />
     </a>
   )

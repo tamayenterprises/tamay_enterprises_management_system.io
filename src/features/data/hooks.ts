@@ -316,11 +316,17 @@ export function useCreateProjectUpdate() {
 
       return note
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
-      queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['project-activity'] })
+    onSuccess: async (note, variables) => {
+      await queryClient.cancelQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.setQueryData<ProjectNote[]>(['project-notes', variables.projectId], (old) => {
+        if (!old) return [note]
+        if (old.some((row) => row.id === note.id)) return old
+        return [...old, note]
+      })
+      await queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      void queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      void queryClient.invalidateQueries({ queryKey: ['project-activity'] })
     },
   })
 }
@@ -390,16 +396,21 @@ export function usePostProjectPhotosToThread() {
 
       return notes
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
-      queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['project-activity'] })
+    onSuccess: async (notes, variables) => {
+      await queryClient.cancelQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.setQueryData<ProjectNote[]>(['project-notes', variables.projectId], (old) => {
+        if (!old) return notes
+        const existing = new Set(old.map((row) => row.id))
+        const extras = notes.filter((row) => !existing.has(row.id))
+        return extras.length === 0 ? old : [...old, ...extras]
+      })
+      await queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      void queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      void queryClient.invalidateQueries({ queryKey: ['project-activity'] })
     },
   })
 }
-
-/** Announce saved documents (PDF, Word, etc.) in the shared project message thread. */
 export function usePostProjectDocumentsToThread() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
@@ -438,11 +449,18 @@ export function usePostProjectDocumentsToThread() {
       if (error) throw error
       return [data as ProjectNote]
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
-      queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['project-activity'] })
+    onSuccess: async (notes, variables) => {
+      await queryClient.cancelQueries({ queryKey: ['project-notes', variables.projectId] })
+      queryClient.setQueryData<ProjectNote[]>(['project-notes', variables.projectId], (old) => {
+        if (!old) return notes
+        const existing = new Set(old.map((row) => row.id))
+        const extras = notes.filter((row) => !existing.has(row.id))
+        return extras.length === 0 ? old : [...old, ...extras]
+      })
+      await queryClient.invalidateQueries({ queryKey: ['project-notes', variables.projectId] })
+      void queryClient.invalidateQueries({ queryKey: ['my-project-updates'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      void queryClient.invalidateQueries({ queryKey: ['project-activity'] })
     },
   })
 }
@@ -457,6 +475,7 @@ export function useProjectDocuments(projectId?: string) {
   return useQuery({
     queryKey: ['project-documents', projectId],
     enabled: Boolean(projectId),
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
@@ -1236,6 +1255,13 @@ export function useUploadDocument() {
       if (doc.project_id) {
         void queryClient.invalidateQueries({ queryKey: ['project-documents', doc.project_id] })
       }
+      // Ensure mobile clients refetch before the user looks at the list.
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['documents'] }),
+        doc.project_id
+          ? queryClient.refetchQueries({ queryKey: ['project-documents', doc.project_id] })
+          : Promise.resolve(),
+      ])
     },
   })
 }
