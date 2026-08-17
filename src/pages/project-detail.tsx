@@ -46,7 +46,7 @@ import {
   roleLabel,
   warrantyStatusLabel,
 } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, confirmAction, isImageUploadFile, resolvedDocumentUploadAccept, uploadFolderHint } from '@/lib/uploads'
+import { IMAGE_UPLOAD_ACCEPT, confirmAction, isImageUploadFile, isUploadSizeLimitMessage, partitionUploadFiles, resolvedDocumentUploadAccept, uploadFolderHint } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 
@@ -405,11 +405,20 @@ export function ProjectDetailPage() {
                     append={false}
                     onFiles={async (selected) => {
                       if (!profile?.organization_id) return
-                      const photosOnly = selected.filter((file) => isImageUploadFile(file))
-                      if (photosOnly.length === 0) {
-                        toast.error('Please choose photo files (JPG, PNG, WEBP, or HEIC).')
-                        return
+                      const { accepted: photosOnly, errors: pickErrors } = partitionUploadFiles(
+                        selected,
+                        { imagesOnly: true },
+                      )
+                      if (pickErrors.length > 0) {
+                        const message =
+                          pickErrors.length === 1
+                            ? pickErrors[0]!
+                            : `${pickErrors[0]} (+${pickErrors.length - 1} more)`
+                        toast.error(message, {
+                          duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                        })
                       }
+                      if (photosOnly.length === 0) return
                       try {
                         const uploaded = []
                         const failures: string[] = []
@@ -444,11 +453,13 @@ export function ProjectDetailPage() {
                           }
                         }
                         if (failures.length > 0) {
-                          toast.error(
+                          const message =
                             uploaded.length > 0
                               ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
-                              : failures[0]!,
-                          )
+                              : failures[0]!
+                          toast.error(message, {
+                            duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                          })
                         } else if (threadError) {
                           toast.warning(
                             uploaded.length === 1
@@ -482,11 +493,20 @@ export function ProjectDetailPage() {
                     append={false}
                     onFiles={async (selected) => {
                       if (!profile?.organization_id) return
-                      const docsOnly = selected.filter((file) => !isImageUploadFile(file))
-                      if (docsOnly.length === 0) {
-                        toast.error('Please choose document files (PDF, Word, Excel, etc.).')
-                        return
+                      const { accepted: docsOnly, errors: pickErrors } = partitionUploadFiles(
+                        selected,
+                        { documentsOnly: true },
+                      )
+                      if (pickErrors.length > 0) {
+                        const message =
+                          pickErrors.length === 1
+                            ? pickErrors[0]!
+                            : `${pickErrors[0]} (+${pickErrors.length - 1} more)`
+                        toast.error(message, {
+                          duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                        })
                       }
+                      if (docsOnly.length === 0) return
                       try {
                         const uploaded = []
                         const failures: string[] = []
@@ -521,11 +541,13 @@ export function ProjectDetailPage() {
                           }
                         }
                         if (failures.length > 0) {
-                          toast.error(
+                          const message =
                             uploaded.length > 0
                               ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
-                              : failures[0]!,
-                          )
+                              : failures[0]!
+                          toast.error(message, {
+                            duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                          })
                         } else if (threadError) {
                           toast.warning(
                             uploaded.length === 1
@@ -557,10 +579,21 @@ export function ProjectDetailPage() {
                     onFiles={async (selected) => {
                       if (!profile?.organization_id) return
                       if (selected.length === 0) return
+                      const { accepted, errors: pickErrors } = partitionUploadFiles(selected)
+                      if (pickErrors.length > 0) {
+                        const message =
+                          pickErrors.length === 1
+                            ? pickErrors[0]!
+                            : `${pickErrors[0]} (+${pickErrors.length - 1} more)`
+                        toast.error(message, {
+                          duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                        })
+                      }
+                      if (accepted.length === 0) return
                       try {
                         const uploaded = []
                         const failures: string[] = []
-                        for (const file of selected) {
+                        for (const file of accepted) {
                           try {
                             uploaded.push(
                               await uploadDocument.mutateAsync({
@@ -613,11 +646,13 @@ export function ProjectDetailPage() {
                           }
                         }
                         if (failures.length > 0) {
-                          toast.error(
+                          const message =
                             uploaded.length > 0
                               ? `${uploaded.length} uploaded; ${failures.length} skipped/failed. ${failures[0]}`
-                              : failures[0]!,
-                          )
+                              : failures[0]!
+                          toast.error(message, {
+                            duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                          })
                         } else if (threadErrors.length > 0) {
                           toast.warning(
                             `${uploaded.length} files saved, but thread update failed: ${threadErrors[0]}`,

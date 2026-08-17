@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { validateImageUploadFile, validateUploadFile, contentTypeForUploadFile } from '@/lib/uploads'
+import { validateImageUploadFile, validateUploadFile, contentTypeForUploadFile, uploadErrorMessage } from '@/lib/uploads'
 import type { ProjectRequestFormValues } from '@/lib/validations'
 import type { Project, ProjectRequest, ProjectRequestFile, ProjectRequestStatus } from '@/types/database'
 
@@ -120,7 +120,7 @@ export function useUploadProjectRequestFile() {
         contentType,
         upsert: false,
       })
-      if (uploadError) throw uploadError
+      if (uploadError) throw new Error(uploadErrorMessage(uploadError))
 
       const { data, error } = await supabase
         .from('project_request_files')
