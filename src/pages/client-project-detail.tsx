@@ -19,6 +19,7 @@ import { documentCategoryLabel, formatDate, formatFileSize, projectStatusLabel }
 import {
   IMAGE_UPLOAD_ACCEPT,
   categoryForUploadFile,
+  confirmAction,
   isUploadSizeLimitMessage,
   partitionUploadFiles,
   resolvedDocumentUploadAccept,
