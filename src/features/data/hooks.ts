@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
@@ -1128,6 +1128,7 @@ export function useDocuments(filters?: {
   return useQuery({
     queryKey: ['documents', filters, profile?.id],
     enabled: Boolean(profile),
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       let query = supabase
         .from('documents')

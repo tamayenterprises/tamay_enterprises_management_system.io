@@ -9,6 +9,7 @@ import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
+import { NativeSelect } from '@/components/ui/native-select'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-context'
 import {
@@ -58,7 +59,7 @@ export function DocumentsPage() {
   const [uploadProjectId, setUploadProjectId] = useState<string>('none')
 
   const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
-  const { data, isLoading, isError } = useDocuments({
+  const { data, isLoading, isError, isFetching } = useDocuments({
     search,
     category: category === 'all' ? undefined : category,
     projectId: projectFilter === 'all' || projectFilter === 'none' ? undefined : projectFilter,
@@ -83,8 +84,8 @@ export function DocumentsPage() {
     }
   }, [data, profile?.id])
 
-  if (isLoading) return <LoadingState />
-  if (isError) return <EmptyState title="Unable to load documents" />
+  if (isLoading && !data) return <LoadingState />
+  if (isError && !data) return <EmptyState title="Unable to load documents" />
 
   return (
     <div className="space-y-6">
@@ -139,20 +140,19 @@ export function DocumentsPage() {
                 <SelectedFilesList files={files} onChange={setFiles} />
               </div>
               <div className="space-y-1">
-                <Label>Link to project (optional)</Label>
-                <Select value={uploadProjectId} onValueChange={setUploadProjectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="No project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="upload-project">Link to project (optional)</Label>
+                <NativeSelect
+                  id="upload-project"
+                  value={uploadProjectId}
+                  onChange={(event) => setUploadProjectId(event.target.value)}
+                >
+                  <option value="none">No project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </NativeSelect>
               </div>
               <Button
                 disabled={files.length === 0 || uploadDocument.isPending}
@@ -264,7 +264,9 @@ export function DocumentsPage() {
           description="Upload certifications, contracts, insurance, or project files to get started."
         />
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div
+          className={`grid gap-4 lg:grid-cols-2 ${isFetching ? 'opacity-70 transition-opacity' : ''}`}
+        >
           {documents.map((doc) => (
             <DocumentCard
               key={doc.id}
