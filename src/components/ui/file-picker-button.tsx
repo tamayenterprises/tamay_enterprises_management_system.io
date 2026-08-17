@@ -34,6 +34,24 @@ type FilePickerButtonProps = {
   onFiles?: (files: File[]) => void | Promise<void>
 }
 
+/** iOS/Safari closes Radix dialogs when the native file sheet opens — guard against that. */
+export function markNativeFilePickerOpen() {
+  if (typeof document === 'undefined') return
+  document.body.dataset.nativeFilePicker = '1'
+}
+
+export function markNativeFilePickerClosed() {
+  if (typeof document === 'undefined') return
+  window.setTimeout(() => {
+    delete document.body.dataset.nativeFilePicker
+  }, 500)
+}
+
+export function isNativeFilePickerOpen() {
+  if (typeof document === 'undefined') return false
+  return document.body.dataset.nativeFilePicker === '1'
+}
+
 export function fileKey(file: File) {
   return `${file.name}:${file.size}:${file.lastModified}`
 }
@@ -96,24 +114,31 @@ export function FilePickerButton({
         onChange={async (event) => {
           const selected = Array.from(event.target.files ?? [])
           event.target.value = ''
-          if (selected.length === 0) return
+          try {
+            if (selected.length === 0) return
 
-          const next =
-            allowMultiple && append
-              ? mergeSelectedFiles(selectedFiles, selected)
-              : selected
+            const next =
+              allowMultiple && append
+                ? mergeSelectedFiles(selectedFiles, selected)
+                : selected
 
-          if (onFiles) {
-            await onFiles(next)
-            return
-          }
-          if (onFile) {
-            if (allowMultiple) {
-              for (const file of next) await onFile(file)
-            } else {
-              await onFile(next[0]!)
+            if (onFiles) {
+              await onFiles(next)
+              return
             }
+            if (onFile) {
+              if (allowMultiple) {
+                for (const file of next) await onFile(file)
+              } else {
+                await onFile(next[0]!)
+              }
+            }
+          } finally {
+            markNativeFilePickerClosed()
           }
+        }}
+        onCancel={() => {
+          markNativeFilePickerClosed()
         }}
       />
       <Button
@@ -122,7 +147,10 @@ export function FilePickerButton({
         variant={variant}
         className={cn('min-h-11 w-full sm:w-auto', className)}
         disabled={disabled || isLoading}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => {
+          markNativeFilePickerOpen()
+          inputRef.current?.click()
+        }}
       >
         {isLoading ? loadingLabel : resolvedLabel}
       </Button>

@@ -23,7 +23,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 export const DialogContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onPointerDownOutside, onFocusOutside, onInteractOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -33,6 +33,24 @@ export const DialogContent = React.forwardRef<
         'max-h-[calc(100dvh-2rem)] overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+1.5rem)]',
         className,
       )}
+      onPointerDownOutside={(event) => {
+        if (typeof document !== 'undefined' && document.body.dataset.nativeFilePicker === '1') {
+          event.preventDefault()
+        }
+        onPointerDownOutside?.(event)
+      }}
+      onFocusOutside={(event) => {
+        if (typeof document !== 'undefined' && document.body.dataset.nativeFilePicker === '1') {
+          event.preventDefault()
+        }
+        onFocusOutside?.(event)
+      }}
+      onInteractOutside={(event) => {
+        if (typeof document !== 'undefined' && document.body.dataset.nativeFilePicker === '1') {
+          event.preventDefault()
+        }
+        onInteractOutside?.(event)
+      }}
       {...props}
     >
       {children}

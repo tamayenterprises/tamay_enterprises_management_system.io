@@ -35,20 +35,31 @@ import type { Profile, Project, ProjectNote } from '@/types/database'
 
 function UpdatePhoto({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+    setFailed(false)
+    setUrl(null)
     createUpdatePhotoSignedUrl(path)
       .then((signed) => {
         if (!cancelled) setUrl(signed)
       })
       .catch(() => {
-        if (!cancelled) setUrl(null)
+        if (!cancelled) setFailed(true)
       })
     return () => {
       cancelled = true
     }
   }, [path])
+
+  if (failed) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Photo saved, but this device can’t preview it. Open Files on the project to download.
+      </p>
+    )
+  }
 
   if (!url) {
     return <p className="text-xs text-muted-foreground">Loading photo…</p>
@@ -60,6 +71,7 @@ function UpdatePhoto({ path }: { path: string }) {
         src={url}
         alt="Project update"
         className="mx-auto max-h-80 w-auto max-w-full object-contain"
+        onError={() => setFailed(true)}
       />
     </a>
   )
