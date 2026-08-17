@@ -21,6 +21,8 @@ import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/uti
 import {
   IMAGE_UPLOAD_ACCEPT,
   categoryForUploadFile,
+  isUploadSizeLimitMessage,
+  partitionUploadFiles,
   resolvedDocumentUploadAccept,
   uploadFolderHint,
 } from '@/lib/uploads'
@@ -116,11 +118,13 @@ export function ClientDocumentsPage() {
       }
 
       if (failures.length > 0) {
-        toast.error(
+        const message =
           uploaded.length > 0
             ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
-            : failures[0]!,
-        )
+            : failures[0]!
+        toast.error(message, {
+          duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+        })
       } else {
         toast.success(
           uploaded.length === 1
@@ -180,7 +184,19 @@ export function ClientDocumentsPage() {
                   variant="outline"
                   multiple
                   selectedFiles={files}
-                  onFiles={setFiles}
+                  onFiles={(selected) => {
+                    const { accepted, errors } = partitionUploadFiles(selected)
+                    if (errors.length > 0) {
+                      const message =
+                        errors.length === 1
+                          ? errors[0]!
+                          : `${errors[0]} (+${errors.length - 1} more)`
+                      toast.error(message, {
+                        duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                      })
+                    }
+                    setFiles(accepted)
+                  }}
                 />
                 <FilePickerButton
                   accept={resolvedDocumentUploadAccept()}
@@ -188,13 +204,37 @@ export function ClientDocumentsPage() {
                   variant="outline"
                   multiple
                   selectedFiles={files}
-                  onFiles={setFiles}
+                  onFiles={(selected) => {
+                    const { accepted, errors } = partitionUploadFiles(selected)
+                    if (errors.length > 0) {
+                      const message =
+                        errors.length === 1
+                          ? errors[0]!
+                          : `${errors[0]} (+${errors.length - 1} more)`
+                      toast.error(message, {
+                        duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                      })
+                    }
+                    setFiles(accepted)
+                  }}
                 />
                 <FilePickerButton
                   variant="outline"
                   directory
                   selectedFiles={files}
-                  onFiles={setFiles}
+                  onFiles={(selected) => {
+                    const { accepted, errors } = partitionUploadFiles(selected)
+                    if (errors.length > 0) {
+                      const message =
+                        errors.length === 1
+                          ? errors[0]!
+                          : `${errors[0]} (+${errors.length - 1} more)`
+                      toast.error(message, {
+                        duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                      })
+                    }
+                    setFiles(accepted)
+                  }}
                 />
               </div>
               <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>

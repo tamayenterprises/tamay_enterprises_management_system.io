@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
-import { validateUploadFile, validateImageUploadFile, contentTypeForUploadFile } from '@/lib/uploads'
+import { validateUploadFile, validateImageUploadFile, contentTypeForUploadFile, uploadErrorMessage } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
@@ -1181,7 +1181,7 @@ export function useUploadDocument() {
         contentType,
         upsert: false,
       })
-      if (uploadError) throw uploadError
+      if (uploadError) throw new Error(uploadErrorMessage(uploadError))
 
       const { data, error } = await supabase
         .from('documents')
@@ -1201,7 +1201,7 @@ export function useUploadDocument() {
 
       if (error) {
         await supabase.storage.from(bucket).remove([path])
-        throw error
+        throw new Error(uploadErrorMessage(error))
       }
 
       return data as DocumentRecord
