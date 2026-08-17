@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
-import { validateImageUploadFile, validateUploadFile, contentTypeForUploadFile, uploadErrorMessage } from '@/lib/uploads'
+import { validateImageUploadFile, validateUploadFile, contentTypeForUploadFile, uploadErrorMessage, normalizeUploadFile } from '@/lib/uploads'
 import type { ProjectRequestFormValues } from '@/lib/validations'
 import type { Project, ProjectRequest, ProjectRequestFile, ProjectRequestStatus } from '@/types/database'
 
@@ -112,11 +112,12 @@ export function useUploadProjectRequestFile() {
         fileKind === 'photo' ? validateImageUploadFile(file) : validateUploadFile(file)
       if (validationError) throw new Error(validationError)
 
-      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
+      const normalized = normalizeUploadFile(file)
+      const safeName = normalized.name.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
       const storagePath = `${profile.id}/requests/${requestId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
-      const contentType = contentTypeForUploadFile(file)
+      const contentType = contentTypeForUploadFile(normalized)
 
-      const { error: uploadError } = await supabase.storage.from('project-files').upload(storagePath, file, {
+      const { error: uploadError } = await supabase.storage.from('project-files').upload(storagePath, normalized, {
         contentType,
         upsert: false,
       })
@@ -128,11 +129,11 @@ export function useUploadProjectRequestFile() {
           organization_id: profile.organization_id,
           request_id: requestId,
           uploaded_by: profile.id,
-          name: file.name,
+          name: normalized.name,
           file_kind: fileKind,
           storage_path: storagePath,
           mime_type: contentType,
-          file_size: file.size,
+          file_size: normalized.size,
         })
         .select()
         .single()

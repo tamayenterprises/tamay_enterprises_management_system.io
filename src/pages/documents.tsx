@@ -27,13 +27,13 @@ import {
   isManagementRole,
 } from '@/lib/utils'
 import {
-  IMAGE_UPLOAD_ACCEPT,
   categoryForUploadFile,
   confirmAction,
   isMobileUploadDevice,
   isUploadSizeLimitMessage,
   partitionUploadFiles,
   resolvedDocumentUploadAccept,
+  resolvedImageUploadAccept,
   uploadFolderHint,
 } from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
@@ -152,7 +152,7 @@ export function DocumentsPage() {
         <Label>Files</Label>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <FilePickerButton
-            accept={IMAGE_UPLOAD_ACCEPT}
+            accept={resolvedImageUploadAccept()}
             label="Add photos"
             size="sm"
             variant="outline"

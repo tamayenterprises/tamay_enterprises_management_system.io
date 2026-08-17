@@ -29,7 +29,7 @@ import {
 } from '@/features/updates/mention-utils'
 import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
-import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
+import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
 import { useAuth } from '@/features/auth/auth-context'
 import type { Profile, Project, ProjectNote } from '@/types/database'
 
@@ -439,7 +439,7 @@ function UpdateComposer({
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
-            accept={IMAGE_UPLOAD_ACCEPT}
+            accept={resolvedImageUploadAccept()}
             label="Add photos"
             variant="outline"
             multiple

@@ -75,6 +75,12 @@ export function fileExtension(file: File) {
   return name.slice(dot).toLowerCase()
 }
 
+function extensionFromName(name: string) {
+  const dot = name.lastIndexOf('.')
+  if (dot < 0) return ''
+  return name.slice(dot).toLowerCase()
+}
+
 export function isImageUploadFile(file: File): boolean {
   const extension = fileExtension(file)
   return file.type.startsWith('image/') || IMAGE_EXTENSIONS.has(extension)
@@ -163,26 +169,70 @@ export function validateImageUploadFile(file: File): string | null {
 }
 
 export function validateUploadFile(file: File): string | null {
-  if (file.size <= 0) return `“${file.name || 'File'}” is empty.`
+  // Android/Drive can report size 0 for content:// picks; only reject if clearly empty
+  // and we also have no usable type/name signal. Real zero-byte files still fail on upload.
+  const extension = fileExtension(file)
+  const mime = (file.type || '').toLowerCase()
+  const knownMime =
+    Boolean(mime) &&
+    mime !== 'application/octet-stream' &&
+    (ALLOWED_MIME_TYPES.has(mime) || mime.startsWith('image/') || mime.startsWith('text/'))
+  const extOk = ALLOWED_EXTENSIONS.has(extension)
+
+  if (file.size < 0) return `“${file.name || 'File'}” is empty.`
+  if (file.size === 0 && !knownMime && !extOk) {
+    return `“${file.name || 'File'}” is empty.`
+  }
   if (file.size > MAX_UPLOAD_BYTES) {
     return `“${file.name || 'File'}” is ${formatUploadBytes(file.size)}. Each file must be ${MAX_UPLOAD_LABEL} or smaller.`
   }
 
-  const extension = fileExtension(file)
-  const mime = file.type || ''
-  const mimeOk =
-    !mime ||
-    mime === 'application/octet-stream' ||
-    ALLOWED_MIME_TYPES.has(mime) ||
-    mime.startsWith('image/') ||
-    mime.startsWith('text/')
-  const extOk = ALLOWED_EXTENSIONS.has(extension)
-
-  // Prefer extension when MIME is missing/generic (common on phones).
+  // Android often omits the extension (especially Google Drive) but still sends a MIME type.
   if (extOk) return null
-  if (mimeOk && mime.startsWith('image/')) return null
+  if (knownMime) return null
+  // Generic MIME + extension already handled; allow blank MIME when extension is known (extOk above).
+  if (!mime || mime === 'application/octet-stream') {
+    return `“${file.name || 'File'}” isn’t a supported type. Use PDF, Word, Excel, PowerPoint, text/CSV, or common image formats.`
+  }
 
   return `“${file.name || 'File'}” isn’t a supported type. Use PDF, Word, Excel, PowerPoint, text/CSV, or common image formats.`
+}
+
+/** Ensure Android/Drive picks have a usable filename + content type before storage upload. */
+export function normalizeUploadFile(file: File): File {
+  let name = file.name?.trim() || 'upload'
+  let type = file.type || ''
+
+  if (!extensionFromName(name) && type) {
+    const ext =
+      type === 'application/pdf'
+        ? '.pdf'
+        : type === 'image/jpeg'
+          ? '.jpg'
+          : type === 'image/png'
+            ? '.png'
+            : type === 'image/webp'
+              ? '.webp'
+              : type.includes('wordprocessingml')
+                ? '.docx'
+                : type.includes('spreadsheetml')
+                  ? '.xlsx'
+                  : type.includes('presentationml')
+                    ? '.pptx'
+                    : type === 'text/plain'
+                      ? '.txt'
+                      : type === 'text/csv'
+                        ? '.csv'
+                        : ''
+    if (ext) name = `${name}${ext}`
+  }
+
+  if ((!type || type === 'application/octet-stream') && extensionFromName(name)) {
+    type = contentTypeForUploadFile(new File([], name, { type: '' }))
+  }
+
+  if (name === file.name && type === (file.type || '')) return file
+  return new File([file], name, { type: type || file.type, lastModified: file.lastModified })
 }
 
 /** Friendly message when storage rejects an oversized upload. */
@@ -213,7 +263,8 @@ export function partitionUploadFiles(
   const accepted: File[] = []
   const errors: string[] = []
 
-  for (const file of files) {
+  for (const raw of files) {
+    const file = normalizeUploadFile(raw)
     if (options?.imagesOnly && !isImageUploadFile(file)) {
       errors.push(`“${file.name || 'File'}” isn’t a photo. Use JPG, PNG, WEBP, or HEIC.`)
       continue
@@ -233,6 +284,12 @@ export function partitionUploadFiles(
   }
 
   return { accepted, errors }
+}
+
+/** Simpler accept list — Android Chrome mishandles long HEIC MIME lists. */
+export function resolvedImageUploadAccept(): string | undefined {
+  if (isMobileUploadDevice()) return 'image/*'
+  return IMAGE_UPLOAD_ACCEPT
 }
 
 /** True on phones/tablets where webkitdirectory folder pick is unreliable or missing. */

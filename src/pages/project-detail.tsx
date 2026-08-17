@@ -46,7 +46,7 @@ import {
   roleLabel,
   warrantyStatusLabel,
 } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, confirmAction, isImageUploadFile, isUploadSizeLimitMessage, partitionUploadFiles, resolvedDocumentUploadAccept, uploadFolderHint } from '@/lib/uploads'
+import { confirmAction, isImageUploadFile, isUploadSizeLimitMessage, partitionUploadFiles, resolvedDocumentUploadAccept, resolvedImageUploadAccept, uploadFolderHint } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 
@@ -392,7 +392,7 @@ export function ProjectDetailPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <FilePickerButton
-                    accept={IMAGE_UPLOAD_ACCEPT}
+                    accept={resolvedImageUploadAccept()}
                     label="Upload photos"
                     loadingLabel="Uploading photos…"
                     disabled={!profile?.organization_id}
