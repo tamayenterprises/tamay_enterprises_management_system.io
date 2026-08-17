@@ -19,11 +19,11 @@ import {
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
 import {
-  IMAGE_UPLOAD_ACCEPT,
   categoryForUploadFile,
   isUploadSizeLimitMessage,
   partitionUploadFiles,
   resolvedDocumentUploadAccept,
+  resolvedImageUploadAccept,
   uploadFolderHint,
 } from '@/lib/uploads'
 
@@ -179,7 +179,7 @@ export function ClientDocumentsPage() {
               <Label>Files</Label>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <FilePickerButton
-                  accept={IMAGE_UPLOAD_ACCEPT}
+                  accept={resolvedImageUploadAccept()}
                   label="Add photos"
                   variant="outline"
                   multiple

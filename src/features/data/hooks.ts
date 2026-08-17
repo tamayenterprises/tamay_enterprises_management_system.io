@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
-import { validateUploadFile, validateImageUploadFile, contentTypeForUploadFile, uploadErrorMessage } from '@/lib/uploads'
+import { validateUploadFile, validateImageUploadFile, contentTypeForUploadFile, uploadErrorMessage, normalizeUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
@@ -1190,13 +1190,14 @@ export function useUploadDocument() {
       const validationError = validateUploadFile(file)
       if (validationError) throw new Error(validationError)
 
-      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
+      const normalized = normalizeUploadFile(file)
+      const safeName = normalized.name.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
       const path = projectId
         ? `${profile.id}/${projectId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
         : `${profile.id}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
 
-      const contentType = contentTypeForUploadFile(file)
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+      const contentType = contentTypeForUploadFile(normalized)
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, normalized, {
         contentType,
         upsert: false,
       })
@@ -1209,11 +1210,11 @@ export function useUploadDocument() {
           owner_id: profile.id,
           uploaded_by: profile.id,
           project_id: projectId || null,
-          name: file.name,
+          name: normalized.name,
           category,
           storage_path: path,
           mime_type: contentType,
-          file_size: file.size,
+          file_size: normalized.size,
         })
         .select()
         .single()

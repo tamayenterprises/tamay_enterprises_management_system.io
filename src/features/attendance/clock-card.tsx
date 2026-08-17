@@ -31,7 +31,7 @@ import {
   type AttendanceActionType,
 } from '@/lib/geo'
 import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
-import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
+import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
 import { formatHoursDuration, formatRelative } from '@/lib/utils'
 import type { AttendanceActionResult, AttendanceExceptionRequest } from '@/types/database'
 
@@ -397,7 +397,7 @@ export function ClockInOutCard() {
                     />
                   </div>
                   <FilePickerButton
-                    accept={IMAGE_UPLOAD_ACCEPT}
+                    accept={resolvedImageUploadAccept()}
                     label={exceptionPhoto ? 'Change photo' : 'Optional photo'}
                     variant="outline"
                     multiple={false}

@@ -30,7 +30,7 @@ import {
 } from '@/features/updates/mention-utils'
 import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
+import { resolvedImageUploadAccept } from '@/lib/uploads'
 import type { CompanyUpdateAudience, Profile, Project } from '@/types/database'
 
 function UpdatePhoto({ path }: { path: string }) {
@@ -405,7 +405,7 @@ function CompanyComposer({
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
-            accept={IMAGE_UPLOAD_ACCEPT}
+            accept={resolvedImageUploadAccept()}
             label="Add photos"
             variant="outline"
             disabled={create.isPending}

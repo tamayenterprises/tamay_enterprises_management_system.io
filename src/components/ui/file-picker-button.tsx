@@ -1,7 +1,8 @@
 import { useMemo, useRef } from 'react'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { canUseDirectoryUpload } from '@/lib/uploads'
 import { cn } from '@/lib/utils'
+import type { VariantProps } from 'class-variance-authority'
 
 type FilePickerButtonProps = {
   accept?: string
@@ -63,7 +64,10 @@ export function mergeSelectedFiles(existing: File[], incoming: File[]) {
   return Array.from(map.values())
 }
 
-/** Button that opens the system file picker (hides the native Choose File control). */
+/**
+ * Native <label> + file input — more reliable on Android Chrome than
+ * button.onClick → hiddenInput.click() (which often opens nothing).
+ */
 export function FilePickerButton({
   accept,
   label,
@@ -85,9 +89,9 @@ export function FilePickerButton({
     () => directory && canUseDirectoryUpload(),
     [directory],
   )
-  // Mobile "folder" = multi-file with no accept filter (browse into folder in Files).
   const mobileFolderBrowse = directory && !nativeDirectory
   const allowMultiple = multiple || directory
+  const blocked = Boolean(disabled || isLoading)
 
   const resolvedLabel =
     label ??
@@ -99,40 +103,56 @@ export function FilePickerButton({
           ? 'Choose files'
           : 'Choose file')
 
+  const handleFiles = async (selected: File[]) => {
+    if (selected.length === 0) return
+    const next =
+      allowMultiple && append ? mergeSelectedFiles(selectedFiles, selected) : selected
+
+    if (onFiles) {
+      await onFiles(next)
+      return
+    }
+    if (onFile) {
+      if (allowMultiple) {
+        for (const file of next) await onFile(file)
+      } else {
+        await onFile(next[0]!)
+      }
+    }
+  }
+
   return (
-    <>
+    <label
+      className={cn(
+        buttonVariants({
+          variant,
+          size,
+        } as VariantProps<typeof buttonVariants>),
+        'relative min-h-11 w-full cursor-pointer sm:w-auto',
+        blocked && 'pointer-events-none opacity-50',
+        className,
+      )}
+      onClick={() => {
+        if (blocked) return
+        markNativeFilePickerOpen()
+      }}
+    >
       <input
         ref={inputRef}
         type="file"
         accept={nativeDirectory || mobileFolderBrowse ? undefined : accept}
-        // Explicit true so the HTML multiple attribute is always present when enabled.
         multiple={allowMultiple ? true : undefined}
         // @ts-expect-error webkitdirectory is widely supported for folder picks on desktop
         webkitdirectory={nativeDirectory ? '' : undefined}
-        className="sr-only"
-        tabIndex={-1}
+        disabled={blocked}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        // Keep the control accessible but avoid iOS zoom / layout issues
+        style={{ fontSize: 16 }}
         onChange={async (event) => {
           const selected = Array.from(event.target.files ?? [])
           event.target.value = ''
           try {
-            if (selected.length === 0) return
-
-            const next =
-              allowMultiple && append
-                ? mergeSelectedFiles(selectedFiles, selected)
-                : selected
-
-            if (onFiles) {
-              await onFiles(next)
-              return
-            }
-            if (onFile) {
-              if (allowMultiple) {
-                for (const file of next) await onFile(file)
-              } else {
-                await onFile(next[0]!)
-              }
-            }
+            await handleFiles(selected)
           } finally {
             markNativeFilePickerClosed()
           }
@@ -141,20 +161,8 @@ export function FilePickerButton({
           markNativeFilePickerClosed()
         }}
       />
-      <Button
-        type="button"
-        size={size}
-        variant={variant}
-        className={cn('min-h-11 w-full sm:w-auto', className)}
-        disabled={disabled || isLoading}
-        onClick={() => {
-          markNativeFilePickerOpen()
-          inputRef.current?.click()
-        }}
-      >
-        {isLoading ? loadingLabel : resolvedLabel}
-      </Button>
-    </>
+      <span className="pointer-events-none">{isLoading ? loadingLabel : resolvedLabel}</span>
+    </label>
   )
 }
 

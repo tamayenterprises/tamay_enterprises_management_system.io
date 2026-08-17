@@ -20,7 +20,7 @@ import {
   useUploadProjectRequestFile,
 } from '@/features/client/hooks'
 import { formatFileSize, formatRelative } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, resolvedDocumentUploadAccept } from '@/lib/uploads'
+import { resolvedImageUploadAccept, resolvedDocumentUploadAccept } from '@/lib/uploads'
 import { projectRequestSchema, type ProjectRequestFormValues } from '@/lib/validations'
 import type { ProjectRequest } from '@/types/database'
 
@@ -122,7 +122,7 @@ export function ClientRequestsPage() {
               <div className="space-y-1">
                 <Label>Space photos (optional)</Label>
                 <FilePickerButton
-                  accept={IMAGE_UPLOAD_ACCEPT}
+                  accept={resolvedImageUploadAccept()}
                   label="Choose photos"
                   variant="outline"
                   multiple
@@ -199,7 +199,7 @@ export function ClientRequestsPage() {
                 {request.status === 'pending' || request.status === 'under_review' ? (
                   <div className="flex flex-wrap gap-2">
                     <FilePickerButton
-                      accept={IMAGE_UPLOAD_ACCEPT}
+                      accept={resolvedImageUploadAccept()}
                       label="Add photos"
                       size="sm"
                       variant="outline"

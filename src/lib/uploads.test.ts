@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_UPLOAD_BYTES, validateUploadFile } from '@/lib/uploads'
+import { MAX_UPLOAD_BYTES, normalizeUploadFile, validateUploadFile } from '@/lib/uploads'
 
 describe('validateUploadFile', () => {
-  it('rejects empty files', () => {
-    const file = new File([], 'empty.pdf', { type: 'application/pdf' })
-    expect(validateUploadFile(file)).toMatch(/empty/i)
+  it('rejects empty files without type/extension signal', () => {
+    const file = new File([], 'empty.bin', { type: '' })
+    expect(validateUploadFile(file)).toMatch(/empty|supported type/i)
   })
 
   it('accepts pdf under size limit', () => {
     const file = new File(['hello'], 'safety.pdf', { type: 'application/pdf' })
+    expect(validateUploadFile(file)).toBeNull()
+  })
+
+  it('accepts Android Drive PDFs that have MIME but no extension', () => {
+    const file = new File(['hello'], 'Contract scan', { type: 'application/pdf' })
     expect(validateUploadFile(file)).toBeNull()
   })
 
@@ -22,5 +27,12 @@ describe('validateUploadFile', () => {
   it('rejects unsupported extensions', () => {
     const file = new File(['hello'], 'notes.exe', { type: 'application/octet-stream' })
     expect(validateUploadFile(file)).toMatch(/isn’t a supported type/i)
+  })
+})
+
+describe('normalizeUploadFile', () => {
+  it('adds a .pdf extension when Android omits it', () => {
+    const file = new File(['hello'], 'Invoice', { type: 'application/pdf' })
+    expect(normalizeUploadFile(file).name).toBe('Invoice.pdf')
   })
 })

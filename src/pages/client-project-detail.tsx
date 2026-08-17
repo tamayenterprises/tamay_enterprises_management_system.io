@@ -17,12 +17,12 @@ import {
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatDate, formatFileSize, projectStatusLabel } from '@/lib/utils'
 import {
-  IMAGE_UPLOAD_ACCEPT,
   categoryForUploadFile,
   confirmAction,
   isUploadSizeLimitMessage,
   partitionUploadFiles,
   resolvedDocumentUploadAccept,
+  resolvedImageUploadAccept,
   uploadFolderHint,
 } from '@/lib/uploads'
 
@@ -176,7 +176,7 @@ export function ClientProjectDetailPage() {
         <CardContent className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <FilePickerButton
-              accept={IMAGE_UPLOAD_ACCEPT}
+              accept={resolvedImageUploadAccept()}
               label="Add photos"
               variant="outline"
               multiple
