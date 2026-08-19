@@ -101,7 +101,7 @@ export function DocumentsPage() {
         duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
       })
     }
-    setFiles(accepted)
+    if (accepted.length > 0) setFiles(accepted)
   }
 
   const runUpload = async () => {

@@ -192,7 +192,7 @@ export function ClientProjectDetailPage() {
                     duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
                   })
                 }
-                setFiles(accepted)
+                if (accepted.length > 0) setFiles(accepted)
               }}
             />
             <FilePickerButton
@@ -212,7 +212,7 @@ export function ClientProjectDetailPage() {
                     duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
                   })
                 }
-                setFiles(accepted)
+                if (accepted.length > 0) setFiles(accepted)
               }}
             />
             <FilePickerButton
@@ -230,7 +230,7 @@ export function ClientProjectDetailPage() {
                     duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
                   })
                 }
-                setFiles(accepted)
+                if (accepted.length > 0) setFiles(accepted)
               }}
             />
           </div>
