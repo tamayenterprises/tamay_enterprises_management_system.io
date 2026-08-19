@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/auth-context'
 import { createUpdatePhotoSignedUrl } from '@/features/data/hooks'
 import { supabase } from '@/lib/supabase'
-import { validateImageUploadFile } from '@/lib/uploads'
+import { validateImageUploadFile, prepareUploadFileAsync, uploadErrorMessage } from '@/lib/uploads'
 import type { CompanyUpdate, CompanyUpdateAudience, Profile, Project } from '@/types/database'
 
 export type CompanyUpdateWithMeta = CompanyUpdate & {
@@ -105,10 +105,14 @@ export function useCreateCompanyUpdate() {
       if (photo) {
         const validationError = validateImageUploadFile(photo)
         if (validationError) throw new Error(validationError)
-        const safeName = photo.name.replace(/[^\w.\-()+ ]+/g, '_')
+        const prepared = await prepareUploadFileAsync(photo)
+        const safeName = prepared.displayName.replace(/[^\w.\-()+ ]+/g, '_') || 'photo'
         photoPath = `${profile.id}/company-updates/${Date.now()}-${crypto.randomUUID()}-${safeName}`
-        const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, photo)
-        if (uploadError) throw uploadError
+        const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, prepared.file, {
+          contentType: prepared.contentType,
+          upsert: false,
+        })
+        if (uploadError) throw new Error(uploadErrorMessage(uploadError))
       }
 
       const payload: Record<string, unknown> = {

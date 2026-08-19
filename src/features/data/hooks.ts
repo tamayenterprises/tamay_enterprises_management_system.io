@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
-import { validateUploadFile, validateImageUploadFile, contentTypeForUploadFile, uploadErrorMessage, normalizeUploadFile } from '@/lib/uploads'
+import { validateUploadFile, validateImageUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
@@ -245,11 +245,15 @@ export function useCreateProjectUpdate() {
         const validationError = validateImageUploadFile(photo)
         if (validationError) throw new Error(validationError)
 
-        const safeName = photo.name.replace(/[^\w.\-()+ ]+/g, '_')
+        const prepared = await prepareUploadFileAsync(photo)
+        const safeName = prepared.displayName.replace(/[^\w.\-()+ ]+/g, '_') || 'photo'
         photoPath = `${profile.id}/${projectId}/updates/${Date.now()}-${crypto.randomUUID()}-${safeName}`
 
-        const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, photo)
-        if (uploadError) throw uploadError
+        const { error: uploadError } = await supabase.storage.from('project-files').upload(photoPath, prepared.file, {
+          contentType: prepared.contentType,
+          upsert: false,
+        })
+        if (uploadError) throw new Error(uploadErrorMessage(uploadError))
       }
 
       // Only send columns that are needed. Sending null parent_id/photo_path
@@ -1190,15 +1194,14 @@ export function useUploadDocument() {
       const validationError = validateUploadFile(file)
       if (validationError) throw new Error(validationError)
 
-      const normalized = normalizeUploadFile(file)
-      const safeName = normalized.name.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
+      const prepared = await prepareUploadFileAsync(file)
+      const safeName = prepared.displayName.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
       const path = projectId
         ? `${profile.id}/${projectId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
         : `${profile.id}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
 
-      const contentType = contentTypeForUploadFile(normalized)
-      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, normalized, {
-        contentType,
+      const { error: uploadError } = await supabase.storage.from(bucket).upload(path, prepared.file, {
+        contentType: prepared.contentType,
         upsert: false,
       })
       if (uploadError) throw new Error(uploadErrorMessage(uploadError))
@@ -1210,11 +1213,11 @@ export function useUploadDocument() {
           owner_id: profile.id,
           uploaded_by: profile.id,
           project_id: projectId || null,
-          name: normalized.name,
+          name: prepared.displayName,
           category,
           storage_path: path,
-          mime_type: contentType,
-          file_size: normalized.size,
+          mime_type: prepared.contentType,
+          file_size: prepared.file.size || null,
         })
         .select()
         .single()

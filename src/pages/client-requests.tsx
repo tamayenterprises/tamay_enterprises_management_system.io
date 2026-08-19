@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList, isNativeFilePickerOpen } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -20,7 +20,13 @@ import {
   useUploadProjectRequestFile,
 } from '@/features/client/hooks'
 import { formatFileSize, formatRelative } from '@/lib/utils'
-import { resolvedImageUploadAccept, resolvedDocumentUploadAccept } from '@/lib/uploads'
+import {
+  isMobileUploadDevice,
+  isUploadSizeLimitMessage,
+  partitionUploadFiles,
+  resolvedDocumentUploadAccept,
+  resolvedImageUploadAccept,
+} from '@/lib/uploads'
 import { projectRequestSchema, type ProjectRequestFormValues } from '@/lib/validations'
 import type { ProjectRequest } from '@/types/database'
 
@@ -71,6 +77,26 @@ export function ClientRequestsPage() {
     }
   })
 
+  const stagePhotos = (selected: File[]) => {
+    const { accepted, errors } = partitionUploadFiles(selected)
+    if (errors.length > 0) {
+      const message =
+        errors.length === 1 ? errors[0]! : `${errors[0]} (+${errors.length - 1} more)`
+      toast.error(message, { duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000 })
+    }
+    if (accepted.length > 0) setPhotos(accepted)
+  }
+
+  const stageDocuments = (selected: File[]) => {
+    const { accepted, errors } = partitionUploadFiles(selected)
+    if (errors.length > 0) {
+      const message =
+        errors.length === 1 ? errors[0]! : `${errors[0]} (+${errors.length - 1} more)`
+      toast.error(message, { duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000 })
+    }
+    if (accepted.length > 0) setDocuments(accepted)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -80,7 +106,17 @@ export function ClientRequestsPage() {
             Tell Tamay about the work you need. Attach space photos or documents to help them plan.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(next) => {
+            if (!next && isNativeFilePickerOpen()) return
+            setOpen(next)
+            if (!next) {
+              setPhotos([])
+              setDocuments([])
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button>New request</Button>
           </DialogTrigger>
@@ -127,7 +163,7 @@ export function ClientRequestsPage() {
                   variant="outline"
                   multiple
                   selectedFiles={photos}
-                  onFiles={setPhotos}
+                  onFiles={stagePhotos}
                 />
                 <SelectedFilesList files={photos} onChange={setPhotos} />
               </div>
@@ -139,9 +175,14 @@ export function ClientRequestsPage() {
                   variant="outline"
                   multiple
                   selectedFiles={documents}
-                  onFiles={setDocuments}
+                  onFiles={stageDocuments}
                 />
                 <SelectedFilesList files={documents} onChange={setDocuments} />
+                {isMobileUploadDevice() ? (
+                  <p className="text-xs text-muted-foreground">
+                    Android tip: if Drive fails, download the file first, then pick it from Downloads.
+                  </p>
+                ) : null}
               </div>
               <Button className="w-full" disabled={createRequest.isPending || uploadFile.isPending}>
                 {createRequest.isPending || uploadFile.isPending ? 'Submitting…' : 'Submit request'}
