@@ -21,7 +21,7 @@ import {
   type CapturedAttendanceLocation,
 } from '@/features/attendance/hooks'
 import { useProjects, useWorkerEligibility } from '@/features/data/hooks'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
   actionButtonLabel,
   formatBreakDuration,

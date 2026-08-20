@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { LoadingState } from '@/components/ui/loading-state'
 import type { UserRole } from '@/types/database'
 import { homePathForRole, isClientRole, isManagementRole } from '@/lib/utils'

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { createUpdatePhotoSignedUrl } from '@/features/data/hooks'
 import { supabase } from '@/lib/supabase'
 import { validateImageUploadFile, prepareUploadFileAsync, uploadErrorMessage } from '@/lib/uploads'

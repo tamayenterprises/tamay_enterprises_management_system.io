@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,

@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { Button } from '@/components/ui/button'
 import { SidebarProfileAvatar } from '@/features/profile/avatar'
 import { NotificationBell } from '@/features/notifications/notification-bell'

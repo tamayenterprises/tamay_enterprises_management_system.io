@@ -30,7 +30,7 @@ import {
 import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import type { Profile, Project, ProjectNote } from '@/types/database'
 
 function UpdatePhoto({ path }: { path: string }) {

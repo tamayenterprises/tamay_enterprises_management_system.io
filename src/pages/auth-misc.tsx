@@ -12,7 +12,7 @@ import { LoadingState } from '@/components/ui/loading-state'
 import { supabase } from '@/lib/supabase'
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@/lib/validations'
 import type { z } from 'zod'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { homePathForRole } from '@/lib/utils'
 
 export function ForgotPasswordPage() {

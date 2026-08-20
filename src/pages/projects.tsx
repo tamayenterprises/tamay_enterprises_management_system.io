@@ -24,7 +24,7 @@ import {
   useProjects,
 } from '@/features/data/hooks'
 import { useFormDraft } from '@/features/drafts/use-form-draft'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
   formatDate,
   fullName,
