@@ -15,3 +15,9 @@ additional_redirect_urls = ["http://localhost:5173/reset-password", "https://*.v
 
 [storage]
 enabled = true
+
+[functions.create-payment-link]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false

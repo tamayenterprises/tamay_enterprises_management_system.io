@@ -39,6 +39,7 @@ import { ClientProjectDetailPage } from '@/pages/client-project-detail'
 import { ClientDocumentsPage } from '@/pages/client-documents'
 import { ClientNotificationsPage } from '@/pages/client-notifications'
 import { ProjectRequestsAdminPage } from '@/pages/project-requests-admin'
+import { PaymentsPage } from '@/pages/payments'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -116,6 +117,7 @@ export default function App() {
                       <Route path="/subcontractors" element={<SubcontractorsPage />} />
                       <Route path="/timesheets" element={<TimesheetsPage />} />
                       <Route path="/client-requests" element={<ProjectRequestsAdminPage />} />
+                      <Route path="/payments" element={<PaymentsPage />} />
                     </Route>
 
                     <Route element={<AdminRoute />}>

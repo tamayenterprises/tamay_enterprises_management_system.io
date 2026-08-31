@@ -72,6 +72,7 @@ npm run dev
 - Certifications with proof uploads + expiry maintenance
 - Documents & secure storage
 - In-app notifications
+- Stripe payment links and payment history
 - Admin approvals and role management
 - Workforce status tracking
 - Clock in / clock out + timesheets
@@ -91,6 +92,15 @@ npm run dev
    - `VITE_SUPABASE_ANON_KEY`
 
 `vercel.json` already configures SPA rewrites for client-side routing.
+
+### Stripe payments
+
+Deploy the Supabase functions `create-payment-link` and `stripe-webhook`, then configure these Supabase secrets:
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET` (the signing secret for the deployed `stripe-webhook` URL)
+
+Create a Stripe webhook endpoint for `checkout.session.completed`, `checkout.session.expired`, and `payment_intent.succeeded`. The frontend only calls the authenticated `create-payment-link` function; payment history is marked paid only by the verified webhook.
 
 Before calling the site production, complete [docs/PRODUCTION.md](docs/PRODUCTION.md).
 

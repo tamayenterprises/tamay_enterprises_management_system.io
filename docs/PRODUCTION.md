@@ -40,6 +40,9 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 28. `supabase/migrations/20260338000005_project_warranty_archive.sql` (warranty_ends_on + archived project indexes; auto +7 years on completed)
 29. `supabase/migrations/20260338000006_project_thread_always_client_visible.sql` (project thread shared with assigned clients; no per-message opt-in)
 30. `supabase/migrations/20260338000007_harden_warranty_archive.sql` (block hard-delete under warranty; audit archive/restore/warranty changes)
+31. `supabase/migrations/20260338000008_admin_hard_delete_project.sql`
+32. `supabase/migrations/20260338000009_restore_visible_to_client_opt_in.sql`
+33. `supabase/migrations/20260340000000_payments.sql`
 
 **Notes**
 
@@ -107,6 +110,10 @@ Confirm these buckets exist (created by initial migration):
 - `documents` (private)
 - `project-files` (private)
 - `avatars` (public — used for profile photos)
+
+### Stripe payments
+
+Apply the payments migration, deploy `create-payment-link` and `stripe-webhook`, and set the Supabase secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Configure Stripe to send `checkout.session.completed`, `checkout.session.expired`, and `payment_intent.succeeded` events to the deployed webhook URL. Confirm a test payment changes its row from `pending` to `paid` in Payment History.
 
 ---
 

@@ -12,6 +12,7 @@ import {
   Menu,
   MessageSquareText,
   NotebookPen,
+  ReceiptText,
   Search,
   ShieldCheck,
   Users,
@@ -39,6 +40,7 @@ const navItems = [
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
   { to: '/drafts', label: 'Drafts', icon: NotebookPen },
+  { to: '/payments', label: 'Payment History', icon: ReceiptText, management: true },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/admin', label: 'Admin', icon: UserCog, admin: true },
 ]
