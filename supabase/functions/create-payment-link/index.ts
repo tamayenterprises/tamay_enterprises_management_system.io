@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
     const amountCents = Number(body.amountCents)
     const description = String(body.description ?? "").trim()
     const payerEmail = body.payerEmail ? String(body.payerEmail).trim() : null
-    if (!projectId || !recipientId || !Number.isInteger(amountCents) || amountCents <= 0 || amountCents > 99999999 || !description || description.length > 500) {
-      return json({ error: "Project, description, and a valid amount are required" }, 400)
+    if (!projectId || !recipientId || !Number.isInteger(amountCents) || amountCents < 50 || amountCents > 99999999 || !description || description.length > 500) {
+      return json({ error: "Project, description, and an amount of at least $0.50 are required" }, 400)
     }
     if (payerEmail && !/^\S+@\S+\.\S+$/.test(payerEmail)) return json({ error: "Enter a valid payer email" }, 400)
 

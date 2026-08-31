@@ -54,8 +54,8 @@ export function PaymentsPage() {
 
   const submit = async () => {
     const amountCents = Math.round(Number(amount) * 100)
-    if (!projectId || !description.trim() || !Number.isFinite(amountCents) || amountCents <= 0) {
-      toast.error('Choose a project, then enter a valid amount and description.')
+    if (!projectId || !description.trim() || !Number.isFinite(amountCents) || amountCents < 50) {
+      toast.error('Choose a project, then enter an amount of at least $0.50 and a description.')
       return
     }
     try {
@@ -130,10 +130,10 @@ export function PaymentsPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Amount (USD)</Label>
+              <Label>Amount (USD, min $0.50)</Label>
               <Input
                 inputMode="decimal"
-                placeholder="0.00"
+                placeholder="1.00"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
               />

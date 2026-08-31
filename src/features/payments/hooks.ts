@@ -3,6 +3,21 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
 import type { Payment } from '@/types/database'
 
+async function functionErrorMessage(error: unknown) {
+  if (error && typeof error === 'object' && 'context' in error) {
+    const response = (error as { context?: Response }).context
+    if (response && typeof response.json === 'function') {
+      try {
+        const body = await response.clone().json()
+        if (body?.error) return String(body.error)
+      } catch {
+        /* keep fallback */
+      }
+    }
+  }
+  return error instanceof Error ? error.message : 'Unable to create payment link'
+}
+
 export function usePayments() {
   const { profile } = useAuth()
   return useQuery({
@@ -33,7 +48,7 @@ export function useCreatePaymentLink() {
         body: input,
       })
       if (data?.error) throw new Error(String(data.error))
-      if (error) throw error
+      if (error) throw new Error(await functionErrorMessage(error))
       if (!data?.payment) throw new Error('Unable to create payment link')
       return data.payment as Payment
     },
