@@ -43,6 +43,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 31. `supabase/migrations/20260338000008_admin_hard_delete_project.sql`
 32. `supabase/migrations/20260338000009_restore_visible_to_client_opt_in.sql`
 33. `supabase/migrations/20260340000000_payments.sql`
+34. `supabase/migrations/20260902115833_record_manual_payments.sql` (manual cash/check rows on Payment History)
 
 **Notes**
 

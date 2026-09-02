@@ -57,3 +57,43 @@ export function useCreatePaymentLink() {
     },
   })
 }
+
+export function useRecordManualPayment() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+  return useMutation({
+    mutationFn: async (input: {
+      projectId: string
+      recipientId?: string
+      amountCents: number
+      description: string
+      paidAt?: string
+    }) => {
+      if (!profile?.id || !profile.organization_id) {
+        throw new Error('Your account is missing an organization. Refresh and try again.')
+      }
+      const paidAt = input.paidAt ? new Date(`${input.paidAt}T12:00:00`).toISOString() : new Date().toISOString()
+      const { data, error } = await supabase
+        .from('payments')
+        .insert({
+          organization_id: profile.organization_id,
+          project_id: input.projectId,
+          recipient_id: input.recipientId || profile.id,
+          created_by: profile.id,
+          amount_cents: input.amountCents,
+          currency: 'usd',
+          description: input.description,
+          status: 'paid',
+          method: 'manual',
+          paid_at: paidAt,
+        })
+        .select('*, project:projects(*), recipient:profiles!recipient_id(*)')
+        .single()
+      if (error) throw error
+      return data as Payment
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
+    },
+  })
+}

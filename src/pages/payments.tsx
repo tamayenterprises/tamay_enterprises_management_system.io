@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Copy, ExternalLink, Link2, Plus, ReceiptText } from 'lucide-react'
+import { Banknote, Copy, ExternalLink, Link2, Plus, ReceiptText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/features/auth/auth-hooks'
-import { useCreatePaymentLink, usePayments } from '@/features/payments/hooks'
+import { useCreatePaymentLink, usePayments, useRecordManualPayment } from '@/features/payments/hooks'
 import { useProfiles, useProjects } from '@/features/data/hooks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +29,13 @@ function money(amountCents: number, currency: string) {
   }).format(amountCents / 100)
 }
 
+function todayInputValue() {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 export function PaymentsPage() {
   const { profile } = useAuth()
   const canManage = isManagementRole(profile?.role)
@@ -36,11 +43,17 @@ export function PaymentsPage() {
   const { data: projects = [] } = useProjects({ assignedOnly: false })
   const { data: profiles = [] } = useProfiles({ role: ['client', 'employee', 'subcontractor'] })
   const createLink = useCreatePaymentLink()
+  const recordManual = useRecordManualPayment()
   const [projectId, setProjectId] = useState('')
   const [recipientId, setRecipientId] = useState('')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [payerEmail, setPayerEmail] = useState('')
+  const [manualProjectId, setManualProjectId] = useState('')
+  const [manualRecipientId, setManualRecipientId] = useState('')
+  const [manualAmount, setManualAmount] = useState('')
+  const [manualDescription, setManualDescription] = useState('')
+  const [paidOn, setPaidOn] = useState(todayInputValue)
 
   const recipients = useMemo(
     () => profiles.filter((item) => item.is_active),
@@ -52,7 +65,7 @@ export function PaymentsPage() {
     toast.success('Payment link copied.')
   }
 
-  const submit = async () => {
+  const submitStripe = async () => {
     const amountCents = Math.round(Number(amount) * 100)
     if (!projectId || !description.trim() || !Number.isFinite(amountCents) || amountCents < 50) {
       toast.error('Choose a project, then enter an amount of at least $0.50 and a description.')
@@ -78,6 +91,31 @@ export function PaymentsPage() {
     }
   }
 
+  const submitManual = async () => {
+    const amountCents = Math.round(Number(manualAmount) * 100)
+    if (!manualProjectId || !manualDescription.trim() || !Number.isFinite(amountCents) || amountCents <= 0) {
+      toast.error('Choose a project, then enter the amount received and a description.')
+      return
+    }
+    try {
+      await recordManual.mutateAsync({
+        projectId: manualProjectId,
+        recipientId: manualRecipientId || undefined,
+        amountCents,
+        description: manualDescription.trim(),
+        paidAt: paidOn || undefined,
+      })
+      setManualAmount('')
+      setManualDescription('')
+      setManualProjectId('')
+      setManualRecipientId('')
+      setPaidOn(todayInputValue())
+      toast.success('Payment recorded in history.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to record payment')
+    }
+  }
+
   if (isLoading) return <LoadingState />
   if (isError) return <EmptyState title="Unable to load payment history" />
 
@@ -86,83 +124,153 @@ export function PaymentsPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Payment History</h1>
         <p className="text-sm text-muted-foreground">
-          Set the amount in the app, create a Stripe link, and send it. Each installment (for example 50%, then the remaining 50%) is its own row.
+          Send a Stripe link, or record cash, check, or other amounts you already received. Each installment is its own row.
         </p>
       </div>
 
       {canManage ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" /> Send a payment link
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label>Project</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Bill to (optional)</Label>
-              <Select value={recipientId || 'none'} onValueChange={(value) => setRecipientId(value === 'none' ? '' : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No person selected" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No person selected</SelectItem>
-                  {recipients.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {fullName(item.first_name, item.last_name)} ({item.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Amount (USD, min $0.50)</Label>
-              <Input
-                inputMode="decimal"
-                placeholder="1.00"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Customer email (optional)</Label>
-              <Input
-                type="email"
-                placeholder="customer@example.com"
-                value={payerEmail}
-                onChange={(event) => setPayerEmail(event.target.value)}
-              />
-            </div>
-            <div className="space-y-1 sm:col-span-2">
-              <Label>Description</Label>
-              <Input
-                placeholder="Deposit 50% — kitchen remodel"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Button onClick={() => void submit()} disabled={createLink.isPending}>
-                <Link2 className="mr-2 h-4 w-4" />
-                {createLink.isPending ? 'Creating...' : 'Create Stripe link'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" /> Send a payment link
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Project</Label>
+                <Select value={projectId} onValueChange={setProjectId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Bill to (optional)</Label>
+                <Select value={recipientId || 'none'} onValueChange={(value) => setRecipientId(value === 'none' ? '' : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No person selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No person selected</SelectItem>
+                    {recipients.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {fullName(item.first_name, item.last_name)} ({item.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Amount (USD, min $0.50)</Label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="1.00"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Customer email (optional)</Label>
+                <Input
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={payerEmail}
+                  onChange={(event) => setPayerEmail(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Description</Label>
+                <Input
+                  placeholder="Deposit 50% — kitchen remodel"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Button onClick={() => void submitStripe()} disabled={createLink.isPending}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  {createLink.isPending ? 'Creating...' : 'Create Stripe link'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Banknote className="h-5 w-5" /> Record payment received
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Project</Label>
+                <Select value={manualProjectId} onValueChange={setManualProjectId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Received from (optional)</Label>
+                <Select value={manualRecipientId || 'none'} onValueChange={(value) => setManualRecipientId(value === 'none' ? '' : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No person selected" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No person selected</SelectItem>
+                    {recipients.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {fullName(item.first_name, item.last_name)} ({item.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Amount received (USD)</Label>
+                <Input
+                  inputMode="decimal"
+                  placeholder="500.00"
+                  value={manualAmount}
+                  onChange={(event) => setManualAmount(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Date received</Label>
+                <Input type="date" value={paidOn} onChange={(event) => setPaidOn(event.target.value)} />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Description</Label>
+                <Input
+                  placeholder="Cash deposit — kitchen remodel"
+                  value={manualDescription}
+                  onChange={(event) => setManualDescription(event.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Button onClick={() => void submitManual()} disabled={recordManual.isPending}>
+                  <Banknote className="mr-2 h-4 w-4" />
+                  {recordManual.isPending ? 'Saving...' : 'Add to payment history'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : null}
 
       <Card>
@@ -173,48 +281,52 @@ export function PaymentsPage() {
         </CardHeader>
         <CardContent>
           {payments.length === 0 ? (
-            <EmptyState title="No payments yet" description="Payment links and completed payments will appear here." />
+            <EmptyState title="No payments yet" description="Stripe links and manually recorded payments will appear here." />
           ) : (
             <div className="divide-y divide-border">
-              {payments.map((payment) => (
-                <div
-                  key={payment.id}
-                  className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold">{payment.description}</span>
-                      <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
-                        {statusLabel[payment.status]}
-                      </Badge>
+              {payments.map((payment) => {
+                const isManual = payment.method === 'manual'
+                return (
+                  <div
+                    key={payment.id}
+                    className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold">{payment.description}</span>
+                        <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
+                          {statusLabel[payment.status]}
+                        </Badge>
+                        <Badge variant="outline">{isManual ? 'Manual' : 'Stripe'}</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {payment.project?.name ?? 'Project'}
+                        {payment.recipient
+                          ? ` · ${fullName(payment.recipient.first_name, payment.recipient.last_name)}`
+                          : ''}
+                        {' · '}
+                        {formatDate(isManual ? payment.paid_at ?? payment.created_at : payment.created_at)}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {payment.project?.name ?? 'Project'}
-                      {payment.recipient
-                        ? ` · ${fullName(payment.recipient.first_name, payment.recipient.last_name)}`
-                        : ''}
-                      {' · '}
-                      {formatDate(payment.created_at)}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-semibold">{money(payment.amount_cents, payment.currency)}</span>
+                      {payment.payment_link_url && payment.status === 'pending' ? (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => void copyLink(payment.payment_link_url!)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy link
+                          </Button>
+                          <Button variant="ghost" size="icon" asChild>
+                            <a href={payment.payment_link_url} target="_blank" rel="noreferrer" aria-label="Open payment link">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-semibold">{money(payment.amount_cents, payment.currency)}</span>
-                    {payment.payment_link_url && payment.status === 'pending' ? (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => void copyLink(payment.payment_link_url!)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy link
-                        </Button>
-                        <Button variant="ghost" size="icon" asChild>
-                          <a href={payment.payment_link_url} target="_blank" rel="noreferrer" aria-label="Open payment link">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>

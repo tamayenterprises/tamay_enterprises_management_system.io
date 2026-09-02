@@ -111,6 +111,7 @@ export interface Project {
 }
 
 export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'canceled'
+export type PaymentMethod = 'stripe' | 'manual'
 
 export interface Payment {
   id: string
@@ -123,6 +124,7 @@ export interface Payment {
   currency: string
   description: string
   status: PaymentStatus
+  method?: PaymentMethod
   stripe_payment_link_id: string | null
   payment_link_url: string | null
   stripe_checkout_session_id: string | null
