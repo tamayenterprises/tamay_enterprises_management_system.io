@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-context'
 import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
+import { canViewContractFinance, stripContractFinanceFromProject } from '@/lib/project-finance'
 import { validateUploadFile, validateImageUploadFile } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
@@ -62,7 +63,7 @@ export function useProjects(options?: {
 
       const { data, error } = await query
       if (error) throw error
-      const projects = (data ?? []) as Project[]
+      let projects = (data ?? []) as Project[]
 
       if (options?.assignedOnly && profile && !['admin', 'project_manager'].includes(profile.role)) {
         const { data: assignments, error: assignmentError } = await supabase
@@ -72,7 +73,11 @@ export function useProjects(options?: {
           .eq('is_active', true)
         if (assignmentError) throw assignmentError
         const ids = new Set(((assignments ?? []) as Array<{ project_id: string }>).map((a) => a.project_id))
-        return projects.filter((project) => ids.has(project.id))
+        projects = projects.filter((project) => ids.has(project.id))
+      }
+
+      if (!canViewContractFinance(profile?.role) && profile?.role !== 'client') {
+        return projects.map((project) => stripContractFinanceFromProject(project))
       }
 
       return projects
@@ -81,13 +86,19 @@ export function useProjects(options?: {
 }
 
 export function useProject(projectId?: string) {
+  const { profile } = useAuth()
   return useQuery({
-    queryKey: ['project', projectId],
+    queryKey: ['project', projectId, profile?.role ?? 'anon'],
     enabled: Boolean(projectId),
     queryFn: async () => {
       const { data, error } = await supabase.from('projects').select('*').eq('id', projectId!).single()
       if (error) throw error
-      return data as Project
+      const project = data as Project
+      // Employees/subs must not receive contract totals even though projects SELECT is shared.
+      if (!canViewContractFinance(profile?.role) && profile?.role !== 'client') {
+        return stripContractFinanceFromProject(project)
+      }
+      return project
     },
   })
 }
@@ -1016,11 +1027,13 @@ export function useUploadDocument() {
       category,
       projectId,
       bucket = 'documents',
+      kindLabel,
     }: {
       file: File
       category: DocumentRecord['category']
       projectId?: string | null
       bucket?: 'documents' | 'project-files'
+      kindLabel?: string | null
     }) => {
       if (!profile?.organization_id) throw new Error('Missing organization')
 
@@ -1035,28 +1048,43 @@ export function useUploadDocument() {
       const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file)
       if (uploadError) throw uploadError
 
-      const { data, error } = await supabase
-        .from('documents')
-        .insert({
-          organization_id: profile.organization_id,
-          owner_id: profile.id,
-          uploaded_by: profile.id,
-          project_id: projectId || null,
-          name: file.name,
-          category,
-          storage_path: path,
-          mime_type: file.type || null,
-          file_size: file.size,
-        })
-        .select()
-        .single()
-
-      if (error) {
-        await supabase.storage.from(bucket).remove([path])
-        throw error
+      const baseRow = {
+        organization_id: profile.organization_id,
+        owner_id: profile.id,
+        uploaded_by: profile.id,
+        project_id: projectId || null,
+        name: file.name,
+        category,
+        storage_path: path,
+        mime_type: file.type || null,
+        file_size: file.size,
       }
 
-      return data as DocumentRecord
+      const trimmedKind = kindLabel?.trim() || null
+      const insertPayload = {
+        ...baseRow,
+        ...(trimmedKind ? { kind_label: trimmedKind } : {}),
+      }
+
+      let insert = await supabase.from('documents').insert(insertPayload).select().single()
+
+      // Development may not have kind_label yet — retry without it so uploads still work.
+      if (
+        insert.error &&
+        trimmedKind &&
+        /kind_label|schema cache|Could not find/i.test(
+          [insert.error.message, insert.error.details, insert.error.hint].filter(Boolean).join(' '),
+        )
+      ) {
+        insert = await supabase.from('documents').insert(baseRow).select().single()
+      }
+
+      if (insert.error) {
+        await supabase.storage.from(bucket).remove([path])
+        throw insert.error
+      }
+
+      return insert.data as DocumentRecord
     },
     onSuccess: (doc) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })

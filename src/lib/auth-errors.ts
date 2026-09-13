@@ -12,3 +12,25 @@ export function formatAuthError(message: string) {
 
   return message
 }
+
+/** Surface real PostgREST / Storage / Error messages in Development toasts. */
+export function formatUnknownError(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) return error.message
+  if (error && typeof error === 'object') {
+    const e = error as {
+      message?: unknown
+      code?: unknown
+      details?: unknown
+      hint?: unknown
+      statusCode?: unknown
+      error?: unknown
+    }
+    const parts = [e.message, e.code, e.details, e.hint, e.statusCode, e.error]
+      .filter((part): part is string | number => typeof part === 'string' || typeof part === 'number')
+      .map(String)
+      .filter((part) => part.trim().length > 0)
+    if (parts.length > 0) return parts.join(' — ')
+  }
+  if (typeof error === 'string' && error.trim()) return error
+  return fallback
+}

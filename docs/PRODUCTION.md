@@ -38,19 +38,51 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 26. `supabase/migrations/20260338000003_share_work_photos_in_thread.sql` (existing work photos → client-visible message thread)
 27. `supabase/migrations/20260338000004_project_notification_fanout.sql` (management + client project notification fan-out)
 28. `supabase/migrations/20260338000005_project_warranty_archive.sql` (warranty_ends_on + archived project indexes; auto +7 years on completed)
+29. `supabase/migrations/20260339000000_project_financial_tracking.sql` (project totals, client payments, internal receipts, private `project-finance` bucket)
+30. `supabase/migrations/20260340000000_finance_proof_client_view_and_doc_kinds.sql` (client payment-proof storage policy + `documents.kind_label`)
+31. `supabase/migrations/20260341000000_employee_own_receipts_and_kind_label.sql` (employee receipts own-only RLS; ensure `kind_label`)
+
+### This release — Production migration order (already on Dev)
+
+If Production already has through step 28 (`20260338000005`), apply **only** these three, in order:
+
+1. `supabase/migrations/20260339000000_project_financial_tracking.sql`
+2. `supabase/migrations/20260340000000_finance_proof_client_view_and_doc_kinds.sql`
+3. `supabase/migrations/20260341000000_employee_own_receipts_and_kind_label.sql`
+
+**DO NOT APPLY (excluded from this release):**
+
+- `supabase/migrations/20260342000000_project_portal_visuals.sql` (Project Visuals customization — not approved)
+
+**DO NOT RE-RUN (already applied historically):**
+
+- `supabase/migrations/20260329000000_profile_avatars.sql`
 
 **Notes**
 
 - Migration `00004` requires **pg_cron**. Enable it first: Dashboard → **Database → Extensions → pg_cron**.
 - Migration `00001` (attendance) depends on workforce status (`00000` in the `20260328` series).
-- Migration `00000` (avatars / `20260329`) updates the workforce status view — run after workforce status.
+- Migration `00000` (avatars / `20260329`) updates the workforce status view — run after workforce status. **Do not re-run on Production** if avatars are already live.
 - Migration `20260332` (geofencing) adds project coordinates, breaks, location attempts, exceptions, and RPCs. After applying it, deploy Edge Function `geocode-address` (optional Mapbox secret `MAPBOX_ACCESS_TOKEN`; otherwise Nominatim).
 - Existing projects are marked `needs_verification` until an admin verifies coordinates on the project page.
 - Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
 - Migration `20260334` is split because Postgres cannot use new enum values in the same transaction that adds them. Always run `00000` then `00001` as two separate SQL Editor runs. Historical project notes are not exposed company-wide.
 - Migration `20260335` corrects targeted Connecticut projects that were saved with a missing longitude minus sign, adds `suspicious_project_locations` for admin review, and blocks re-saving positive CT longitudes.
 - Migration `20260338` adds the client portal (`client` role, project requests, request files) and client-visible project update controls. After applying, clients only see project notes marked **Visible to client**. Replies under a client-visible update inherit that visibility so the customer sees the full thread. Work photos uploaded to a project are also posted into that shared message thread. Management always receives project conversation/file notifications; clients receive client-visible project activity with portal links.
+- Migration `20260339` adds project financial tracking: original/current project totals, client payment stages with proof + optional Stripe Payment Link URL, and internal project receipts. Contract/payment financials are **management-only** (admin / project manager).
+- Migration `20260340` adds optional `documents.kind_label` and reaffirms private client SELECT on payment proofs in the `project-finance` bucket (never receipts; never public).
+- Migration `20260341` tightens employee receipt SELECT/INSERT/UPDATE to **own rows only** (`created_by = auth.uid()`) while assigned to the project. Admin / project manager keep full project receipt access.
 
+### Project receipts — role rules (this release)
+
+| Role | Receipts |
+| --- | --- |
+| **Employee** (assigned to project) | Own uploaded receipts only; own submitted total only; no contract/payment finance |
+| **Admin / Management / Project Manager** | Full approved project receipt access + totals |
+| **Client** | No project receipts |
+| **Subcontractor** | No project receipts by default |
+
+Clients see payment totals / history / View Proof / Pay Now when eligible — never internal receipts.
 ### Verify cron job
 
 ```sql

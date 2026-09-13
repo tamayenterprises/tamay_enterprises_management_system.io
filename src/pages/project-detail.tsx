@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { FilePickerButton } from '@/components/ui/file-picker-button'
+import { CompactAccordion } from '@/components/ui/compact-accordion'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -21,8 +21,6 @@ import {
   useAssignWorker,
   useAssignmentHistory,
   useDeleteDocument,
-  usePostProjectDocumentsToThread,
-  usePostProjectPhotosToThread,
   useProfiles,
   useProject,
   useProjectAssignments,
@@ -30,10 +28,17 @@ import {
   useRemoveAssignment,
   useRestoreProject,
   useUpdateProject,
-  useUploadDocument,
 } from '@/features/data/hooks'
 import { ProjectUpdates } from '@/features/projects/project-updates'
 import { ProjectLocationPanel } from '@/features/projects/project-location-panel'
+import { ProjectFinancePanel } from '@/features/projects/project-finance'
+import {
+  canAddProjectReceipt,
+  canManageAllProjectReceipts,
+  canManageContractFinance,
+  canViewContractFinance,
+  canViewProjectReceipts,
+} from '@/lib/project-finance'
 import {
   documentCategoryLabel,
   formatDate,
@@ -43,9 +48,10 @@ import {
   projectStatusLabel,
   roleLabel,
 } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction, isImageUploadFile } from '@/lib/uploads'
+import { confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
+import { ProjectContentUploadDialog } from '@/features/projects/project-content-upload'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
@@ -62,13 +68,11 @@ export function ProjectDetailPage() {
   const restoreProject = useRestoreProject()
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
-  const uploadDocument = useUploadDocument()
-  const postPhotosToThread = usePostProjectPhotosToThread()
-  const postDocumentsToThread = usePostProjectDocumentsToThread()
   const deleteDocument = useDeleteDocument()
   const [selectedWorker, setSelectedWorker] = useState('')
   const [selectedClient, setSelectedClient] = useState('')
   const [editOpen, setEditOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
   const focusDocId = params.get('doc')
   const focusTab = params.get('tab')
 
@@ -133,12 +137,33 @@ export function ProjectDetailPage() {
     [assignments],
   )
 
+  const photos = useMemo(
+    () =>
+      documents.filter(
+        (doc) => doc.category === 'work_photo' || Boolean(doc.mime_type?.startsWith('image/')),
+      ),
+    [documents],
+  )
+  const projectDocuments = useMemo(
+    () =>
+      documents.filter(
+        (doc) => doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
+      ),
+    [documents],
+  )
+
   if (isLoading) return <LoadingState />
   if (isError || !project) {
     return <EmptyState title="Project not found" description="It may have been archived or you lack access." />
   }
 
   const canManage = isManagementRole(profile?.role)
+  // Employees who can open this project are assigned (projects RLS). Prefer list match when present.
+  const isAssignedToProject = Boolean(
+    (profile?.id && assignedIds.has(profile.id)) || profile?.role === 'employee',
+  )
+  const showContractFinance = canViewContractFinance(profile?.role)
+  const showReceipts = canViewProjectReceipts(profile?.role, isAssignedToProject)
 
   return (
     <div className="space-y-6">
@@ -333,142 +358,208 @@ export function ProjectDetailPage() {
             </CardContent>
           </Card>
 
+          {showContractFinance ? (
+            <ProjectFinancePanel
+              project={project}
+              showContractFinance
+              showReceipts={false}
+              canManageContract={canManageContractFinance(profile?.role)}
+              canAddReceipt={false}
+              canManageReceipts={false}
+              currentUserId={profile?.id}
+            />
+          ) : null}
+
           <ProjectUpdates projectId={project.id} />
+
+          {showReceipts ? (
+            <ProjectFinancePanel
+              project={project}
+              showContractFinance={false}
+              showReceipts
+              canManageContract={false}
+              canAddReceipt={canAddProjectReceipt(profile?.role, isAssignedToProject)}
+              canManageReceipts={canManageAllProjectReceipts(profile?.role)}
+              currentUserId={profile?.id}
+            />
+          ) : null}
 
           {canManage ? <ProjectLocationPanel project={project} /> : null}
 
           <Card id="project-files">
-            <CardHeader>
-              <CardTitle>Files & work photos</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Upload photos or documents (PDF, Word, Excel). Files are saved here; photos and
-                document notices are also shared in the project message thread with the client.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <FilePickerButton
-                  accept={UPLOAD_ACCEPT}
-                  label="Upload files"
-                  loadingLabel="Uploading…"
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle>Photos & documents</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Photos are site images. Documents are formal project files. Expense receipts
+                    belong in Your receipts / Project receipts above.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
                   disabled={!profile?.organization_id}
-                  isLoading={
-                    uploadDocument.isPending ||
-                    postPhotosToThread.isPending ||
-                    postDocumentsToThread.isPending
-                  }
-                  multiple
-                  append={false}
-                  onFiles={async (selected) => {
-                    if (!profile?.organization_id) return
-                    try {
-                      const uploaded = []
-                      for (const file of selected) {
-                        uploaded.push(
-                          await uploadDocument.mutateAsync({
-                            file,
-                            category: isImageUploadFile(file) ? 'work_photo' : 'project_file',
-                            projectId: project.id,
-                            bucket: 'project-files',
-                          }),
-                        )
-                      }
-                      const threadPhotos = uploaded.filter(
-                        (doc) =>
-                          doc.category === 'work_photo' ||
-                          Boolean(doc.mime_type?.startsWith('image/')),
-                      )
-                      const threadDocs = uploaded.filter(
-                        (doc) =>
-                          doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
-                      )
-                      if (threadPhotos.length > 0) {
-                        await postPhotosToThread.mutateAsync({
-                          projectId: project.id,
-                          photos: threadPhotos,
-                          visibleToClient: true,
-                        })
-                      }
-                      if (threadDocs.length > 0) {
-                        await postDocumentsToThread.mutateAsync({
-                          projectId: project.id,
-                          documents: threadDocs,
-                          visibleToClient: true,
-                        })
-                      }
-                      toast.success(
-                        selected.length === 1
-                          ? 'File uploaded and saved'
-                          : `${selected.length} files uploaded and saved`,
-                      )
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : 'Upload failed')
-                    }
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Pick several photos or PDFs in one go (Ctrl/Cmd or Shift to multi-select).
-                </p>
+                  onClick={() => setUploadOpen(true)}
+                >
+                  + Upload
+                </Button>
               </div>
-              {documents.length === 0 ? (
-                <EmptyState title="No files uploaded" />
-              ) : (
-                <div className="space-y-2">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      id={`doc-${doc.id}`}
-                      className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between ${
-                        focusDocId === doc.id
-                          ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
-                          : 'border-border'
-                      }`}
-                    >
-                      <div>
-                        <p className="font-medium">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {documentCategoryLabel(doc.category)} · {formatRelative(doc.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <CompactAccordion
+                title="PHOTOS"
+                summary={
+                  photos.length === 0
+                    ? 'No project photos yet'
+                    : `${photos.length} project photo${photos.length === 1 ? '' : 's'}`
+                }
+                empty={photos.length === 0}
+                expandLabel="View Photos ▼"
+                collapseLabel="Hide Photos ▲"
+                defaultOpen={Boolean(focusDocId && photos.some((d) => d.id === focusDocId))}
+              >
+                {photos.map((doc) => (
+                  <div
+                    key={doc.id}
+                    id={`doc-${doc.id}`}
+                    className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between ${
+                      focusDocId === doc.id
+                        ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+                        : 'border-border'
+                    }`}
+                  >
+                    <div>
+                      <p className="font-medium">{doc.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {doc.kind_label || 'Photo'} · {formatRelative(doc.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const url = await createDocumentSignedUrl(doc)
+                            window.open(url, '_blank', 'noopener,noreferrer')
+                          } catch (error) {
+                            toast.error(
+                              error instanceof Error ? error.message : 'Download failed',
+                            )
+                          }
+                        }}
+                      >
+                        Open
+                      </Button>
+                      {canManage ||
+                      doc.uploaded_by === profile?.id ||
+                      doc.owner_id === profile?.id ? (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="destructive"
                           onClick={async () => {
+                            if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`))
+                              return
                             try {
-                              const url = await createDocumentSignedUrl(doc)
-                              window.open(url, '_blank', 'noopener,noreferrer')
+                              await deleteDocument.mutateAsync(doc)
+                              toast.success('Photo removed')
                             } catch (error) {
-                              toast.error(error instanceof Error ? error.message : 'Download failed')
+                              toast.error(
+                                error instanceof Error ? error.message : 'Remove failed',
+                              )
                             }
                           }}
                         >
-                          Download
+                          Remove
                         </Button>
-                        {canManage || doc.uploaded_by === profile?.id || doc.owner_id === profile?.id ? (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={async () => {
-                              if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`)) return
-                              try {
-                                await deleteDocument.mutateAsync(doc)
-                                toast.success('File removed')
-                              } catch (error) {
-                                toast.error(error instanceof Error ? error.message : 'Remove failed')
-                              }
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        ) : null}
-                      </div>
+                      ) : null}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ))}
+              </CompactAccordion>
+
+              <CompactAccordion
+                title="DOCUMENTS"
+                summary={
+                  projectDocuments.length === 0
+                    ? 'No project documents yet'
+                    : `${projectDocuments.length} project document${projectDocuments.length === 1 ? '' : 's'}`
+                }
+                empty={projectDocuments.length === 0}
+                expandLabel="View Documents ▼"
+                collapseLabel="Hide Documents ▲"
+                defaultOpen={Boolean(
+                  focusDocId && projectDocuments.some((d) => d.id === focusDocId),
+                )}
+              >
+                {projectDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    id={`doc-${doc.id}`}
+                    className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between ${
+                      focusDocId === doc.id
+                        ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+                        : 'border-border'
+                    }`}
+                  >
+                    <div>
+                      <p className="font-medium">{doc.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {doc.kind_label || documentCategoryLabel(doc.category)} ·{' '}
+                        {formatRelative(doc.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            const url = await createDocumentSignedUrl(doc)
+                            window.open(url, '_blank', 'noopener,noreferrer')
+                          } catch (error) {
+                            toast.error(
+                              error instanceof Error ? error.message : 'Download failed',
+                            )
+                          }
+                        }}
+                      >
+                        Download
+                      </Button>
+                      {canManage ||
+                      doc.uploaded_by === profile?.id ||
+                      doc.owner_id === profile?.id ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={async () => {
+                            if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`))
+                              return
+                            try {
+                              await deleteDocument.mutateAsync(doc)
+                              toast.success('Document removed')
+                            } catch (error) {
+                              toast.error(
+                                error instanceof Error ? error.message : 'Remove failed',
+                              )
+                            }
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </CompactAccordion>
             </CardContent>
           </Card>
+
+          <ProjectContentUploadDialog
+            projectId={project.id}
+            open={uploadOpen}
+            onOpenChange={setUploadOpen}
+          />
         </div>
 
         <div className="space-y-6">
