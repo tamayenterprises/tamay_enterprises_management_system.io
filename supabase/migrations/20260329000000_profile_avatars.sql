@@ -19,8 +19,12 @@ create policy "Approved users read permitted storage"
     )
   );
 
--- Include avatar on workforce status board
-create or replace view public.current_worker_statuses
+-- Include avatar on workforce status board.
+-- DROP + CREATE is required: CREATE OR REPLACE cannot insert a column before
+-- project_name (Postgres 42P16: cannot change name of view column "project_name" to "avatar_url").
+drop view if exists public.current_worker_statuses;
+
+create view public.current_worker_statuses
 with (security_invoker = true)
 as
 select distinct on (w.user_id)

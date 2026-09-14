@@ -104,10 +104,86 @@ export interface Project {
   start_date: string | null
   deadline: string | null
   warranty_ends_on: string | null
+  original_project_total?: number | string | null
+  current_project_total?: number | string | null
+  project_total_updated_at?: string | null
+  project_total_updated_by?: string | null
   created_by: string | null
   archived_at: string | null
   created_at: string
   updated_at: string
+}
+
+export type ProjectPaymentStatus = 'due' | 'partial' | 'paid' | 'void'
+export type ProjectPaymentMethod = 'check' | 'stripe' | 'other'
+export type ProjectPaymentStageKey =
+  | 'initial'
+  | 'progress'
+  | 'second_progress'
+  | 'final'
+  | 'other'
+
+export interface ProjectPayment {
+  id: string
+  organization_id: string
+  project_id: string
+  label: string
+  stage_key: ProjectPaymentStageKey
+  expected_percent: number | string | null
+  expected_amount: number | string
+  actual_amount: number | string
+  status: ProjectPaymentStatus
+  method: ProjectPaymentMethod | null
+  received_on: string | null
+  check_reference: string | null
+  proof_storage_path: string | null
+  proof_mime_type: string | null
+  proof_file_name: string | null
+  notes: string | null
+  stripe_payment_link_url: string | null
+  stripe_payment_link_active: boolean
+  sort_order: number
+  created_by: string | null
+  updated_by: string | null
+  voided_at: string | null
+  voided_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProjectReceipt {
+  id: string
+  organization_id: string
+  project_id: string
+  receipt_number: string | null
+  amount: number | string
+  received_on: string
+  proof_storage_path: string | null
+  proof_mime_type: string | null
+  proof_file_name: string | null
+  notes: string | null
+  status: 'active' | 'void'
+  created_by: string | null
+  updated_by: string | null
+  voided_at: string | null
+  voided_by: string | null
+  created_at: string
+  updated_at: string
+  uploader?: Profile | null
+}
+
+export interface ProjectFinancialAudit {
+  id: string
+  organization_id: string
+  project_id: string
+  payment_id: string | null
+  receipt_id: string | null
+  entity_type: 'payment' | 'receipt' | 'project_total'
+  field_name: string
+  old_value: string | null
+  new_value: string | null
+  changed_by: string | null
+  changed_at: string
 }
 
 export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'canceled'
@@ -231,6 +307,8 @@ export interface DocumentRecord {
   uploaded_by: string | null
   name: string
   category: DocumentCategory
+  /** Optional photo/document type label (Progress, Agreement, etc.). */
+  kind_label?: string | null
   storage_path: string
   mime_type: string | null
   file_size: number | null
@@ -551,6 +629,21 @@ export interface Database {
       organizations: { Row: Organization; Insert: Partial<Organization>; Update: Partial<Organization> }
       profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile> }
       projects: { Row: Project; Insert: Partial<Project>; Update: Partial<Project> }
+      project_payments: {
+        Row: ProjectPayment
+        Insert: Partial<ProjectPayment>
+        Update: Partial<ProjectPayment>
+      }
+      project_receipts: {
+        Row: ProjectReceipt
+        Insert: Partial<ProjectReceipt>
+        Update: Partial<ProjectReceipt>
+      }
+      project_payment_audit: {
+        Row: ProjectFinancialAudit
+        Insert: Partial<ProjectFinancialAudit>
+        Update: Partial<ProjectFinancialAudit>
+      }
       project_assignments: {
         Row: ProjectAssignment
         Insert: Partial<ProjectAssignment>

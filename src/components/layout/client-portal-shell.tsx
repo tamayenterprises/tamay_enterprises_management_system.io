@@ -2,6 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   Bell,
   Briefcase,
+  ChevronDown,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -9,12 +10,12 @@ import {
   Menu,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { Button } from '@/components/ui/button'
-import { SidebarProfileAvatar } from '@/features/profile/avatar'
+import { ProfileAvatar, SidebarProfileAvatar } from '@/features/profile/avatar'
 import { NotificationBell } from '@/features/notifications/notification-bell'
-import { cn } from '@/lib/utils'
+import { cn, fullName } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
 
 const navItems = [
@@ -26,22 +27,29 @@ const navItems = [
 ]
 
 export function ClientPortalShell({ children }: { children: React.ReactNode }) {
-  const { signOut } = useAuth()
+  const { signOut, profile } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [open, setOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const accountRef = useRef<HTMLDivElement>(null)
   const { data: unread = 0 } = useUnreadNotifications()
 
   const closeMenu = () => setOpen(false)
+  const clientName = profile
+    ? fullName(profile.first_name, profile.last_name)
+    : 'Client'
 
   const handleSignOut = async () => {
     closeMenu()
+    setAccountOpen(false)
     await signOut()
     navigate('/sign-in', { replace: true })
   }
 
   useEffect(() => {
     setOpen(false)
+    setAccountOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -66,6 +74,24 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
     }
   }, [open])
 
+  useEffect(() => {
+    if (!accountOpen) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (!accountRef.current?.contains(event.target as Node)) {
+        setAccountOpen(false)
+      }
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAccountOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [accountOpen])
+
   return (
     <div className="min-h-screen lg:flex">
       <aside
@@ -79,12 +105,21 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
       >
         <div className="shrink-0 border-b border-white/10 px-3 py-2.5">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white p-1.5 shadow-[0_0_0_2px_rgba(255,255,255,0.2)]">
-            <img src="/tamay-logo.png" alt="Tamay Enterprises" className="h-full w-full rounded-full object-contain" />
+            <img
+              src="/tamay-logo.png"
+              alt="Tamay Enterprises"
+              className="h-full w-full rounded-full object-contain"
+            />
           </div>
-          <p className="mt-1 text-center text-[11px] leading-tight text-sidebar-muted">Client portal</p>
+          <p className="mt-1 text-center text-[11px] leading-tight text-sidebar-muted">
+            Client portal
+          </p>
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col justify-evenly overflow-y-auto px-1.5 py-1" aria-label="Client sections">
+        <nav
+          className="flex min-h-0 flex-1 flex-col justify-evenly overflow-y-auto px-1.5 py-1"
+          aria-label="Client sections"
+        >
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -133,8 +168,8 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 border-b border-border/80 bg-white/95 backdrop-blur-md">
-          <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
+        <header className="sticky top-0 z-20 border-b border-border/70 bg-white/90 backdrop-blur-md">
+          <div className="flex items-center gap-2 px-3 py-2.5 sm:px-5">
             <Button
               variant="ghost"
               size="icon"
@@ -146,14 +181,86 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <p className="flex-1 text-sm font-medium text-foreground">Tamay Enterprises · Client portal</p>
+
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <img
+                src="/tamay-logo.png"
+                alt=""
+                className="hidden h-8 w-8 rounded-full object-contain sm:block lg:hidden"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold tracking-tight text-primary">
+                  Client Portal
+                </p>
+                <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
+                  Tamay Enterprises
+                </p>
+              </div>
+            </div>
+
             <NotificationBell />
-            <Button variant="outline" size="sm" className="h-9" onClick={() => navigate('/change-password')}>
-              Password
-            </Button>
+
+            <div className="relative" ref={accountRef}>
+              <button
+                type="button"
+                className="flex max-w-[11rem] items-center gap-2 rounded-full border border-border/80 bg-white py-1 pl-1 pr-2 transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:max-w-none sm:pr-2.5"
+                aria-expanded={accountOpen}
+                aria-haspopup="menu"
+                onClick={() => setAccountOpen((v) => !v)}
+              >
+                {profile ? (
+                  <ProfileAvatar
+                    firstName={profile.first_name}
+                    lastName={profile.last_name}
+                    avatarUrl={profile.avatar_url}
+                    className="h-8 w-8"
+                    fallbackClassName="bg-primary/10 text-primary text-xs"
+                  />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    C
+                  </span>
+                )}
+                <span className="hidden min-w-0 truncate text-left text-sm font-medium sm:block">
+                  {clientName}
+                </span>
+                <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
+              </button>
+
+              {accountOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-border bg-white py-1 shadow-lg"
+                >
+                  <div className="border-b border-border px-3 py-2">
+                    <p className="truncate text-sm font-medium">{clientName}</p>
+                    <p className="text-xs text-muted-foreground">Client account</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted/50"
+                    onClick={() => {
+                      setAccountOpen(false)
+                      navigate('/change-password')
+                    }}
+                  >
+                    Change password
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left text-sm text-destructive hover:bg-muted/50"
+                    onClick={() => void handleSignOut()}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
-        <main className="animate-fade-in px-3 py-3 sm:px-4 sm:py-4 lg:px-5">{children}</main>
+        <main className="animate-fade-in px-3 py-3 sm:px-5 sm:py-5 lg:px-6">{children}</main>
       </div>
     </div>
   )

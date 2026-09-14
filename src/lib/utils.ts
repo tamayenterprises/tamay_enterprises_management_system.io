@@ -157,6 +157,28 @@ export function documentCategoryLabel(category: DocumentCategory) {
   return labels[category]
 }
 
+/** Photo type options for project uploads (stored on documents.kind_label). */
+export const PHOTO_KIND_OPTIONS = [
+  'Progress',
+  'Before',
+  'Issue',
+  'Completion',
+  'Other',
+] as const
+
+/** Document type options for project uploads (stored on documents.kind_label). */
+export const DOCUMENT_KIND_OPTIONS = [
+  'Agreement',
+  'Project Breakdown',
+  'Approved Design',
+  'Change Order / Additional Work',
+  'Work Order',
+  'Completion Document',
+  'Warranty',
+  'Warranty Void',
+  'Other',
+] as const
+
 export function formatFileSize(bytes?: number | null) {
   if (bytes == null || Number.isNaN(bytes)) return '—'
   if (bytes < 1024) return `${bytes} B`

@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
+import { canViewContractFinance, stripContractFinanceFromProject } from '@/lib/project-finance'
 import { validateUploadFile, validateImageUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
 import type {
@@ -88,7 +89,11 @@ export function useProjects(options?: {
           .eq('is_active', true)
         if (assignmentError) throw assignmentError
         const ids = new Set(((assignments ?? []) as Array<{ project_id: string }>).map((a) => a.project_id))
-        return projects.filter((project) => ids.has(project.id))
+        projects = projects.filter((project) => ids.has(project.id))
+      }
+
+      if (!canViewContractFinance(profile?.role) && profile?.role !== 'client') {
+        return projects.map((project) => stripContractFinanceFromProject(project))
       }
 
       return projects
@@ -149,13 +154,19 @@ export function useProjectWarrantyAudit(projectId?: string) {
 }
 
 export function useProject(projectId?: string) {
+  const { profile } = useAuth()
   return useQuery({
-    queryKey: ['project', projectId],
+    queryKey: ['project', projectId, profile?.role ?? 'anon'],
     enabled: Boolean(projectId),
     queryFn: async () => {
       const { data, error } = await supabase.from('projects').select('*').eq('id', projectId!).single()
       if (error) throw error
-      return data as Project
+      const project = data as Project
+      // Employees/subs must not receive contract totals even though projects SELECT is shared.
+      if (!canViewContractFinance(profile?.role) && profile?.role !== 'client') {
+        return stripContractFinanceFromProject(project)
+      }
+      return project
     },
   })
 }
@@ -1183,11 +1194,13 @@ export function useUploadDocument() {
       category,
       projectId,
       bucket = 'documents',
+      kindLabel,
     }: {
       file: File
       category: DocumentRecord['category']
       projectId?: string | null
       bucket?: 'documents' | 'project-files'
+      kindLabel?: string | null
     }) => {
       if (!profile?.organization_id) throw new Error('Missing organization')
 
@@ -1206,28 +1219,43 @@ export function useUploadDocument() {
       })
       if (uploadError) throw new Error(uploadErrorMessage(uploadError))
 
-      const { data, error } = await supabase
-        .from('documents')
-        .insert({
-          organization_id: profile.organization_id,
-          owner_id: profile.id,
-          uploaded_by: profile.id,
-          project_id: projectId || null,
-          name: prepared.displayName,
-          category,
-          storage_path: path,
-          mime_type: prepared.contentType,
-          file_size: prepared.file.size || null,
-        })
-        .select()
-        .single()
-
-      if (error) {
-        await supabase.storage.from(bucket).remove([path])
-        throw new Error(uploadErrorMessage(error))
+      const baseRow = {
+        organization_id: profile.organization_id,
+        owner_id: profile.id,
+        uploaded_by: profile.id,
+        project_id: projectId || null,
+        name: prepared.displayName,
+        category,
+        storage_path: path,
+        mime_type: prepared.contentType,
+        file_size: prepared.file.size || null,
       }
 
-      return data as DocumentRecord
+      const trimmedKind = kindLabel?.trim() || null
+      const insertPayload = {
+        ...baseRow,
+        ...(trimmedKind ? { kind_label: trimmedKind } : {}),
+      }
+
+      let insert = await supabase.from('documents').insert(insertPayload).select().single()
+
+      // Development may not have kind_label yet — retry without it so uploads still work.
+      if (
+        insert.error &&
+        trimmedKind &&
+        /kind_label|schema cache|Could not find/i.test(
+          [insert.error.message, insert.error.details, insert.error.hint].filter(Boolean).join(' '),
+        )
+      ) {
+        insert = await supabase.from('documents').insert(baseRow).select().single()
+      }
+
+      if (insert.error) {
+        await supabase.storage.from(bucket).remove([path])
+        throw new Error(uploadErrorMessage(insert.error))
+      }
+
+      return insert.data as DocumentRecord
     },
     onSuccess: async (doc) => {
       // Keep the new row visible even if a slower in-flight refetch returns older data.
