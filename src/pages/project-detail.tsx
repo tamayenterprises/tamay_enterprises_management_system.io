@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -14,17 +14,19 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
   createDocumentSignedUrl,
   useArchiveProject,
   useAssignWorker,
   useAssignmentHistory,
   useDeleteDocument,
+  useHardDeleteProject,
   useProfiles,
   useProject,
   useProjectAssignments,
   useProjectDocuments,
+  useProjectWarrantyAudit,
   useRemoveAssignment,
   useRestoreProject,
   useUpdateProject,
@@ -47,6 +49,7 @@ import {
   isManagementRole,
   projectStatusLabel,
   roleLabel,
+  warrantyStatusLabel,
 } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
@@ -57,15 +60,18 @@ export function ProjectDetailPage() {
   const { projectId } = useParams()
   const [params] = useSearchParams()
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const { data: project, isLoading, isError } = useProject(projectId)
   const { data: assignments = [] } = useProjectAssignments(projectId)
   const { data: documents = [] } = useProjectDocuments(projectId)
   const { data: history = [] } = useAssignmentHistory(projectId)
+  const { data: warrantyAudit = [] } = useProjectWarrantyAudit(projectId)
   const { data: workers = [] } = useProfiles({ role: ['employee', 'subcontractor', 'project_manager'] })
   const { data: clients = [] } = useProfiles({ role: 'client' })
   const updateProject = useUpdateProject(projectId ?? '')
   const archiveProject = useArchiveProject()
   const restoreProject = useRestoreProject()
+  const hardDeleteProject = useHardDeleteProject()
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
   const deleteDocument = useDeleteDocument()
@@ -175,18 +181,21 @@ export function ProjectDetailPage() {
           <h1 className="font-display text-3xl font-semibold">{project.name}</h1>
           <p className="text-muted-foreground">{project.location || 'Location not set'}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {project.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
-          <Badge>{projectStatusLabel(project.status)}</Badge>
-          <Badge variant="secondary">{project.priority}</Badge>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-wrap items-center gap-2">
+            {project.archived_at ? <Badge variant="secondary">Archived</Badge> : null}
+            <Badge>{projectStatusLabel(project.status)}</Badge>
+            <Badge variant="secondary">{project.priority}</Badge>
+          </div>
           {canManage && !project.archived_at ? (
             <Button
               size="sm"
               variant="outline"
+              className="min-h-11 w-full sm:w-auto"
               onClick={async () => {
                 if (
                   !confirmAction(
-                    `Archive project "${project.name}"? It will stay available under Archived for warranty records.`,
+                    `Archive project "${project.name}"? It stays under Archived for warranty lookup. You can restore it later.`,
                   )
                 ) {
                   return
@@ -206,6 +215,7 @@ export function ProjectDetailPage() {
             <Button
               size="sm"
               variant="outline"
+              className="min-h-11 w-full sm:w-auto"
               onClick={async () => {
                 try {
                   await restoreProject.mutateAsync(project.id)
@@ -219,9 +229,40 @@ export function ProjectDetailPage() {
             </Button>
           ) : null}
           {canManage ? (
+            <Button
+              size="sm"
+              variant="destructive"
+              className="min-h-11 w-full sm:w-auto"
+              disabled={hardDeleteProject.isPending}
+              onClick={async () => {
+                if (
+                  !confirmAction(
+                    `PERMANENTLY delete "${project.name}"? This cannot be undone. Assignments, messages, and project files for this job will be deleted.`,
+                  )
+                ) {
+                  return
+                }
+                if (
+                  !confirmAction(`Really delete "${project.name}" forever?`)
+                ) {
+                  return
+                }
+                try {
+                  await hardDeleteProject.mutateAsync(project.id)
+                  toast.success('Project permanently deleted')
+                  navigate('/projects')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Delete failed')
+                }
+              }}
+            >
+              Delete forever
+            </Button>
+          ) : null}
+          {canManage ? (
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" className="min-h-11 w-full sm:w-auto">
                   Edit project
                 </Button>
               </DialogTrigger>
@@ -253,7 +294,7 @@ export function ProjectDetailPage() {
                     <Label>Description</Label>
                     <Textarea {...editForm.register('description')} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label>Status</Label>
                       <Select
@@ -289,7 +330,7 @@ export function ProjectDetailPage() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label>Start date</Label>
                       <Input type="date" {...editForm.register('start_date')} />
@@ -303,7 +344,8 @@ export function ProjectDetailPage() {
                     <Label>Warranty ends</Label>
                     <Input type="date" {...editForm.register('warranty_ends_on')} />
                     <p className="text-xs text-muted-foreground">
-                      Defaults to completion date + 7 years when left blank and status is Completed.
+                      Defaults to completion + 7 years. Once set, the date can be changed but not
+                      cleared. Hard delete is blocked while warranty is active.
                     </p>
                   </div>
                   <Button type="submit" disabled={updateProject.isPending}>
@@ -327,6 +369,7 @@ export function ProjectDetailPage() {
               <p>Start: {formatDate(project.start_date)}</p>
               <p>Deadline: {formatDate(project.deadline)}</p>
               <p>Warranty ends: {formatDate(project.warranty_ends_on)}</p>
+              <p className="text-muted-foreground">{warrantyStatusLabel(project.warranty_ends_on)}</p>
               {project.archived_at ? (
                 <p className="text-muted-foreground">Archived {formatDate(project.archived_at)}</p>
               ) : null}
@@ -622,7 +665,7 @@ export function ProjectDetailPage() {
                   workerAssignments.map((assignment) => (
                     <div
                       key={assignment.id}
-                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div>
                         <p className="font-medium">
@@ -639,6 +682,7 @@ export function ProjectDetailPage() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="min-h-11 w-full sm:w-auto"
                           onClick={async () => {
                             try {
                               await removeAssignment.mutateAsync({
@@ -716,7 +760,7 @@ export function ProjectDetailPage() {
                   clientAssignments.map((assignment) => (
                     <div
                       key={assignment.id}
-                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div>
                         <p className="font-medium">
@@ -736,6 +780,7 @@ export function ProjectDetailPage() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="min-h-11 w-full sm:w-auto"
                           onClick={async () => {
                             try {
                               await removeAssignment.mutateAsync({
@@ -777,6 +822,47 @@ export function ProjectDetailPage() {
                       </p>
                     </div>
                   ))
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {canManage ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Warranty & archive audit</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {warrantyAudit.length === 0 ? (
+                  <EmptyState title="No warranty or archive changes logged yet" />
+                ) : (
+                  warrantyAudit.map((item) => {
+                    const actionLabel =
+                      item.action === 'project_archived'
+                        ? 'Archived'
+                        : item.action === 'project_restored'
+                          ? 'Restored'
+                          : item.action === 'warranty_date_changed'
+                            ? 'Warranty date changed'
+                            : item.action
+                    return (
+                      <div key={item.id} className="rounded-md border border-border px-3 py-2 text-sm">
+                        <p className="font-medium">{actionLabel}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.actor
+                            ? fullName(item.actor.first_name, item.actor.last_name)
+                            : 'System'}{' '}
+                          · {formatRelative(item.created_at)}
+                        </p>
+                        {item.action === 'warranty_date_changed' ? (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatDate(String(item.metadata?.previous_warranty_ends_on ?? ''))} →{' '}
+                            {formatDate(String(item.metadata?.warranty_ends_on ?? ''))}
+                          </p>
+                        ) : null}
+                      </div>
+                    )
+                  })
                 )}
               </CardContent>
             </Card>

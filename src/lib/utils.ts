@@ -32,6 +32,24 @@ export function defaultWarrantyEndDate(from: Date | string = new Date()) {
   return format(end, 'yyyy-MM-dd')
 }
 
+/** Warranty still covers the job (or date unknown on a kept record). */
+export function isWarrantyActive(warrantyEndsOn?: string | null) {
+  if (!warrantyEndsOn) return true
+  const end = new Date(`${warrantyEndsOn}T23:59:59`)
+  return !isPast(end)
+}
+
+export function warrantyStatusLabel(warrantyEndsOn?: string | null) {
+  if (!warrantyEndsOn) return 'Warranty date not set'
+  if (isWarrantyActive(warrantyEndsOn)) {
+    const days = differenceInDays(new Date(`${warrantyEndsOn}T23:59:59`), new Date())
+    if (days <= 0) return 'Warranty ends today'
+    if (days === 1) return 'Warranty active · 1 day left'
+    return `Warranty active · ${days} days left`
+  }
+  return 'Warranty expired'
+}
+
 export function formatRelative(value?: string | null) {
   if (!value) return '—'
   return formatDistanceToNow(new Date(value), { addSuffix: true })

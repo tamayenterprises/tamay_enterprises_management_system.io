@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { supabase } from '@/lib/supabase'
 import { derivePaymentStatus, toMoneyNumber } from '@/lib/project-finance'
 import { validateUploadFile } from '@/lib/uploads'

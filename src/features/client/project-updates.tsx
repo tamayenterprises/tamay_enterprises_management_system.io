@@ -12,7 +12,8 @@ import {
   useProjectNotes,
 } from '@/features/data/hooks'
 import { cn, formatRelative, fullName, roleLabel } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
+import { resolvedImageUploadAccept } from '@/lib/uploads'
+import { RichUpdateText } from '@/features/updates/rich-update-text'
 import type { ProjectNote } from '@/types/database'
 
 function ClientUpdatePhotoThumb({
@@ -25,20 +26,36 @@ function ClientUpdatePhotoThumb({
   overlay?: string
 }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+    setFailed(false)
+    setUrl(null)
     createUpdatePhotoSignedUrl(path)
       .then((signed) => {
         if (!cancelled) setUrl(signed)
       })
       .catch(() => {
-        if (!cancelled) setUrl(null)
+        if (!cancelled) setFailed(true)
       })
     return () => {
       cancelled = true
     }
   }, [path])
+
+  if (failed) {
+    return (
+      <div
+        className={cn(
+          'flex aspect-square items-center justify-center rounded-xl bg-muted p-2 text-center text-[10px] leading-tight text-muted-foreground',
+          className,
+        )}
+      >
+        Saved · preview unavailable
+      </div>
+    )
+  }
 
   if (!url) {
     return (
@@ -63,7 +80,12 @@ function ClientUpdatePhotoThumb({
         className,
       )}
     >
-      <img src={url} alt="Project update" className="h-full w-full object-cover" />
+      <img
+        src={url}
+        alt="Project update"
+        className="h-full w-full object-cover"
+        onError={() => setFailed(true)}
+      />
       {overlay ? (
         <span className="absolute inset-0 flex items-center justify-center bg-[#092e4c]/55 text-sm font-semibold text-white">
           {overlay}
@@ -138,7 +160,7 @@ function ClientReplyComposer({
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
-            accept={IMAGE_UPLOAD_ACCEPT}
+            accept={resolvedImageUploadAccept()}
             label="Add photos"
             variant="outline"
             multiple
@@ -197,9 +219,9 @@ function ClientUpdateCard({
           </div>
 
           {update.content ? (
-            <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-              {update.content}
-            </p>
+            <div className="mt-2 max-w-prose text-sm leading-relaxed text-foreground/90">
+              <RichUpdateText content={update.content} />
+            </div>
           ) : null}
 
           {visibleThumbs.length > 0 ? (
@@ -223,7 +245,9 @@ function ClientUpdateCard({
                 return (
                   <div key={reply.id} className="rounded-xl bg-muted/50 px-3 py-2">
                     {reply.content ? (
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{reply.content}</p>
+                      <div className="text-sm leading-relaxed">
+                        <RichUpdateText content={reply.content} />
+                      </div>
                     ) : null}
                     {reply.photo_path && reply.content?.trim() ? (
                       <div className="mt-2 max-w-[8rem]">
@@ -350,7 +374,7 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <FilePickerButton
-              accept={IMAGE_UPLOAD_ACCEPT}
+              accept={resolvedImageUploadAccept()}
               label="Add photos"
               variant="outline"
               multiple

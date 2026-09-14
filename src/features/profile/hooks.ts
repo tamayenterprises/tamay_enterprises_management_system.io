@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { supabase } from '@/lib/supabase'
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024

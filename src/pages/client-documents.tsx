@@ -7,8 +7,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useAuth } from '@/features/auth/auth-context'
+import { NativeSelect } from '@/components/ui/native-select'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
   createDocumentSignedUrl,
   useDocuments,
@@ -18,7 +18,14 @@ import {
   useUploadDocument,
 } from '@/features/data/hooks'
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
-import { UPLOAD_ACCEPT, categoryForUploadFile } from '@/lib/uploads'
+import {
+  categoryForUploadFile,
+  isUploadSizeLimitMessage,
+  partitionUploadFiles,
+  resolvedDocumentUploadAccept,
+  resolvedImageUploadAccept,
+  uploadFolderHint,
+} from '@/lib/uploads'
 
 export function ClientDocumentsPage() {
   const { profile } = useAuth()
@@ -53,15 +60,20 @@ export function ClientDocumentsPage() {
       const bucket = projectId === 'none' ? 'documents' : 'project-files'
       const linkedProjectId = projectId === 'none' ? null : projectId
       const uploaded = []
+      const failures: string[] = []
       for (const file of files) {
-        uploaded.push(
-          await uploadDocument.mutateAsync({
-            file,
-            category: categoryForUploadFile(file),
-            projectId: linkedProjectId,
-            bucket,
-          }),
-        )
+        try {
+          uploaded.push(
+            await uploadDocument.mutateAsync({
+              file,
+              category: categoryForUploadFile(file),
+              projectId: linkedProjectId,
+              bucket,
+            }),
+          )
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : `Failed: ${file.name}`)
+        }
       }
 
       if (linkedProjectId) {
@@ -71,26 +83,56 @@ export function ClientDocumentsPage() {
         const threadDocs = uploaded.filter(
           (doc) => doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
         )
+        const threadErrors: string[] = []
         if (threadPhotos.length > 0) {
-          await postPhotosToThread.mutateAsync({
-            projectId: linkedProjectId,
-            photos: threadPhotos,
-            visibleToClient: true,
-          })
+          try {
+            await postPhotosToThread.mutateAsync({
+              projectId: linkedProjectId,
+              photos: threadPhotos,
+            })
+          } catch (error) {
+            threadErrors.push(error instanceof Error ? error.message : 'Photo thread update failed')
+          }
         }
         if (threadDocs.length > 0) {
-          await postDocumentsToThread.mutateAsync({
-            projectId: linkedProjectId,
-            documents: threadDocs,
-            visibleToClient: true,
-          })
+          try {
+            await postDocumentsToThread.mutateAsync({
+              projectId: linkedProjectId,
+              documents: threadDocs,
+            })
+          } catch (error) {
+            threadErrors.push(
+              error instanceof Error ? error.message : 'Document thread update failed',
+            )
+          }
+        }
+        if (failures.length === 0 && threadErrors.length > 0) {
+          toast.warning(
+            uploaded.length === 1
+              ? `File saved, but thread update failed: ${threadErrors[0]}`
+              : `${uploaded.length} files saved, but thread update failed: ${threadErrors[0]}`,
+          )
+          if (uploaded.length > 0) setFiles([])
+          return
         }
       }
 
-      toast.success(
-        files.length === 1 ? 'File uploaded and saved' : `${files.length} files uploaded and saved`,
-      )
-      setFiles([])
+      if (failures.length > 0) {
+        const message =
+          uploaded.length > 0
+            ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
+            : failures[0]!
+        toast.error(message, {
+          duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+        })
+      } else {
+        toast.success(
+          uploaded.length === 1
+            ? 'File uploaded and saved'
+            : `${uploaded.length} files uploaded and saved`,
+        )
+      }
+      if (uploaded.length > 0) setFiles([])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed')
     }
@@ -112,37 +154,90 @@ export function ClientDocumentsPage() {
         <CardHeader>
           <CardTitle>Upload</CardTitle>
           <CardDescription>
-            Choose one or many photos or documents (PDF, Word, Excel). Optionally link them to a
+            Add photos and documents separately (better on phones). Optionally link them to a
             project.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label>Project (optional)</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Personal file (no project)</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="client-upload-project">Project (optional)</Label>
+              <NativeSelect
+                id="client-upload-project"
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+              >
+                <option value="none">Personal file (no project)</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </NativeSelect>
             </div>
             <div className="space-y-1">
               <Label>Files</Label>
-              <FilePickerButton
-                accept={UPLOAD_ACCEPT}
-                variant="outline"
-                multiple
-                selectedFiles={files}
-                onFiles={setFiles}
-              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <FilePickerButton
+                  accept={resolvedImageUploadAccept()}
+                  label="Add photos"
+                  variant="outline"
+                  multiple
+                  selectedFiles={files}
+                  onFiles={(selected) => {
+                    const { accepted, errors } = partitionUploadFiles(selected)
+                    if (errors.length > 0) {
+                      const message =
+                        errors.length === 1
+                          ? errors[0]!
+                          : `${errors[0]} (+${errors.length - 1} more)`
+                      toast.error(message, {
+                        duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                      })
+                    }
+                    if (accepted.length > 0) setFiles(accepted)
+                  }}
+                />
+                <FilePickerButton
+                  accept={resolvedDocumentUploadAccept()}
+                  label="Add documents"
+                  variant="outline"
+                  multiple
+                  selectedFiles={files}
+                  onFiles={(selected) => {
+                    const { accepted, errors } = partitionUploadFiles(selected)
+                    if (errors.length > 0) {
+                      const message =
+                        errors.length === 1
+                          ? errors[0]!
+                          : `${errors[0]} (+${errors.length - 1} more)`
+                      toast.error(message, {
+                        duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                      })
+                    }
+                    if (accepted.length > 0) setFiles(accepted)
+                  }}
+                />
+                <FilePickerButton
+                  variant="outline"
+                  directory
+                  selectedFiles={files}
+                  onFiles={(selected) => {
+                    const { accepted, errors } = partitionUploadFiles(selected)
+                    if (errors.length > 0) {
+                      const message =
+                        errors.length === 1
+                          ? errors[0]!
+                          : `${errors[0]} (+${errors.length - 1} more)`
+                      toast.error(message, {
+                        duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                      })
+                    }
+                    if (accepted.length > 0) setFiles(accepted)
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
             </div>
           </div>
           <SelectedFilesList files={files} onChange={setFiles} />

@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
   createCertificationProofUrl,
   useCertifications,
@@ -23,7 +23,7 @@ import {
   useUpdateCertification,
 } from '@/features/data/hooks'
 import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
-import { UPLOAD_ACCEPT, confirmAction } from '@/lib/uploads'
+import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
 import type { Certification } from '@/types/database'
 
@@ -222,7 +222,7 @@ export function CertificationsPage() {
                   <Label>Proof file</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <FilePickerButton
-                      accept={UPLOAD_ACCEPT}
+                      accept={resolvedDocumentUploadAccept()}
                       label={proofFile ? 'Change proof file' : 'Upload proof file'}
                       size="sm"
                       variant="outline"
@@ -478,7 +478,7 @@ function CertificationCard({
                   <Label>Replace proof file (optional)</Label>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <FilePickerButton
-                      accept={UPLOAD_ACCEPT}
+                      accept={resolvedDocumentUploadAccept()}
                       label={proofFile ? 'Change proof file' : 'Upload proof file'}
                       size="sm"
                       variant="outline"

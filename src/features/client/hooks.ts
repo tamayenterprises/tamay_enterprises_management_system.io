@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/features/auth/auth-context'
-import { validateImageUploadFile, validateUploadFile } from '@/lib/uploads'
+import { useAuth } from '@/features/auth/auth-hooks'
+import { validateImageUploadFile, validateUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
 import type { ProjectRequestFormValues } from '@/lib/validations'
 import type { Project, ProjectRequest, ProjectRequestFile, ProjectRequestStatus } from '@/types/database'
 
@@ -112,11 +112,17 @@ export function useUploadProjectRequestFile() {
         fileKind === 'photo' ? validateImageUploadFile(file) : validateUploadFile(file)
       if (validationError) throw new Error(validationError)
 
-      const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_')
-      const storagePath = `${profile.id}/requests/${requestId}/${Date.now()}-${safeName}`
+      const prepared = await prepareUploadFileAsync(file)
+      const safeName = prepared.displayName.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
+      const storagePath = `${profile.id}/requests/${requestId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
 
-      const { error: uploadError } = await supabase.storage.from('project-files').upload(storagePath, file)
-      if (uploadError) throw uploadError
+      const { error: uploadError } = await supabase.storage
+        .from('project-files')
+        .upload(storagePath, prepared.file, {
+          contentType: prepared.contentType,
+          upsert: false,
+        })
+      if (uploadError) throw new Error(uploadErrorMessage(uploadError))
 
       const { data, error } = await supabase
         .from('project_request_files')
@@ -124,11 +130,11 @@ export function useUploadProjectRequestFile() {
           organization_id: profile.organization_id,
           request_id: requestId,
           uploaded_by: profile.id,
-          name: file.name,
+          name: prepared.displayName,
           file_kind: fileKind,
           storage_path: storagePath,
-          mime_type: file.type || null,
-          file_size: file.size,
+          mime_type: prepared.contentType,
+          file_size: prepared.file.size || null,
         })
         .select()
         .single()

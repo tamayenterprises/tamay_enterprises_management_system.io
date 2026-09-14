@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { useProfiles } from '@/features/data/hooks'
 import {
   relevanceLabel,

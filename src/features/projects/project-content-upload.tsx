@@ -14,7 +14,13 @@ import {
 } from '@/features/data/hooks'
 import { formatUnknownError } from '@/lib/auth-errors'
 import { DOCUMENT_KIND_OPTIONS, PHOTO_KIND_OPTIONS } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT, UPLOAD_ACCEPT, isImageUploadFile } from '@/lib/uploads'
+import {
+  isImageUploadFile,
+  isUploadSizeLimitMessage,
+  partitionUploadFiles,
+  resolvedDocumentUploadAccept,
+  resolvedImageUploadAccept,
+} from '@/lib/uploads'
 
 export type ProjectUploadKind = 'photo' | 'document'
 
@@ -202,11 +208,23 @@ export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Pr
               />
             </div>
             <FilePickerButton
-              accept={IMAGE_UPLOAD_ACCEPT}
+              accept={resolvedImageUploadAccept()}
               label="Choose photo(s)"
               multiple
               selectedFiles={files}
-              onFiles={setFiles}
+              onFiles={(selected) => {
+                const { accepted, errors } = partitionUploadFiles(selected, { imagesOnly: true })
+                if (errors.length > 0) {
+                  const message =
+                    errors.length === 1
+                      ? errors[0]!
+                      : `${errors[0]} (+${errors.length - 1} more)`
+                  toast.error(message, {
+                    duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                  })
+                }
+                if (accepted.length > 0) setFiles(accepted)
+              }}
             />
             <SelectedFilesList files={files} onChange={setFiles} />
             <div className="flex justify-end gap-2">
@@ -253,11 +271,23 @@ export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Pr
               />
             </div>
             <FilePickerButton
-              accept={UPLOAD_ACCEPT}
+              accept={resolvedDocumentUploadAccept()}
               label="Choose document(s)"
               multiple
               selectedFiles={files}
-              onFiles={setFiles}
+              onFiles={(selected) => {
+                const { accepted, errors } = partitionUploadFiles(selected, { documentsOnly: true })
+                if (errors.length > 0) {
+                  const message =
+                    errors.length === 1
+                      ? errors[0]!
+                      : `${errors[0]} (+${errors.length - 1} more)`
+                  toast.error(message, {
+                    duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                  })
+                }
+                if (accepted.length > 0) setFiles(accepted)
+              }}
             />
             <SelectedFilesList files={files} onChange={setFiles} />
             <div className="flex justify-end gap-2">

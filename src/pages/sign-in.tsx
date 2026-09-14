@@ -1,4 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -6,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AuthBrowserTip } from '@/components/auth-browser-tip'
 import { supabase } from '@/lib/supabase'
 import { formatAuthError } from '@/lib/auth-errors'
 import { homePathForRole } from '@/lib/utils'
@@ -14,11 +16,18 @@ import type { UserRole } from '@/types/database'
 
 export function SignInPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<SignInValues>({ resolver: zodResolver(signInSchema) })
+
+  useEffect(() => {
+    if (params.get('registered') !== '1') return
+    toast.success('Registration submitted. You can sign in after management approves your account.')
+    navigate('/sign-in', { replace: true })
+  }, [params, navigate])
 
   const onSubmit = handleSubmit(async (values) => {
     const { data, error } = await supabase.auth.signInWithPassword(values)
@@ -46,7 +55,9 @@ export function SignInPage() {
     }
 
     toast.success('Welcome back')
-    navigate(homePathForRole(profile.role), { replace: true })
+    // Full navigation so auth context and route guards load cleanly together
+    // (client-side navigate can bounce back to /sign-in before profile sync finishes).
+    window.location.assign(homePathForRole(profile.role))
   })
 
   return (
@@ -73,9 +84,15 @@ export function SignInPage() {
             </Button>
           </form>
           <div className="mt-4 space-y-3 text-sm">
-            <Link className="text-primary hover:underline" to="/forgot-password">
-              Forgot password?
-            </Link>
+            <AuthBrowserTip />
+            <div className="space-y-1">
+              <Link className="text-primary hover:underline" to="/forgot-password">
+                Forgot password?
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Don&apos;t know your email? Contact your admin.
+              </p>
+            </div>
             <div className="rounded-lg border border-border bg-[#fbfcff] px-3 py-2.5">
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">Create an account</p>
               <div className="flex flex-col gap-1.5 sm:flex-row sm:justify-between">

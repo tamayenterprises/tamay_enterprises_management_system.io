@@ -24,28 +24,42 @@ import {
   insertAtTrigger,
   mentionToken,
   projectHashToken,
+  resolveMentionedUserIds,
+  resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
+import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
-import { confirmAction, IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
-import { useAuth } from '@/features/auth/auth-context'
+import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
+import { useAuth } from '@/features/auth/auth-hooks'
 import type { Profile, Project, ProjectNote } from '@/types/database'
 
 function UpdatePhoto({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+    setFailed(false)
+    setUrl(null)
     createUpdatePhotoSignedUrl(path)
       .then((signed) => {
         if (!cancelled) setUrl(signed)
       })
       .catch(() => {
-        if (!cancelled) setUrl(null)
+        if (!cancelled) setFailed(true)
       })
     return () => {
       cancelled = true
     }
   }, [path])
+
+  if (failed) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Photo saved, but this device can’t preview it. Open Files on the project to download.
+      </p>
+    )
+  }
 
   if (!url) {
     return <p className="text-xs text-muted-foreground">Loading photo…</p>
@@ -57,6 +71,7 @@ function UpdatePhoto({ path }: { path: string }) {
         src={url}
         alt="Project update"
         className="mx-auto max-h-80 w-auto max-w-full object-contain"
+        onError={() => setFailed(true)}
       />
     </a>
   )
@@ -78,6 +93,7 @@ function UpdateComposer({
   submitLabel: string
   mentionCandidates: Profile[]
   projects: Project[]
+  /** When true (reply under a client-visible root), keep the whole chain shared. */
   defaultVisibleToClient?: boolean
   onDone?: () => void
 }) {
@@ -96,6 +112,7 @@ function UpdateComposer({
   const draft = useFormDraft<{
     content: string
     requiresAttention: boolean
+    visibleToClient: boolean
     mentionedIds: string[]
     projectIds: string[]
   }>({
@@ -113,12 +130,19 @@ function UpdateComposer({
     if (typeof payload.content === 'string' && payload.content.trim()) {
       setContent(payload.content)
       setRequiresAttention(Boolean(payload.requiresAttention))
+      if (typeof payload.visibleToClient === 'boolean') {
+        setVisibleToClient(payload.visibleToClient || defaultVisibleToClient)
+      }
       if (Array.isArray(payload.mentionedIds)) setMentionedIds(payload.mentionedIds as string[])
       if (Array.isArray(payload.projectIds)) setProjectIds(payload.projectIds as string[])
       setDraftBanner(`Your unfinished draft was restored from ${new Date(draft.draft.last_saved_at).toLocaleString()}.`)
       draftRestoredRef.current = true
     }
-  }, [draft.draft])
+  }, [draft.draft, defaultVisibleToClient])
+
+  useEffect(() => {
+    if (defaultVisibleToClient) setVisibleToClient(true)
+  }, [defaultVisibleToClient])
 
   const mentionSuggestions = useMemo(
     () => filterMentionSuggestions(content, mentionCandidates),
@@ -137,18 +161,29 @@ function UpdateComposer({
         try {
           // Replies under a client-visible root always stay client-visible so the
           // customer sees the full conversation chain, not only the first message.
-          // Any assigned staff member (including employees/subs) can opt to share.
           const shareWithClient = Boolean(defaultVisibleToClient) || visibleToClient
+          const mentionIds = Array.from(
+            new Set([
+              ...mentionedIds,
+              ...resolveMentionedUserIds(content, mentionCandidates),
+            ]),
+          )
+          const referencedIds = Array.from(
+            new Set([
+              ...projectIds,
+              ...resolveReferencedProjectIds(content, projects),
+            ]),
+          )
 
           if (photos.length === 0) {
             await createUpdate.mutateAsync({
               projectId,
               content,
               parentId,
-              mentionedUserIds: mentionedIds,
+              mentionedUserIds: mentionIds,
               requiresAttention,
-              referencedProjectIds: projectIds,
-              visibleToClient: shareWithClient ? true : undefined,
+              referencedProjectIds: referencedIds,
+              visibleToClient: shareWithClient,
             })
           } else if (parentId) {
             // Replies are one level deep — keep every photo under the same parent.
@@ -158,10 +193,10 @@ function UpdateComposer({
                 content: index === 0 ? content : '',
                 parentId,
                 photo: photos[index],
-                mentionedUserIds: index === 0 ? mentionedIds : undefined,
+                mentionedUserIds: index === 0 ? mentionIds : undefined,
                 requiresAttention: index === 0 ? requiresAttention : false,
-                referencedProjectIds: index === 0 ? projectIds : undefined,
-                visibleToClient: shareWithClient ? true : undefined,
+                referencedProjectIds: index === 0 ? referencedIds : undefined,
+                visibleToClient: shareWithClient,
               })
             }
           } else {
@@ -170,10 +205,10 @@ function UpdateComposer({
               projectId,
               content,
               photo: photos[0],
-              mentionedUserIds: mentionedIds,
+              mentionedUserIds: mentionIds,
               requiresAttention,
-              referencedProjectIds: projectIds,
-              visibleToClient: shareWithClient ? true : undefined,
+              referencedProjectIds: referencedIds,
+              visibleToClient: shareWithClient,
             })
             for (let index = 1; index < photos.length; index += 1) {
               await createUpdate.mutateAsync({
@@ -181,7 +216,7 @@ function UpdateComposer({
                 parentId: root.id,
                 content: '',
                 photo: photos[index],
-                visibleToClient: shareWithClient ? true : undefined,
+                visibleToClient: shareWithClient,
               })
             }
           }
@@ -240,6 +275,7 @@ function UpdateComposer({
           draft.scheduleSave({
             content: next,
             requiresAttention,
+            visibleToClient,
             mentionedIds,
             projectIds,
           })
@@ -282,70 +318,97 @@ function UpdateComposer({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={mentionPicker}
-          onValueChange={(value) => {
-            const person = mentionCandidates.find((p) => p.id === value)
-            if (!person) return
-            setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${mentionToken(person)} `)
-            setMentionedIds((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]))
-            setMentionPicker('')
-          }}
-        >
-          <SelectTrigger className="w-[11rem]">
-            <SelectValue placeholder="Mention @" />
-          </SelectTrigger>
-          <SelectContent>
-            {mentionCandidates.map((person) => (
-              <SelectItem key={person.id} value={person.id}>
-                {fullName(person.first_name, person.last_name)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={projectPicker}
-          onValueChange={(value) => {
-            const project = projects.find((p) => p.id === value)
-            if (!project) return
-            setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${projectHashToken(project)} `)
-            setProjectIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]))
-            setProjectPicker('')
-          }}
-        >
-          <SelectTrigger className="w-[11rem]">
-            <SelectValue placeholder="Reference #" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={requiresAttention}
-            onChange={(e) => setRequiresAttention(e.target.checked)}
-          />
-          Requires attention
-        </label>
-        {!defaultVisibleToClient ? (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Select
+            value={mentionPicker}
+            onValueChange={(value) => {
+              const person = mentionCandidates.find((p) => p.id === value)
+              if (!person) return
+              setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${mentionToken(person)} `)
+              setMentionedIds((prev) => (prev.includes(person.id) ? prev : [...prev, person.id]))
+              setMentionPicker('')
+            }}
+          >
+            <SelectTrigger className="h-11 w-full sm:w-[11rem]">
+              <SelectValue placeholder="Mention @" />
+            </SelectTrigger>
+            <SelectContent>
+              {mentionCandidates.map((person) => (
+                <SelectItem key={person.id} value={person.id}>
+                  {fullName(person.first_name, person.last_name)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={projectPicker}
+            onValueChange={(value) => {
+              const project = projects.find((p) => p.id === value)
+              if (!project) return
+              setContent((prev) => `${prev}${prev.endsWith(' ') || !prev ? '' : ' '}${projectHashToken(project)} `)
+              setProjectIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]))
+              setProjectPicker('')
+            }}
+          >
+            <SelectTrigger className="h-11 w-full sm:w-[11rem]">
+              <SelectValue placeholder="Reference #" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="flex min-h-11 items-center gap-3 text-sm text-muted-foreground">
             <input
               type="checkbox"
-              checked={visibleToClient}
-              onChange={(e) => setVisibleToClient(e.target.checked)}
+              className="h-5 w-5 shrink-0"
+              checked={requiresAttention}
+              onChange={(e) => {
+                const next = e.target.checked
+                setRequiresAttention(next)
+                draft.scheduleSave({
+                  content,
+                  requiresAttention: next,
+                  visibleToClient,
+                  mentionedIds,
+                  projectIds,
+                })
+              }}
             />
-            Visible to client
+            Requires attention
           </label>
-        ) : null}
-        {defaultVisibleToClient ? (
-          <span className="text-xs text-muted-foreground">Visible to client (whole thread)</span>
-        ) : null}
+          {!defaultVisibleToClient ? (
+            <label className="flex min-h-11 items-center gap-3 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-5 w-5 shrink-0"
+                checked={visibleToClient}
+                onChange={(e) => {
+                  const next = e.target.checked
+                  setVisibleToClient(next)
+                  draft.scheduleSave({
+                    content,
+                    requiresAttention,
+                    visibleToClient: next,
+                    mentionedIds,
+                    projectIds,
+                  })
+                }}
+              />
+              Visible to client
+            </label>
+          ) : (
+            <span className="flex min-h-11 items-center text-sm text-muted-foreground">
+              Visible to client (whole thread)
+            </span>
+          )}
+        </div>
       </div>
 
       {mentionedIds.length > 0 || projectIds.length > 1 ? (
@@ -354,7 +417,7 @@ function UpdateComposer({
             const person = mentionCandidates.find((p) => p.id === id)
             if (!person) return null
             return (
-              <Badge key={id} variant="secondary">
+              <Badge key={id} className="bg-[#35558f]/10 text-[#35558f]">
                 {mentionToken(person)}
               </Badge>
             )
@@ -376,7 +439,7 @@ function UpdateComposer({
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
-            accept={IMAGE_UPLOAD_ACCEPT}
+            accept={resolvedImageUploadAccept()}
             label="Add photos"
             variant="outline"
             multiple
@@ -428,7 +491,9 @@ function UpdateCard({
       <div className="space-y-2">
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
         {update.visible_to_client ? <Badge variant="secondary">Visible to client</Badge> : null}
-        {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
+        {update.content ? (
+          <RichUpdateText content={update.content} people={mentionCandidates} projects={projects} />
+        ) : null}
         {update.photo_path ? <UpdatePhoto path={update.photo_path} /> : null}
         <p className="text-xs text-muted-foreground">
           {authorName} · {formatRelative(update.created_at)}
@@ -452,7 +517,9 @@ function UpdateCard({
               {reply.visible_to_client ? (
                 <Badge variant="secondary">Visible to client</Badge>
               ) : null}
-              {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
+              {reply.content ? (
+                <RichUpdateText content={reply.content} people={mentionCandidates} projects={projects} />
+              ) : null}
               {reply.photo_path ? <UpdatePhoto path={reply.photo_path} /> : null}
               <p className="text-xs text-muted-foreground">
                 {replyAuthor} · {formatRelative(reply.created_at)}
@@ -529,12 +596,8 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
           <div>
             <CardTitle>Project Updates</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Project-only conversation for assigned workers and management. Company-wide project
-              discussions belong in{' '}
-              <Link className="underline" to="/updates?tab=company">
-                Company Updates
-              </Link>
-              .
+              Internal by default. Check <span className="font-medium text-foreground">Visible to client</span>{' '}
+              to share a message with assigned clients. Replies on a shared thread stay shared.
             </p>
           </div>
           <Button asChild size="sm" variant="outline">

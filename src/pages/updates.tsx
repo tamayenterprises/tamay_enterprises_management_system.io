@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { useProfiles, useProjects } from '@/features/data/hooks'
 import {
   createUpdatePhotoSignedUrl,
@@ -25,26 +25,39 @@ import {
   insertAtTrigger,
   mentionToken,
   projectHashToken,
+  resolveMentionedUserIds,
+  resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
+import { RichUpdateText } from '@/features/updates/rich-update-text'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
-import { IMAGE_UPLOAD_ACCEPT } from '@/lib/uploads'
+import { resolvedImageUploadAccept } from '@/lib/uploads'
 import type { CompanyUpdateAudience, Profile, Project } from '@/types/database'
 
 function UpdatePhoto({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let cancelled = false
+    setFailed(false)
+    setUrl(null)
     createUpdatePhotoSignedUrl(path)
       .then((signed) => {
         if (!cancelled) setUrl(signed)
       })
       .catch(() => {
-        if (!cancelled) setUrl(null)
+        if (!cancelled) setFailed(true)
       })
     return () => {
       cancelled = true
     }
   }, [path])
+  if (failed) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Photo saved, but this device can’t preview it.
+      </p>
+    )
+  }
   if (!url) return <p className="text-xs text-muted-foreground">Loading photo…</p>
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md border border-border bg-muted/30">
@@ -52,6 +65,7 @@ function UpdatePhoto({ path }: { path: string }) {
         src={url}
         alt="Update"
         className="mx-auto max-h-80 w-auto max-w-full object-contain"
+        onError={() => setFailed(true)}
       />
     </a>
   )
@@ -115,6 +129,22 @@ function CompanyComposer({
           }
         }
         try {
+          const mentionIds = Array.from(
+            new Set([...mentionedIds, ...resolveMentionedUserIds(content, mentionCandidates)]),
+          )
+          const referencedIds = Array.from(
+            new Set([...projectIds, ...resolveReferencedProjectIds(content, projects)]),
+          )
+          for (const id of mentionIds) {
+            if (
+              audienceType === 'selected_users' &&
+              !audienceUserIds.includes(id) &&
+              !parentId
+            ) {
+              toast.error('Add mentioned users to the selected audience before posting')
+              return
+            }
+          }
           if (photos.length === 0) {
             await create.mutateAsync({
               content,
@@ -123,9 +153,9 @@ function CompanyComposer({
               audienceUserIds,
               repliesEnabled,
               requiresAttention,
-              notifyProjectTeam: notifyProjectTeam && projectIds.length > 0,
-              mentionedUserIds: mentionedIds,
-              projectIds,
+              notifyProjectTeam: notifyProjectTeam && referencedIds.length > 0,
+              mentionedUserIds: mentionIds,
+              projectIds: referencedIds,
             })
           } else if (parentId) {
             for (let index = 0; index < photos.length; index += 1) {
@@ -138,7 +168,7 @@ function CompanyComposer({
                 repliesEnabled,
                 requiresAttention: false,
                 notifyProjectTeam: false,
-                mentionedUserIds: index === 0 ? mentionedIds : [],
+                mentionedUserIds: index === 0 ? mentionIds : [],
                 projectIds: [],
               })
             }
@@ -150,9 +180,9 @@ function CompanyComposer({
               audienceUserIds,
               repliesEnabled,
               requiresAttention,
-              notifyProjectTeam: notifyProjectTeam && projectIds.length > 0,
-              mentionedUserIds: mentionedIds,
-              projectIds,
+              notifyProjectTeam: notifyProjectTeam && referencedIds.length > 0,
+              mentionedUserIds: mentionIds,
+              projectIds: referencedIds,
             })
             for (let index = 1; index < photos.length; index += 1) {
               await create.mutateAsync({
@@ -375,7 +405,7 @@ function CompanyComposer({
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
-            accept={IMAGE_UPLOAD_ACCEPT}
+            accept={resolvedImageUploadAccept()}
             label="Add photos"
             variant="outline"
             disabled={create.isPending}
@@ -427,7 +457,9 @@ function CompanyUpdateCard({
         {update.requires_attention ? <Badge variant="destructive">Requires attention</Badge> : null}
         {!update.replies_enabled ? <Badge variant="outline">Replies Disabled</Badge> : null}
       </div>
-      {update.content ? <p className="whitespace-pre-wrap">{update.content}</p> : null}
+      {update.content ? (
+        <RichUpdateText content={update.content} people={mentionCandidates} projects={projects} />
+      ) : null}
       {update.photo_path ? <UpdatePhoto path={update.photo_path} /> : null}
       {update.refs && update.refs.length > 0 ? (
         <div className="flex flex-wrap gap-1">
@@ -451,7 +483,9 @@ function CompanyUpdateCard({
             id={`company-update-${reply.id}`}
             className="space-y-2 rounded-md bg-muted/40 px-3 py-2"
           >
-            {reply.content ? <p className="whitespace-pre-wrap">{reply.content}</p> : null}
+            {reply.content ? (
+              <RichUpdateText content={reply.content} people={mentionCandidates} projects={projects} />
+            ) : null}
             {reply.photo_path ? <UpdatePhoto path={reply.photo_path} /> : null}
             <p className="text-xs text-muted-foreground">
               {reply.author
@@ -627,7 +661,7 @@ export function UpdatesPage() {
                     <Badge variant="secondary">Project Update</Badge>
                     {project?.name ? <Badge variant="outline">{project.name}</Badge> : null}
                   </div>
-                  {note.content ? <p className="whitespace-pre-wrap">{note.content}</p> : null}
+                  {note.content ? <RichUpdateText content={note.content} /> : null}
                   <p className="mt-2 text-xs text-muted-foreground">
                     {author ? fullName(author.first_name, author.last_name) : 'Unknown'} ·{' '}
                     {formatRelative(note.created_at)}

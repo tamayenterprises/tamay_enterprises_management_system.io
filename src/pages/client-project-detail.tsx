@@ -29,7 +29,15 @@ import {
   sumValidPayments,
 } from '@/lib/project-finance'
 import { documentCategoryLabel, formatDate, formatFileSize } from '@/lib/utils'
-import { UPLOAD_ACCEPT, categoryForUploadFile, confirmAction } from '@/lib/uploads'
+import {
+  categoryForUploadFile,
+  confirmAction,
+  isUploadSizeLimitMessage,
+  partitionUploadFiles,
+  resolvedDocumentUploadAccept,
+  resolvedImageUploadAccept,
+  uploadFolderHint,
+} from '@/lib/uploads'
 import type { DocumentRecord } from '@/types/database'
 
 function PhotoThumb({ doc }: { doc: DocumentRecord }) {
@@ -86,6 +94,7 @@ function fileTypeLabel(doc: DocumentRecord) {
   return ext ? ext.toUpperCase() : 'File'
 }
 
+
 export function ClientProjectDetailPage() {
   const { projectId } = useParams()
   const { data: project, isLoading, isError } = useProject(projectId)
@@ -140,15 +149,20 @@ export function ClientProjectDetailPage() {
     if (files.length === 0 || !projectId) return
     try {
       const uploaded = []
+      const failures: string[] = []
       for (const file of files) {
-        uploaded.push(
-          await uploadDocument.mutateAsync({
-            file,
-            category: categoryForUploadFile(file),
-            projectId,
-            bucket: 'project-files',
-          }),
-        )
+        try {
+          uploaded.push(
+            await uploadDocument.mutateAsync({
+              file,
+              category: categoryForUploadFile(file),
+              projectId,
+              bucket: 'project-files',
+            }),
+          )
+        } catch (error) {
+          failures.push(error instanceof Error ? error.message : `Failed: ${file.name}`)
+        }
       }
 
       const threadPhotos = uploaded.filter(
@@ -158,25 +172,52 @@ export function ClientProjectDetailPage() {
         (doc) => doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
       )
 
+      const threadErrors: string[] = []
       if (threadPhotos.length > 0) {
-        await postPhotosToThread.mutateAsync({
-          projectId,
-          photos: threadPhotos,
-          visibleToClient: true,
-        })
+        try {
+          await postPhotosToThread.mutateAsync({
+            projectId,
+            photos: threadPhotos,
+          })
+        } catch (error) {
+          threadErrors.push(error instanceof Error ? error.message : 'Photo thread update failed')
+        }
       }
       if (threadDocs.length > 0) {
-        await postDocumentsToThread.mutateAsync({
-          projectId,
-          documents: threadDocs,
-          visibleToClient: true,
-        })
+        try {
+          await postDocumentsToThread.mutateAsync({
+            projectId,
+            documents: threadDocs,
+          })
+        } catch (error) {
+          threadErrors.push(
+            error instanceof Error ? error.message : 'Document thread update failed',
+          )
+        }
       }
 
-      toast.success(
-        files.length === 1 ? 'File uploaded and saved' : `${files.length} files uploaded and saved`,
-      )
-      setFiles([])
+      if (failures.length > 0) {
+        const message =
+          uploaded.length > 0
+            ? `${uploaded.length} uploaded; ${failures.length} failed. ${failures[0]}`
+            : failures[0]!
+        toast.error(message, {
+          duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+        })
+      } else if (threadErrors.length > 0) {
+        toast.warning(
+          uploaded.length === 1
+            ? `File saved, but thread update failed: ${threadErrors[0]}`
+            : `${uploaded.length} files saved, but thread update failed: ${threadErrors[0]}`,
+        )
+      } else {
+        toast.success(
+          uploaded.length === 1
+            ? 'File uploaded and saved'
+            : `${uploaded.length} files uploaded and saved`,
+        )
+      }
+      if (uploaded.length > 0) setFiles([])
     } catch (error) {
       toast.error(formatUnknownError(error, 'Upload failed'))
     }
@@ -193,11 +234,62 @@ export function ClientProjectDetailPage() {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <FilePickerButton
-            accept={UPLOAD_ACCEPT}
+            accept={resolvedImageUploadAccept()}
+            label="Add photos"
             variant="outline"
             multiple
             selectedFiles={files}
-            onFiles={setFiles}
+            onFiles={(selected) => {
+              const { accepted, errors } = partitionUploadFiles(selected)
+              if (errors.length > 0) {
+                const message =
+                  errors.length === 1
+                    ? errors[0]!
+                    : `${errors[0]} (+${errors.length - 1} more)`
+                toast.error(message, {
+                  duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                })
+              }
+              if (accepted.length > 0) setFiles((prev) => [...prev, ...accepted])
+            }}
+          />
+          <FilePickerButton
+            accept={resolvedDocumentUploadAccept()}
+            label="Add documents"
+            variant="outline"
+            multiple
+            selectedFiles={files}
+            onFiles={(selected) => {
+              const { accepted, errors } = partitionUploadFiles(selected)
+              if (errors.length > 0) {
+                const message =
+                  errors.length === 1
+                    ? errors[0]!
+                    : `${errors[0]} (+${errors.length - 1} more)`
+                toast.error(message, {
+                  duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                })
+              }
+              if (accepted.length > 0) setFiles((prev) => [...prev, ...accepted])
+            }}
+          />
+          <FilePickerButton
+            variant="outline"
+            directory
+            selectedFiles={files}
+            onFiles={(selected) => {
+              const { accepted, errors } = partitionUploadFiles(selected)
+              if (errors.length > 0) {
+                const message =
+                  errors.length === 1
+                    ? errors[0]!
+                    : `${errors[0]} (+${errors.length - 1} more)`
+                toast.error(message, {
+                  duration: isUploadSizeLimitMessage(message) ? 10_000 : 6_000,
+                })
+              }
+              if (accepted.length > 0) setFiles((prev) => [...prev, ...accepted])
+            }}
           />
           <Button
             disabled={files.length === 0 || uploading}
@@ -212,6 +304,7 @@ export function ClientProjectDetailPage() {
           </Button>
         </div>
         <SelectedFilesList files={files} onChange={setFiles} />
+        <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
         <p className="mt-2 text-xs text-muted-foreground">
           Photos and documents only. Receipts are handled by the Tamay team.
         </p>

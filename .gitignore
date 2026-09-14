@@ -38,3 +38,6 @@ pnpm-debug.log*
 
 # Vercel
 .vercel
+
+# Supabase CLI
+supabase/.temp

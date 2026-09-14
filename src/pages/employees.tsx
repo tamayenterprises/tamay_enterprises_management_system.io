@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
+import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import {
   useProfiles,
   useUpdateProfile,
@@ -53,8 +54,8 @@ export function EmployeesPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Employees</h1>
           <p className="text-sm text-muted-foreground">
-            Edit, activate, and archive approved employees. Attendance eligibility follows Active worker
-            status — project assignment alone is not enough.
+            Edit, activate, and remove employees when they leave or are replaced. Unassign individual
+            projects without removing the person. Attendance eligibility follows Active worker status.
           </p>
         </div>
         <div className="flex gap-2">
@@ -87,12 +88,23 @@ export function EmployeesPage() {
                 }
               }}
               onArchive={async () => {
-                if (!confirmAction(`Archive ${fullName(employee.first_name, employee.last_name)}?`)) return
+                const name = fullName(employee.first_name, employee.last_name)
+                if (
+                  !confirmAction(
+                    `Remove ${name}? They will be archived, deactivated, and unassigned from all projects. You can restore them later.`,
+                  )
+                ) {
+                  return
+                }
                 try {
-                  await setAccess.mutateAsync({ id: employee.id, archived: true })
-                  toast.success('Employee archived')
+                  const result = await setAccess.mutateAsync({ id: employee.id, archived: true })
+                  toast.success(
+                    result.unassignedCount > 0
+                      ? `Removed and unassigned from ${result.unassignedCount} project${result.unassignedCount === 1 ? '' : 's'}`
+                      : 'Employee removed',
+                  )
                 } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Archive failed')
+                  toast.error(error instanceof Error ? error.message : 'Remove failed')
                 }
               }}
             />
@@ -358,8 +370,14 @@ function EmployeeCard({
           </Dialog>
 
           <Button size="sm" variant="destructive" onClick={onArchive}>
-            Archive
+            Remove
           </Button>
+        </div>
+        <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
+          <ProfileAssignmentsPanel
+            profileId={employee.id}
+            personLabel={fullName(employee.first_name, employee.last_name)}
+          />
         </div>
       </CardContent>
     </Card>

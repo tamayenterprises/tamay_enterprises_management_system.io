@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { AuthContext } from '@/features/auth/auth-context-instance'
 import type { Profile } from '@/types/database'
 
-interface AuthContextValue {
+export interface AuthContextValue {
   session: Session | null
   user: User | null
   profile: Profile | null
@@ -11,8 +12,6 @@ interface AuthContextValue {
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
 }
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 async function fetchProfile(userId: string) {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
@@ -30,15 +29,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const syncSession = async (nextSession: Session | null) => {
       if (!mounted) return
-      setSession(nextSession)
 
       if (!nextSession?.user) {
+        setSession(null)
         setProfile(null)
         setLoading(false)
         return
       }
 
+      // Mark loading before exposing the session so route guards never see
+      // "signed in but no profile yet" and bounce back to /sign-in.
       setLoading(true)
+      setSession(nextSession)
       try {
         const nextProfile = await fetchProfile(nextSession.user.id)
         if (mounted) setProfile(nextProfile)
@@ -92,8 +94,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (!context) throw new Error('useAuth must be used within AuthProvider')
-  return context
-}

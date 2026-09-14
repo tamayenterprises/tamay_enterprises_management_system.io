@@ -186,6 +186,32 @@ export interface ProjectFinancialAudit {
   changed_at: string
 }
 
+export type PaymentStatus = 'pending' | 'paid' | 'expired' | 'canceled'
+export type PaymentMethod = 'stripe' | 'manual'
+
+export interface Payment {
+  id: string
+  organization_id: string
+  project_id: string
+  recipient_id: string
+  created_by: string
+  payer_email: string | null
+  amount_cents: number
+  currency: string
+  description: string
+  status: PaymentStatus
+  method?: PaymentMethod
+  stripe_payment_link_id: string | null
+  payment_link_url: string | null
+  stripe_checkout_session_id: string | null
+  paid_at: string | null
+  expires_at: string | null
+  created_at: string
+  updated_at: string
+  project?: Project | null
+  recipient?: Profile | null
+}
+
 export interface ProjectAssignment {
   id: string
   project_id: string

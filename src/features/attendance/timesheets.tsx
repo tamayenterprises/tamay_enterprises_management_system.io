@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { format, startOfDay } from 'date-fns'
 import { toast } from 'sonner'
@@ -101,9 +101,9 @@ export function TimesheetsPanel() {
   const [correctionMode, setCorrectionMode] = useState<CorrectionMode>('simple')
   const [detailedEvents, setDetailedEvents] = useState<TimelineEventInput[]>([])
   const [idempotencyKey, setIdempotencyKey] = useState(() => newIdempotencyKey())
-  const [rejectNote, setRejectNote] = useState('')
+  const timelineSeededFor = useRef<string | null>(null)
 
-  const { data: events = [] } = useAttendanceEvents(selected?.id)
+  const { data: events = [], isFetching: eventsFetching } = useAttendanceEvents(selected?.id)
   const { data: corrections = [] } = useAttendanceCorrections(selected?.id)
   const { data: rejectedAttempts = [] } = useAttendanceAttempts({ onlyRejected: true })
   const { data: pendingExceptions = [] } = useExceptionRequests('pending')
@@ -128,6 +128,40 @@ export function TimesheetsPanel() {
     if (row) openCorrection(row)
   }, [focusRecordId, data, selected?.id])
 
+  // Seed detailed timeline after events for the selected record have loaded (avoids stale prior row).
+  useEffect(() => {
+    if (!selected?.id || eventsFetching) return
+    if (timelineSeededFor.current === selected.id) return
+    timelineSeededFor.current = selected.id
+
+    const breakStarts = events.filter((e) => e.action === 'BREAK_STARTED').length
+    const missingBreakEnd =
+      Boolean(selected.active_break_started_at) || selected.workflow_status === 'on_break'
+    const missingClockOut = !selected.clock_out_time
+    const preferDetailed = recommendDetailedMode({
+      eventCount: events.length,
+      missingBreakEnd,
+      missingClockOut,
+      breakEventCount: breakStarts * 2,
+    })
+    setCorrectionMode(preferDetailed ? 'detailed' : 'simple')
+
+    const seeded: TimelineEventInput[] = [{ action: 'WORK_STARTED', timestamp: selected.clock_in_time }]
+    for (const event of events) {
+      if (event.action === 'WORK_STARTED') continue
+      seeded.push({ action: event.action, timestamp: event.server_timestamp })
+    }
+    if (
+      selected.active_break_started_at &&
+      !seeded.some(
+        (e) => e.action === 'BREAK_STARTED' && e.timestamp === selected.active_break_started_at,
+      )
+    ) {
+      seeded.push({ action: 'BREAK_STARTED', timestamp: selected.active_break_started_at })
+    }
+    setDetailedEvents(seeded)
+  }, [selected, events, eventsFetching])
+
   const workerOptions = useMemo(
     () =>
       workers.filter(
@@ -138,6 +172,7 @@ export function TimesheetsPanel() {
   )
 
   function openCorrection(row: AttendanceRecord, exception?: AttendanceExceptionRequest | null) {
+    timelineSeededFor.current = null
     setSelected(row)
     setLinkedException(exception ?? null)
     setClockIn(toLocalInputValue(row.clock_in_time))
@@ -156,29 +191,7 @@ export function TimesheetsPanel() {
       ),
     )
     setIdempotencyKey(newIdempotencyKey())
-
-    const breakStarts = events.filter((e) => e.action === 'BREAK_STARTED').length
-    const missingBreakEnd = Boolean(row.active_break_started_at) || row.workflow_status === 'on_break'
-    const missingClockOut = !row.clock_out_time
-    const preferDetailed = recommendDetailedMode({
-      eventCount: events.length,
-      missingBreakEnd,
-      missingClockOut,
-      breakEventCount: breakStarts * 2,
-    })
-    setCorrectionMode(preferDetailed ? 'detailed' : 'simple')
-
-    const seeded: TimelineEventInput[] = [
-      { action: 'WORK_STARTED', timestamp: row.clock_in_time },
-    ]
-    for (const event of events) {
-      if (event.action === 'WORK_STARTED') continue
-      seeded.push({ action: event.action, timestamp: event.server_timestamp })
-    }
-    if (row.active_break_started_at && !seeded.some((e) => e.action === 'BREAK_STARTED' && e.timestamp === row.active_break_started_at)) {
-      seeded.push({ action: 'BREAK_STARTED', timestamp: row.active_break_started_at })
-    }
-    setDetailedEvents(seeded)
+    setDetailedEvents([{ action: 'WORK_STARTED', timestamp: row.clock_in_time }])
   }
 
   const originalBreakStart =
@@ -373,8 +386,6 @@ export function TimesheetsPanel() {
                   req={req}
                   related={related}
                   focusExceptionId={focusExceptionId}
-                  rejectNote={rejectNote}
-                  setRejectNote={setRejectNote}
                   resolveException={resolveException}
                   correctPending={correct.isPending}
                   onApproveAndCorrect={async () => {
@@ -406,9 +417,42 @@ export function TimesheetsPanel() {
                       openCorrection(openRows[0] as AttendanceRecord, req)
                       return
                     }
-                    toast.error(
-                      'Could not find the related attendance session. Widen the date filter or open the worker timesheet row, then try again.',
-                    )
+
+                    // Failed clock-in: no session exists yet — create attendance from the exception.
+                    try {
+                      const created = await resolveException.mutateAsync({
+                        requestId: req.id,
+                        approve: true,
+                        createAttendance: true,
+                        adminNote: 'Approved and created attendance from exception request',
+                      })
+                      const createdId = created.attendance_record_id
+                      if (!createdId) {
+                        toast.error(
+                          'Attendance was not created. Activate the worker if inactive, then try again.',
+                        )
+                        return
+                      }
+                      const { data: fetched, error } = await supabase
+                        .from('attendance_records')
+                        .select('*, project:projects(*), profile:profiles!user_id(*)')
+                        .eq('id', createdId)
+                        .maybeSingle()
+                      if (error || !fetched) {
+                        toast.success(
+                          'Attendance created. Refresh timesheets and open the new session to correct times.',
+                        )
+                        return
+                      }
+                      toast.success('Attendance created from exception — review and correct times if needed')
+                      openCorrection(fetched as AttendanceRecord, {
+                        ...req,
+                        status: 'approved',
+                        resulting_attendance_record_id: createdId,
+                      })
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : 'Could not create attendance')
+                    }
                   }}
                 />
               )
@@ -451,6 +495,7 @@ export function TimesheetsPanel() {
           if (!open) {
             setSelected(null)
             setLinkedException(null)
+            timelineSeededFor.current = null
           }
         }}
       >
@@ -805,8 +850,6 @@ function ExceptionRequestCard({
   req,
   related,
   focusExceptionId,
-  rejectNote,
-  setRejectNote,
   resolveException,
   correctPending,
   onApproveAndCorrect,
@@ -814,8 +857,6 @@ function ExceptionRequestCard({
   req: AttendanceExceptionRequest
   related?: AttendanceRecord
   focusExceptionId: string | null
-  rejectNote: string
-  setRejectNote: (value: string) => void
   resolveException: ReturnType<typeof useResolveExceptionRequest>
   correctPending: boolean
   onApproveAndCorrect: () => Promise<void>
@@ -823,6 +864,7 @@ function ExceptionRequestCard({
   const { data: eligibility } = useWorkerEligibility(req.user_id)
   const setStatus = useSetWorkerStatus()
   const [activateReason, setActivateReason] = useState('')
+  const [rejectNote, setRejectNote] = useState('')
   const inactive = eligibility && !eligibility.can_submit_attendance
 
   return (
@@ -891,13 +933,19 @@ function ExceptionRequestCard({
       {req.calculated_distance_meters != null ? (
         <p className="text-xs">Distance: {formatDistance(req.calculated_distance_meters)}</p>
       ) : null}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={correctPending} onClick={() => void onApproveAndCorrect()}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button
+          size="sm"
+          className="min-h-11 w-full sm:w-auto"
+          disabled={correctPending || resolveException.isPending}
+          onClick={() => void onApproveAndCorrect()}
+        >
           Approve and Correct Attendance
         </Button>
         <Button
           size="sm"
           variant="outline"
+          className="min-h-11 w-full sm:w-auto"
           disabled={resolveException.isPending}
           onClick={async () => {
             try {
@@ -917,8 +965,9 @@ function ExceptionRequestCard({
         >
           Mark under review
         </Button>
-        <div className="flex min-w-[220px] flex-1 flex-col gap-1">
+        <div className="flex w-full flex-col gap-1 sm:min-w-[220px] sm:flex-1">
           <Input
+            className="min-h-11"
             placeholder="Rejection reason (required)"
             value={rejectNote}
             onChange={(e) => setRejectNote(e.target.value)}
@@ -926,6 +975,7 @@ function ExceptionRequestCard({
           <Button
             size="sm"
             variant="destructive"
+            className="min-h-11 w-full"
             disabled={resolveException.isPending || rejectNote.trim().length < 3}
             onClick={async () => {
               try {
@@ -945,10 +995,10 @@ function ExceptionRequestCard({
           </Button>
         </div>
       </div>
-      {!related && !req.attendance_record_id ? (
+      {!related && !req.attendance_record_id && !req.resulting_attendance_record_id ? (
         <p className="text-xs text-amber-700">
-          No linked attendance session yet. Approve and Correct will look up the worker’s open session for this
-          project.
+          No linked attendance session yet. Approve and Correct will create one from this exception
+          (worker must be active), then open the correction form.
         </p>
       ) : null}
     </div>
@@ -962,8 +1012,8 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
   const role = record.profile ? roleLabel(record.profile.role) : '—'
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-1.5">
-      <div>
+    <div className="flex flex-col gap-1 rounded-lg border border-border px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
         <p className="font-medium">{name}</p>
         <p className="text-xs text-muted-foreground">
           {role}
@@ -976,7 +1026,7 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
           </p>
         ) : null}
       </div>
-      <div className="text-right text-sm">
+      <div className="text-sm sm:text-right">
         <p>
           In {format(new Date(record.clock_in_time), 'h:mm a')}
           {record.clock_out_time

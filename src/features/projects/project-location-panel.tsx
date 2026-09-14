@@ -27,8 +27,6 @@ import {
 import { formatDate } from '@/lib/utils'
 import type { Project } from '@/types/database'
 
-export { parseProjectCoordinates } from '@/lib/project-coords'
-
 export function ProjectLocationPanel({ project }: { project: Project }) {
   const verify = useVerifyProjectLocation()
   const geocode = useGeocodeAddress()

@@ -5,6 +5,8 @@ import {
   insertAtTrigger,
   mentionToken,
   projectHashToken,
+  resolveMentionedUserIds,
+  tokenizeUpdateContent,
 } from '@/features/updates/mention-utils'
 import type { Profile, Project } from '@/types/database'
 
@@ -40,5 +42,18 @@ describe('mention and project tokens', () => {
     expect(insertAtTrigger('See #Ro', '#', '#Rosa-Stephanie-Project')).toBe(
       'See #Rosa-Stephanie-Project ',
     )
+  })
+
+  it('resolves mentioned user ids from content', () => {
+    expect(resolveMentionedUserIds('Hey @CarlosTamay please check', [person])).toEqual(['u1'])
+    expect(resolveMentionedUserIds('Hey Carlos', [person])).toEqual([])
+  })
+
+  it('tokenizes mentions for blue highlight rendering', () => {
+    expect(tokenizeUpdateContent('Ping @CarlosTamay now', [person], [project])).toEqual([
+      { type: 'text', value: 'Ping ' },
+      { type: 'mention', value: '@CarlosTamay' },
+      { type: 'text', value: ' now' },
+    ])
   })
 })

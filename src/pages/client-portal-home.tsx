@@ -7,7 +7,7 @@ import {
   MessageCircle,
   Sparkles,
 } from 'lucide-react'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
   ClientHomeActiveProjectCard,
   ClientHomeOtherProjectCard,

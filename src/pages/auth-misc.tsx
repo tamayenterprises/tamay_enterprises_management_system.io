@@ -12,7 +12,7 @@ import { LoadingState } from '@/components/ui/loading-state'
 import { supabase } from '@/lib/supabase'
 import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from '@/lib/validations'
 import type { z } from 'zod'
-import { useAuth } from '@/features/auth/auth-context'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { homePathForRole } from '@/lib/utils'
 
 export function ForgotPasswordPage() {
@@ -51,6 +51,9 @@ export function ForgotPasswordPage() {
               Send reset link
             </Button>
           </form>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            Don&apos;t know your email? Contact your admin.
+          </p>
           <p className="mt-4 text-center text-sm">
             <Link className="text-primary hover:underline" to="/sign-in">
               Back to sign in
@@ -63,6 +66,8 @@ export function ForgotPasswordPage() {
 }
 
 export function ResetPasswordPage() {
+  const navigate = useNavigate()
+  const [updated, setUpdated] = useState(false)
   const {
     register,
     handleSubmit,
@@ -75,34 +80,53 @@ export function ResetPasswordPage() {
       toast.error(error.message)
       return
     }
-    toast.success('Password updated. You can sign in with your new password.')
+    await supabase.auth.signOut()
+    setUpdated(true)
+    toast.success('Password updated. Sign in with your new password.')
   })
 
   return (
     <AuthLayout>
       <Card>
         <CardHeader>
-          <CardTitle>Reset password</CardTitle>
-          <CardDescription>Choose a new password for your account.</CardDescription>
+          <CardTitle>{updated ? 'Password updated' : 'Reset password'}</CardTitle>
+          <CardDescription>
+            {updated
+              ? 'Your new password is saved. Go back to sign in to continue.'
+              : 'Choose a new password for your account.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={onSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="password">New password</Label>
-              <Input id="password" type="password" {...register('password')} />
-              {errors.password ? <p className="text-xs text-destructive">{errors.password.message}</p> : null}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
-              <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
-              {errors.confirmPassword ? (
-                <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-              ) : null}
-            </div>
-            <Button className="w-full" disabled={isSubmitting}>
-              Update password
+          {updated ? (
+            <Button className="w-full" onClick={() => navigate('/sign-in', { replace: true })}>
+              Back to sign in
             </Button>
-          </form>
+          ) : (
+            <>
+              <form className="space-y-4" onSubmit={onSubmit}>
+                <div className="space-y-2">
+                  <Label htmlFor="password">New password</Label>
+                  <Input id="password" type="password" {...register('password')} />
+                  {errors.password ? <p className="text-xs text-destructive">{errors.password.message}</p> : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm password</Label>
+                  <Input id="confirmPassword" type="password" {...register('confirmPassword')} />
+                  {errors.confirmPassword ? (
+                    <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
+                  ) : null}
+                </div>
+                <Button className="w-full" disabled={isSubmitting}>
+                  Update password
+                </Button>
+              </form>
+              <p className="mt-4 text-center text-sm">
+                <Link className="text-primary hover:underline" to="/sign-in">
+                  Back to sign in
+                </Link>
+              </p>
+            </>
+          )}
         </CardContent>
       </Card>
     </AuthLayout>

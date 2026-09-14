@@ -38,17 +38,19 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 26. `supabase/migrations/20260338000003_share_work_photos_in_thread.sql` (existing work photos → client-visible message thread)
 27. `supabase/migrations/20260338000004_project_notification_fanout.sql` (management + client project notification fan-out)
 28. `supabase/migrations/20260338000005_project_warranty_archive.sql` (warranty_ends_on + archived project indexes; auto +7 years on completed)
-29. `supabase/migrations/20260339000000_project_financial_tracking.sql` (project totals, client payments, internal receipts, private `project-finance` bucket)
-30. `supabase/migrations/20260340000000_finance_proof_client_view_and_doc_kinds.sql` (client payment-proof storage policy + `documents.kind_label`)
-31. `supabase/migrations/20260341000000_employee_own_receipts_and_kind_label.sql` (employee receipts own-only RLS; ensure `kind_label`)
+29. `supabase/migrations/20260338000006_project_thread_always_client_visible.sql` (project thread shared with assigned clients; no per-message opt-in)
+30. `supabase/migrations/20260338000007_harden_warranty_archive.sql` (block hard-delete under warranty; audit archive/restore/warranty changes)
+31. `supabase/migrations/20260338000008_admin_hard_delete_project.sql`
+32. `supabase/migrations/20260338000009_restore_visible_to_client_opt_in.sql`
+33. `supabase/migrations/20260339000000_project_financial_tracking.sql` (project totals, client payments, internal receipts, private `project-finance` bucket)
+34. `supabase/migrations/20260340000000_payments.sql` (Stripe Payment History + live payment links)
+35. `supabase/migrations/20260340000001_finance_proof_client_view_and_doc_kinds.sql` (client payment-proof storage policy + `documents.kind_label`)
+36. `supabase/migrations/20260341000000_employee_own_receipts_and_kind_label.sql` (employee receipts own-only RLS; ensure `kind_label`)
+37. `supabase/migrations/20260902115833_record_manual_payments.sql` (manual cash/check rows on Payment History)
 
-### This release — Production migration order (already on Dev)
+### This release — Production migration notes
 
-If Production already has through step 28 (`20260338000005`), apply **only** these three, in order:
-
-1. `supabase/migrations/20260339000000_project_financial_tracking.sql`
-2. `supabase/migrations/20260340000000_finance_proof_client_view_and_doc_kinds.sql`
-3. `supabase/migrations/20260341000000_employee_own_receipts_and_kind_label.sql`
+Finance migrations **390 / finance-proof / 410** and Stripe payments migrations are already applied on Production. Repo filename for finance-proof is `20260340000001_…` to avoid colliding with `20260340000000_payments.sql`.
 
 **DO NOT APPLY (excluded from this release):**
 
@@ -137,6 +139,10 @@ Confirm these buckets exist (created by initial migration):
 - `documents` (private)
 - `project-files` (private)
 - `avatars` (public — used for profile photos)
+
+### Stripe payments
+
+Apply the payments migration, deploy `create-payment-link` and `stripe-webhook`, and set the Supabase secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Configure Stripe to send `checkout.session.completed`, `checkout.session.expired`, and `payment_intent.succeeded` events to the deployed webhook URL. Confirm a test payment changes its row from `pending` to `paid` in Payment History.
 
 ---
 
