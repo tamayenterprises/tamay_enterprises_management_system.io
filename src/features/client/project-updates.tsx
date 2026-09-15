@@ -182,6 +182,14 @@ function ClientReplyComposer({
   )
 }
 
+/** True when an update would dominate a phone screen (many photos or long copy). */
+export function isTallClientUpdate(update: ProjectNote, replies: ProjectNote[]) {
+  const photos = collectPhotos(update, replies)
+  const contentLen = update.content?.trim().length ?? 0
+  const textReplies = replies.filter((reply) => reply.content?.trim() || !reply.photo_path)
+  return photos.length >= 3 || contentLen >= 220 || textReplies.length >= 3
+}
+
 function ClientUpdateCard({
   update,
   replies,
@@ -197,18 +205,21 @@ function ClientUpdateCard({
     : 'Tamay Enterprises'
   const authorRole = update.author?.role ? roleLabel(update.author.role) : 'Team'
   const photoPaths = collectPhotos(update, replies)
-  const visibleThumbs = photoPaths.slice(0, 4)
-  const overflow = photoPaths.length - visibleThumbs.length
+  // Mobile: tighter 3-up preview; desktop keeps 4-up with +N overlay.
+  const mobileThumbs = photoPaths.slice(0, 3)
+  const desktopThumbs = photoPaths.slice(0, 4)
+  const mobileOverflow = photoPaths.length - mobileThumbs.length
+  const desktopOverflow = photoPaths.length - desktopThumbs.length
   const textReplies = replies.filter((reply) => reply.content?.trim() || !reply.photo_path)
 
   return (
-    <article className="border-b border-border/70 py-5 last:border-b-0 last:pb-0 first:pt-0">
+    <article className="border-b border-border/70 py-4 last:border-b-0 last:pb-0 first:pt-0 lg:py-5">
       <div className="flex gap-3">
         <ProfileAvatar
           firstName={update.author?.first_name || 'T'}
           lastName={update.author?.last_name || 'E'}
           avatarUrl={update.author?.avatar_url}
-          className="h-10 w-10 shrink-0"
+          className="h-9 w-9 shrink-0 lg:h-10 lg:w-10"
           fallbackClassName="bg-primary/10 text-primary"
         />
         <div className="min-w-0 flex-1">
@@ -224,16 +235,35 @@ function ClientUpdateCard({
             </div>
           ) : null}
 
-          {visibleThumbs.length > 0 ? (
-            <div className="mt-3 grid max-w-md grid-cols-4 gap-2">
-              {visibleThumbs.map((path, index) => (
-                <ClientUpdatePhotoThumb
-                  key={`${path}-${index}`}
-                  path={path}
-                  overlay={index === visibleThumbs.length - 1 && overflow > 0 ? `+${overflow}` : undefined}
-                />
-              ))}
-            </div>
+          {photoPaths.length > 0 ? (
+            <>
+              <div className="mt-3 grid max-w-xs grid-cols-3 gap-1.5 lg:hidden">
+                {mobileThumbs.map((path, index) => (
+                  <ClientUpdatePhotoThumb
+                    key={`m-${path}-${index}`}
+                    path={path}
+                    overlay={
+                      index === mobileThumbs.length - 1 && mobileOverflow > 0
+                        ? `+${mobileOverflow}`
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+              <div className="mt-3 hidden max-w-md grid-cols-4 gap-2 lg:grid">
+                {desktopThumbs.map((path, index) => (
+                  <ClientUpdatePhotoThumb
+                    key={`d-${path}-${index}`}
+                    path={path}
+                    overlay={
+                      index === desktopThumbs.length - 1 && desktopOverflow > 0
+                        ? `+${desktopOverflow}`
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            </>
           ) : null}
 
           {textReplies.length > 0 ? (
@@ -310,7 +340,18 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
   }, [notes])
 
   const ordered = useMemo(() => [...roots].reverse(), [roots])
-  const mobileLimit = 3
+
+  /** Mobile: always ≥1; default up to 3 unless the latest update is already tall. */
+  const mobilePreviewLimit = useMemo(() => {
+    if (ordered.length === 0) return 0
+    const latest = ordered[0]!
+    const latestReplies = repliesByParent.get(latest.id) ?? []
+    if (isTallClientUpdate(latest, latestReplies)) return 1
+    return Math.min(3, ordered.length)
+  }, [ordered, repliesByParent])
+
+  const hiddenCount = Math.max(0, ordered.length - mobilePreviewLimit)
+  const canToggle = hiddenCount > 0
 
   return (
     <section className="rounded-2xl border border-border/80 bg-white p-4 shadow-[0_1px_2px_rgba(9,46,76,0.04),0_8px_24px_rgba(9,46,76,0.04)] sm:p-5">
@@ -404,11 +445,13 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
           />
         ) : (
           <>
-            <div>
+            <div id="client-project-updates-list">
               {ordered.map((update, index) => (
                 <div
                   key={update.id}
-                  className={cn(index >= mobileLimit && !showAll && 'max-lg:hidden')}
+                  className={cn(
+                    index >= mobilePreviewLimit && !showAll && 'max-lg:hidden',
+                  )}
                 >
                   <ClientUpdateCard
                     update={update}
@@ -418,24 +461,18 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
                 </div>
               ))}
             </div>
-            {ordered.length > mobileLimit && !showAll ? (
+            {canToggle ? (
               <Button
                 type="button"
-                variant="outline"
-                className="mt-2 w-full rounded-xl lg:hidden"
-                onClick={() => setShowAll(true)}
+                variant={showAll ? 'ghost' : 'outline'}
+                className="mt-2 h-11 w-full rounded-xl lg:hidden"
+                aria-expanded={showAll}
+                aria-controls="client-project-updates-list"
+                onClick={() => setShowAll((open) => !open)}
               >
-                View more updates ({ordered.length - mobileLimit})
-              </Button>
-            ) : null}
-            {showAll ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="mt-1 w-full lg:hidden"
-                onClick={() => setShowAll(false)}
-              >
-                Show fewer updates
+                {showAll
+                  ? 'Show Less'
+                  : `View More Updates${hiddenCount > 0 ? ` (${hiddenCount})` : ''}`}
               </Button>
             ) : null}
           </>
