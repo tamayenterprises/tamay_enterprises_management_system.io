@@ -94,6 +94,32 @@ function fileTypeLabel(doc: DocumentRecord) {
   return ext ? ext.toUpperCase() : 'File'
 }
 
+/** Compact mobile support card — links to existing #client-ask-question composer. */
+function MobileAskQuestionCard() {
+  return (
+    <section className="rounded-2xl border border-border/80 bg-gradient-to-br from-primary to-[#092e4c] p-4 text-white shadow-[0_8px_24px_rgba(9,46,76,0.18)] lg:hidden">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <HelpCircle className="h-4 w-4 text-accent" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-base font-semibold tracking-tight">
+            Have a question or concern?
+          </p>
+          <p className="mt-1 text-sm leading-relaxed text-white/80">
+            We&apos;re here to help. Send us a message anytime.
+          </p>
+          <Button
+            asChild
+            className="mt-3 h-11 w-full rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+          >
+            <a href="#client-ask-question">Ask a Question</a>
+          </Button>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 export function ClientProjectDetailPage() {
   const { projectId } = useParams()
@@ -226,7 +252,7 @@ export function ClientProjectDetailPage() {
   const uploading =
     uploadDocument.isPending || postPhotosToThread.isPending || postDocumentsToThread.isPending
 
-  const mediaAndHelp = (
+  const mediaColumn = (
     <>
       <div className="rounded-2xl border border-border/80 bg-white p-3 shadow-[0_1px_2px_rgba(9,46,76,0.04)] sm:p-4">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -388,7 +414,8 @@ export function ClientProjectDetailPage() {
         ))}
       </CompactAccordion>
 
-      <section className="rounded-2xl border border-border/80 bg-gradient-to-br from-primary to-[#092e4c] p-4 text-white shadow-[0_8px_24px_rgba(9,46,76,0.18)]">
+      {/* Desktop-only help card — mobile uses MobileAskQuestionCard after Payment Summary */}
+      <section className="hidden rounded-2xl border border-border/80 bg-gradient-to-br from-primary to-[#092e4c] p-4 text-white shadow-[0_8px_24px_rgba(9,46,76,0.18)] lg:block">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
             <HelpCircle className="h-4 w-4 text-accent" />
@@ -415,7 +442,7 @@ export function ClientProjectDetailPage() {
         paymentPercent={project.current_project_total != null ? payPct : null}
       />
 
-      {/* Desktop summary row */}
+      {/* Desktop/tablet summary row — hidden on mobile to avoid duplicating Hero + Payment Summary */}
       <div className="hidden lg:block">
         <ClientProjectSummaryCards
           project={project}
@@ -429,25 +456,17 @@ export function ClientProjectDetailPage() {
 
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
         {/*
-          Mobile: display:contents so order puts Payments → Summary → Updates → Media.
+          Mobile (display:contents): Payments → Ask → Updates → Media
           Desktop: sticky right column stacks Payments + Media beside Updates.
         */}
         <div className="contents lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-3 lg:self-start lg:sticky lg:top-20">
           <div className="order-1">
             <ClientProjectPayments project={project} />
           </div>
-          <div className="order-4 space-y-3">{mediaAndHelp}</div>
-        </div>
-
-        <div className="order-2 lg:hidden">
-          <ClientProjectSummaryCards
-            project={project}
-            totalPaid={totalPaid}
-            remaining={balance}
-            latestUpdate={latestUpdate}
-            attentionLabel={attentionLabel}
-            payLink={payLink}
-          />
+          <div className="order-2 lg:hidden">
+            <MobileAskQuestionCard />
+          </div>
+          <div className="order-4 space-y-3">{mediaColumn}</div>
         </div>
 
         <div className="order-3 lg:col-start-1 lg:row-start-1">
