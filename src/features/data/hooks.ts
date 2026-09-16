@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
-import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
+import { documentStorageBucket, buildIlikeOrFilter, defaultWarrantyEndDate, sanitizeSearchTerm } from '@/lib/utils'
 import { canViewContractFinance, stripContractFinanceFromProject } from '@/lib/project-finance'
 import { validateUploadFile, validateImageUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
 import type { ProjectFormValues, ProfileFormValues, CertificationFormValues } from '@/lib/validations'
@@ -9,6 +9,8 @@ import type {
   ActivityLog,
   AssignmentHistory,
   Certification,
+  CertificationStatus,
+  DocumentCategory,
   DocumentRecord,
   Notification,
   Profile,
@@ -56,10 +58,8 @@ export function useProjects(options?: {
       }
 
       if (options?.search) {
-        const term = options.search.trim()
-        if (term) {
-          query = query.or(`name.ilike.%${term}%,location.ilike.%${term}%,description.ilike.%${term}%`)
-        }
+        const projectFilter = buildIlikeOrFilter(['name', 'location', 'description'], options.search)
+        if (projectFilter) query = query.or(projectFilter)
       }
 
       if (options?.status && options.status !== 'all') {
@@ -968,7 +968,7 @@ export function useActivityLog(limit = 25) {
 
 export function useCertifications(filters?: {
   search?: string
-  status?: string
+  status?: CertificationStatus
   type?: string
   profileId?: string
 }) {
@@ -982,7 +982,10 @@ export function useCertifications(filters?: {
 
       if (filters?.status) query = query.eq('status', filters.status)
       if (filters?.type) query = query.eq('certification_type', filters.type)
-      if (filters?.search) query = query.ilike('name', `%${filters.search}%`)
+      if (filters?.search) {
+        const safe = sanitizeSearchTerm(filters.search)
+        if (safe) query = query.ilike('name', `%${safe}%`)
+      }
       if (filters?.profileId) query = query.eq('profile_id', filters.profileId)
 
       const { data, error } = await query
@@ -1152,7 +1155,7 @@ export async function createCertificationProofUrl(documentUrl?: string | null) {
 
 export function useDocuments(filters?: {
   search?: string
-  category?: string
+  category?: DocumentCategory
   projectId?: string
   ownerId?: string
   mineOnly?: boolean
@@ -1170,7 +1173,10 @@ export function useDocuments(filters?: {
         .order('created_at', { ascending: false })
 
       if (filters?.category) query = query.eq('category', filters.category)
-      if (filters?.search) query = query.ilike('name', `%${filters.search}%`)
+      if (filters?.search) {
+        const safe = sanitizeSearchTerm(filters.search)
+        if (safe) query = query.ilike('name', `%${safe}%`)
+      }
       if (filters?.projectId) query = query.eq('project_id', filters.projectId)
       if (filters?.ownerId) query = query.eq('owner_id', filters.ownerId)
       if (filters?.mineOnly && profile?.id) {
@@ -1485,7 +1491,7 @@ async function softUnassignAllForProfile(
     rows.map((row) => ({
       project_id: row.project_id,
       profile_id: profileId,
-      action: 'removed',
+      action: 'removed' as const,
       performed_by: performedBy,
     })),
   )
@@ -1547,7 +1553,7 @@ export function useRemoveAssignment() {
       await supabase.from('assignment_history').insert({
         project_id: projectId,
         profile_id: profileId,
-        action: 'removed',
+        action: 'removed' as const,
         performed_by: profile!.id,
       })
 

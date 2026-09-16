@@ -54,7 +54,7 @@ export function DocumentsPage() {
   const { profile } = useAuth()
   const canManage = isManagementRole(profile?.role)
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState<string>('all')
+  const [category, setCategory] = useState<'all' | DocumentCategory>('all')
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [scope, setScope] = useState<string>(canManage ? 'all' : 'all')
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -259,7 +259,7 @@ export function DocumentsPage() {
 
       <div className="flex flex-wrap gap-2">
         <Input className="w-64" placeholder="Search documents..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <Select value={category} onValueChange={setCategory}>
+        <Select value={category} onValueChange={(value) => setCategory(value as 'all' | DocumentCategory)}>
           <SelectTrigger className="w-52">
             <SelectValue placeholder="Category" />
           </SelectTrigger>

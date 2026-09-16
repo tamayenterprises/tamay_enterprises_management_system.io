@@ -25,7 +25,7 @@ import {
 import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
-import type { Certification } from '@/types/database'
+import type { Certification, CertificationStatus } from '@/types/database'
 
 const CERT_TYPES = ['OSHA', 'Equipment', 'Trade', 'CPR', 'First Aid', 'Company-specific']
 
@@ -33,7 +33,7 @@ export function CertificationsPage() {
   const { profile } = useAuth()
   const canManage = isManagementRole(profile?.role)
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<string>('all')
+  const [status, setStatus] = useState<'all' | CertificationStatus>('all')
   const [type, setType] = useState<string>('all')
   const [createOpen, setCreateOpen] = useState(false)
   const [proofFile, setProofFile] = useState<File | null>(null)
@@ -95,7 +95,7 @@ export function CertificationsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Input className="w-56" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Select value={status} onValueChange={setStatus}>
+          <Select value={status} onValueChange={(value) => setStatus(value as 'all' | CertificationStatus)}>
             <SelectTrigger className="w-44">
               <SelectValue placeholder="Status" />
             </SelectTrigger>

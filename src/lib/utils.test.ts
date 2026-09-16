@@ -63,5 +63,8 @@ describe('utils', () => {
       'first_name.ilike.%Ada x%,email.ilike.%Ada x%',
     )
     expect(buildIlikeOrFilter(['first_name'], ',,,')).toBeNull()
+    expect(buildIlikeOrFilter(['name', 'location', 'description'], 'Main St, (CT)')).toBe(
+      'name.ilike.%Main St CT%,location.ilike.%Main St CT%,description.ilike.%Main St CT%',
+    )
   })
 })

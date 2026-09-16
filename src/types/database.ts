@@ -623,107 +623,248 @@ export interface AttendanceActionResult {
   total_hours?: number | null
 }
 
+export type WorkerStatusAction =
+  | 'activated'
+  | 'deactivated'
+  | 'suspended'
+  | 'restored'
+  | 'archived'
+  | 'unarchived'
+  | 'approved'
+  | 'rejected'
+  | 'onboarding_completed'
+
+export interface WorkerStatusHistory {
+  id: string
+  organization_id: string
+  worker_id: string
+  changed_by: string | null
+  action: WorkerStatusAction
+  reason: string
+  previous_values: Record<string, unknown>
+  new_values: Record<string, unknown>
+  created_at: string
+}
+
+export interface FormDraftRecord {
+  id: string
+  organization_id: string
+  owner_user_id: string
+  draft_type: string
+  entity_type: string | null
+  entity_id: string | null
+  project_id: string | null
+  context_key: string
+  payload: Record<string, unknown>
+  schema_version: number
+  status: string
+  published_entity_id: string | null
+  revision: number
+  device_ref: string | null
+  expires_at: string
+  last_opened_at: string | null
+  last_saved_at: string
+  discarded_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanyUpdateProjectRef {
+  update_id: string
+  project_id: string
+  created_at: string
+}
+
+export interface ProjectNoteProjectRef {
+  note_id: string
+  project_id: string
+  created_at: string
+}
+
+export interface ProjectNoteMention {
+  id: string
+  note_id: string
+  mentioned_user_id: string
+  created_at: string
+}
+
+/** Hand-maintained until `supabase gen types` is wired to production. */
+type AsRow<T> = T & Record<string, unknown>
+
+type Fk<Name extends string, Col extends string, To extends string> = {
+  foreignKeyName: Name
+  columns: [Col]
+  isOneToOne: false
+  referencedRelation: To
+  referencedColumns: ['id']
+}
+
+type Table<Row, Rel extends Fk<string, string, string>[] = []> = {
+  Row: AsRow<Row>
+  Insert: AsRow<Partial<Row>>
+  Update: AsRow<Partial<Row>>
+  Relationships: Rel
+}
+
+type View<Row> = {
+  Row: AsRow<Row>
+  Relationships: []
+}
+
+type Rpc<Args extends Record<string, unknown> = Record<string, unknown>, Returns = unknown> = {
+  Args: Args
+  Returns: Returns
+}
+
 export interface Database {
   public: {
     Tables: {
-      organizations: { Row: Organization; Insert: Partial<Organization>; Update: Partial<Organization> }
-      profiles: { Row: Profile; Insert: Partial<Profile>; Update: Partial<Profile> }
-      projects: { Row: Project; Insert: Partial<Project>; Update: Partial<Project> }
-      project_payments: {
-        Row: ProjectPayment
-        Insert: Partial<ProjectPayment>
-        Update: Partial<ProjectPayment>
-      }
-      project_receipts: {
-        Row: ProjectReceipt
-        Insert: Partial<ProjectReceipt>
-        Update: Partial<ProjectReceipt>
-      }
-      project_payment_audit: {
-        Row: ProjectFinancialAudit
-        Insert: Partial<ProjectFinancialAudit>
-        Update: Partial<ProjectFinancialAudit>
-      }
-      project_assignments: {
-        Row: ProjectAssignment
-        Insert: Partial<ProjectAssignment>
-        Update: Partial<ProjectAssignment>
-      }
-      assignment_history: {
-        Row: AssignmentHistory
-        Insert: Partial<AssignmentHistory>
-        Update: Partial<AssignmentHistory>
-      }
-      project_notes: { Row: ProjectNote; Insert: Partial<ProjectNote>; Update: Partial<ProjectNote> }
-      certifications: { Row: Certification; Insert: Partial<Certification>; Update: Partial<Certification> }
-      documents: { Row: DocumentRecord; Insert: Partial<DocumentRecord>; Update: Partial<DocumentRecord> }
-      notifications: { Row: Notification; Insert: Partial<Notification>; Update: Partial<Notification> }
-      project_activity_events: {
-        Row: ProjectActivityEvent
-        Insert: Partial<ProjectActivityEvent>
-        Update: Partial<ProjectActivityEvent>
-      }
-      company_updates: {
-        Row: CompanyUpdate
-        Insert: Partial<CompanyUpdate>
-        Update: Partial<CompanyUpdate>
-      }
-      notification_preferences: {
-        Row: NotificationPreferences
-        Insert: Partial<NotificationPreferences>
-        Update: Partial<NotificationPreferences>
-      }
-      project_note_mentions: {
-        Row: {
-          id: string
-          note_id: string
-          mentioned_user_id: string
-          created_at: string
-        }
-        Insert: Partial<{
-          id: string
-          note_id: string
-          mentioned_user_id: string
-          created_at: string
-        }>
-        Update: Partial<{
-          id: string
-          note_id: string
-          mentioned_user_id: string
-          created_at: string
-        }>
-      }
-      activity_log: { Row: ActivityLog; Insert: Partial<ActivityLog>; Update: Partial<ActivityLog> }
-      worker_status_updates: {
-        Row: WorkerStatusUpdate
-        Insert: Partial<WorkerStatusUpdate>
-        Update: Partial<WorkerStatusUpdate>
-      }
-      attendance_records: {
-        Row: AttendanceRecord
-        Insert: Partial<AttendanceRecord>
-        Update: Partial<AttendanceRecord>
-      }
-      attendance_events: {
-        Row: AttendanceEvent
-        Insert: Partial<AttendanceEvent>
-        Update: Partial<AttendanceEvent>
-      }
-      attendance_attempts: {
-        Row: AttendanceAttempt
-        Insert: Partial<AttendanceAttempt>
-        Update: Partial<AttendanceAttempt>
-      }
-      attendance_exception_requests: {
-        Row: AttendanceExceptionRequest
-        Insert: Partial<AttendanceExceptionRequest>
-        Update: Partial<AttendanceExceptionRequest>
-      }
-      attendance_corrections: {
-        Row: AttendanceCorrection
-        Insert: Partial<AttendanceCorrection>
-        Update: Partial<AttendanceCorrection>
-      }
+      organizations: Table<Organization>
+      roles: Table<RoleOption>
+      profiles: Table<Profile>
+      projects: Table<Project>
+      project_payments: Table<ProjectPayment>
+      project_receipts: Table<ProjectReceipt>
+      project_payment_audit: Table<ProjectFinancialAudit>
+      payments: Table<
+        Payment,
+        [
+          Fk<'payments_project_id_fkey', 'project_id', 'projects'>,
+          Fk<'payments_recipient_id_fkey', 'recipient_id', 'profiles'>,
+          Fk<'payments_created_by_fkey', 'created_by', 'profiles'>,
+        ]
+      >
+      project_assignments: Table<
+        ProjectAssignment,
+        [
+          Fk<'project_assignments_profile_id_fkey', 'profile_id', 'profiles'>,
+          Fk<'project_assignments_project_id_fkey', 'project_id', 'projects'>,
+          Fk<'project_assignments_assigned_by_fkey', 'assigned_by', 'profiles'>,
+        ]
+      >
+      assignment_history: Table<
+        AssignmentHistory,
+        [
+          Fk<'assignment_history_profile_id_fkey', 'profile_id', 'profiles'>,
+          Fk<'assignment_history_project_id_fkey', 'project_id', 'projects'>,
+          Fk<'assignment_history_performed_by_fkey', 'performed_by', 'profiles'>,
+        ]
+      >
+      project_notes: Table<
+        ProjectNote,
+        [
+          Fk<'project_notes_project_id_fkey', 'project_id', 'projects'>,
+          Fk<'project_notes_author_id_fkey', 'author_id', 'profiles'>,
+          Fk<'project_notes_parent_id_fkey', 'parent_id', 'project_notes'>,
+        ]
+      >
+      project_note_mentions: Table<ProjectNoteMention>
+      project_note_project_refs: Table<ProjectNoteProjectRef>
+      project_requests: Table<
+        ProjectRequest,
+        [
+          Fk<'project_requests_client_id_fkey', 'client_id', 'profiles'>,
+          Fk<'project_requests_converted_project_id_fkey', 'converted_project_id', 'projects'>,
+        ]
+      >
+      project_request_files: Table<
+        ProjectRequestFile,
+        [
+          Fk<'project_request_files_request_id_fkey', 'request_id', 'project_requests'>,
+          Fk<'project_request_files_uploaded_by_fkey', 'uploaded_by', 'profiles'>,
+        ]
+      >
+      certifications: Table<
+        Certification,
+        [Fk<'certifications_profile_id_fkey', 'profile_id', 'profiles'>]
+      >
+      documents: Table<
+        DocumentRecord,
+        [
+          Fk<'documents_owner_id_fkey', 'owner_id', 'profiles'>,
+          Fk<'documents_uploaded_by_fkey', 'uploaded_by', 'profiles'>,
+          Fk<'documents_project_id_fkey', 'project_id', 'projects'>,
+        ]
+      >
+      notifications: Table<
+        Notification,
+        [
+          Fk<'notifications_recipient_id_fkey', 'recipient_id', 'profiles'>,
+          Fk<'notifications_actor_id_fkey', 'actor_id', 'profiles'>,
+          Fk<'notifications_project_id_fkey', 'project_id', 'projects'>,
+        ]
+      >
+      project_activity_events: Table<
+        ProjectActivityEvent,
+        [
+          Fk<'project_activity_events_actor_id_fkey', 'actor_id', 'profiles'>,
+          Fk<'project_activity_events_project_id_fkey', 'project_id', 'projects'>,
+        ]
+      >
+      company_updates: Table<
+        CompanyUpdate,
+        [
+          Fk<'company_updates_author_id_fkey', 'author_id', 'profiles'>,
+          Fk<'company_updates_parent_id_fkey', 'parent_id', 'company_updates'>,
+        ]
+      >
+      company_update_project_refs: Table<
+        CompanyUpdateProjectRef,
+        [
+          Fk<'company_update_project_refs_update_id_fkey', 'update_id', 'company_updates'>,
+          Fk<'company_update_project_refs_project_id_fkey', 'project_id', 'projects'>,
+        ]
+      >
+      notification_preferences: Table<NotificationPreferences>
+      activity_log: Table<
+        ActivityLog,
+        [Fk<'activity_log_actor_id_fkey', 'actor_id', 'profiles'>]
+      >
+      worker_status_updates: Table<
+        WorkerStatusUpdate,
+        [
+          Fk<'worker_status_updates_user_id_fkey', 'user_id', 'profiles'>,
+          Fk<'worker_status_updates_project_id_fkey', 'project_id', 'projects'>,
+        ]
+      >
+      worker_status_history: Table<
+        WorkerStatusHistory,
+        [
+          Fk<'worker_status_history_worker_id_fkey', 'worker_id', 'profiles'>,
+          Fk<'worker_status_history_changed_by_fkey', 'changed_by', 'profiles'>,
+        ]
+      >
+      form_drafts: Table<FormDraftRecord>
+      attendance_records: Table<AttendanceRecord>
+      attendance_events: Table<AttendanceEvent>
+      attendance_attempts: Table<AttendanceAttempt>
+      attendance_exception_requests: Table<AttendanceExceptionRequest>
+      attendance_corrections: Table<AttendanceCorrection>
     }
+    Views: {
+      current_worker_statuses: View<CurrentWorkerStatus>
+    }
+    Functions: {
+      record_attendance_action: Rpc
+      correct_attendance_record: Rpc
+      submit_attendance_exception: Rpc
+      resolve_attendance_exception: Rpc
+      verify_project_location: Rpc
+      convert_project_request: Rpc
+      admin_hard_delete_project: Rpc
+      get_worker_eligibility: Rpc
+      set_worker_status: Rpc
+      run_certification_maintenance: Rpc
+      register_project_note_mentions: Rpc
+      register_project_note_project_refs: Rpc
+      register_company_update_extras: Rpc
+      get_form_draft: Rpc
+      upsert_form_draft: Rpc
+      discard_form_draft: Rpc
+      publish_form_draft: Rpc
+      list_my_form_drafts: Rpc
+    }
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
