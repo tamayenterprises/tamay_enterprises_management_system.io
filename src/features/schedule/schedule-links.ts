@@ -1,5 +1,16 @@
 import { addDays, format, parseISO, startOfWeek } from 'date-fns'
-import type { Project } from '@/types/database'
+import type { MyWorkScheduleItem, Project } from '@/types/database'
+import type { NavigationTarget } from '@/lib/project-coords'
+
+export function scheduleNavigationTarget(
+  item: Pick<MyWorkScheduleItem, 'project_latitude' | 'project_longitude' | 'project_address'>,
+): NavigationTarget {
+  return {
+    latitude: item.project_latitude,
+    longitude: item.project_longitude,
+    address: item.project_address,
+  }
+}
 
 /** Canonical job-site address: `job_site_address`, falling back to legacy `location`. */
 export function canonicalProjectAddress(

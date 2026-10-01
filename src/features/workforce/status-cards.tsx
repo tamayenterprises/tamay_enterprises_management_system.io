@@ -26,7 +26,8 @@ import { ProfileAvatar } from '@/features/profile/avatar'
 import type { CurrentWorkerStatus, WorkforceStatus } from '@/types/database'
 import { format } from 'date-fns'
 
-export function MyWorkStatusCard() {
+/** `inline` renders a single row (Employee Dashboard "More options") with the same update dialog. */
+export function MyWorkStatusCard({ inline = false }: { inline?: boolean } = {}) {
   const { data: current, isLoading, isError } = useMyCurrentStatus()
   const { data: projects = [] } = useProjects({ assignedOnly: true })
   const updateStatus = useUpdateWorkerStatus()
@@ -34,10 +35,113 @@ export function MyWorkStatusCard() {
   const [status, setStatus] = useState<WorkforceStatus>('active')
   const [projectId, setProjectId] = useState<string>('none')
 
-  if (isLoading) return <LoadingState label="Loading work status..." />
-  if (isError) return <EmptyState title="Unable to load work status" />
+  if (isLoading) {
+    return inline ? (
+      <p className="text-sm text-muted-foreground">Loading status…</p>
+    ) : (
+      <LoadingState label="Loading work status..." />
+    )
+  }
+  if (isError) {
+    return inline ? (
+      <p className="text-sm text-muted-foreground">Unable to load status.</p>
+    ) : (
+      <EmptyState title="Unable to load work status" />
+    )
+  }
 
   const activeStatus = current?.status ?? 'inactive'
+
+  const updateDialog = (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) {
+          setStatus(activeStatus)
+          setProjectId(current?.project_id ?? 'none')
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm" variant={inline ? 'outline' : 'default'} className={inline ? 'h-11' : undefined}>
+          Update status
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Update work status</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={(value) => setStatus(value as WorkforceStatus)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WORKFORCE_STATUSES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {workforceStatusEmoji(item)} {workforceStatusLabel(item)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Assigned project (optional)</Label>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger>
+                <SelectValue placeholder="No project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No project</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            disabled={updateStatus.isPending}
+            onClick={async () => {
+              try {
+                await updateStatus.mutateAsync({
+                  status,
+                  projectId: projectId === 'none' ? null : projectId,
+                })
+                toast.success('Status updated')
+                setOpen(false)
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Update failed')
+              }
+            }}
+          >
+            {updateStatus.isPending ? 'Saving…' : 'Save status'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (inline) {
+    return (
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">Status shared with management</p>
+          <p className="font-semibold text-primary">
+            {workforceStatusLabel(activeStatus)}
+            {current?.project?.name ? (
+              <span className="text-muted-foreground"> · {current.project.name}</span>
+            ) : null}
+          </p>
+        </div>
+        {updateDialog}
+      </div>
+    )
+  }
 
   return (
     <Card>
@@ -46,75 +150,7 @@ export function MyWorkStatusCard() {
           <CardTitle>Work status</CardTitle>
           <CardDescription>Keep management updated on where you are.</CardDescription>
         </div>
-        <Dialog
-          open={open}
-          onOpenChange={(next) => {
-            setOpen(next)
-            if (next) {
-              setStatus(activeStatus)
-              setProjectId(current?.project_id ?? 'none')
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button size="sm">Update status</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Update work status</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={(value) => setStatus(value as WorkforceStatus)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {WORKFORCE_STATUSES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {workforceStatusEmoji(item)} {workforceStatusLabel(item)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Assigned project (optional)</Label>
-                <Select value={projectId} onValueChange={setProjectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="No project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                disabled={updateStatus.isPending}
-                onClick={async () => {
-                  try {
-                    await updateStatus.mutateAsync({
-                      status,
-                      projectId: projectId === 'none' ? null : projectId,
-                    })
-                    toast.success('Status updated')
-                    setOpen(false)
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : 'Update failed')
-                  }
-                }}
-              >
-                {updateStatus.isPending ? 'Saving…' : 'Save status'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {updateDialog}
       </CardHeader>
       <CardContent className="space-y-2">
         <p className="font-display text-2xl font-semibold">
