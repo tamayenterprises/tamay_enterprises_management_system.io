@@ -688,6 +688,79 @@ export interface ProjectNoteMention {
   created_at: string
 }
 
+export interface WorkScheduleEntry {
+  id: string
+  organization_id: string
+  project_id: string
+  work_date: string
+  start_time: string
+  end_time: string | null
+  task: string
+  notes: string | null
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  project?: Pick<
+    Project,
+    | 'id'
+    | 'name'
+    | 'status'
+    | 'job_site_address'
+    | 'location'
+    | 'latitude'
+    | 'longitude'
+    | 'location_verification_status'
+    | 'archived_at'
+  > | null
+  assignees?: WorkScheduleAssignee[]
+}
+
+export interface WorkScheduleAssignee {
+  entry_id: string
+  profile_id: string
+  organization_id: string
+  created_at: string
+  profile?: Pick<
+    Profile,
+    'id' | 'first_name' | 'last_name' | 'role' | 'approval_status' | 'is_active' | 'archived_at'
+  > | null
+}
+
+/** Row returned by `get_my_work_schedule` — operational fields only. */
+export interface MyWorkScheduleItem {
+  entry_id: string
+  work_date: string
+  start_time: string
+  end_time: string | null
+  task: string
+  notes: string | null
+  project_id: string
+  project_name: string
+  project_address: string | null
+  project_latitude: number | null
+  project_longitude: number | null
+  client_name: string | null
+  client_phone: string | null
+  crew: string[]
+  updated_at: string
+}
+
+export interface WorkScheduleConflict {
+  profile_id: string
+  name: string
+  entry_id: string
+  project_name: string
+  start_time: string
+  end_time: string | null
+}
+
+export interface SaveWorkScheduleResult {
+  entry_id: string
+  auto_assigned: string[]
+  double_booked: WorkScheduleConflict[]
+}
+
 /** Hand-maintained until `supabase gen types` is wired to production. */
 type AsRow<T> = T & Record<string, unknown>
 
@@ -840,6 +913,21 @@ export interface Database {
       attendance_attempts: Table<AttendanceAttempt>
       attendance_exception_requests: Table<AttendanceExceptionRequest>
       attendance_corrections: Table<AttendanceCorrection>
+      work_schedule_entries: Table<
+        WorkScheduleEntry,
+        [
+          Fk<'work_schedule_entries_project_id_fkey', 'project_id', 'projects'>,
+          Fk<'work_schedule_entries_created_by_fkey', 'created_by', 'profiles'>,
+          Fk<'work_schedule_entries_updated_by_fkey', 'updated_by', 'profiles'>,
+        ]
+      >
+      work_schedule_assignees: Table<
+        WorkScheduleAssignee,
+        [
+          Fk<'work_schedule_assignees_entry_id_fkey', 'entry_id', 'work_schedule_entries'>,
+          Fk<'work_schedule_assignees_profile_id_fkey', 'profile_id', 'profiles'>,
+        ]
+      >
     }
     Views: {
       current_worker_statuses: View<CurrentWorkerStatus>
@@ -863,6 +951,21 @@ export interface Database {
       discard_form_draft: Rpc
       publish_form_draft: Rpc
       list_my_form_drafts: Rpc
+      get_my_work_schedule: Rpc<{ p_from: string; p_to: string }, MyWorkScheduleItem[]>
+      save_work_schedule_entry: Rpc<
+        {
+          p_project_id: string
+          p_work_date: string
+          p_start_time: string
+          p_task: string
+          p_assignee_ids: string[]
+          p_end_time?: string | null
+          p_notes?: string | null
+          p_entry_id?: string | null
+        },
+        SaveWorkScheduleResult
+      >
+      delete_work_schedule_entry: Rpc<{ p_id: string }, null>
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

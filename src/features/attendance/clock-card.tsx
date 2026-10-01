@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -72,6 +73,20 @@ export function ClockInOutCard() {
     (p) => p.location_verification_status === 'verified' && p.latitude != null && p.longitude != null,
   )
 
+  // Work Schedule "Clock In" deep link: only pre-fills the picker with one of the
+  // user's own assigned projects. Every attendance rule is still enforced server-side.
+  const [searchParams] = useSearchParams()
+  const requestedProjectId = searchParams.get('clockProject')
+  const appliedRequestRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!requestedProjectId || isLoading || openRecord) return
+    if (appliedRequestRef.current === requestedProjectId) return
+    if (!projects.some((p) => p.id === requestedProjectId)) return
+    appliedRequestRef.current = requestedProjectId
+    setProjectId(requestedProjectId)
+    document.getElementById('time-clock')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [requestedProjectId, isLoading, openRecord, projects])
+
   if (isLoading) return <LoadingState label="Loading time clock..." />
   if (isError) return <EmptyState title="Unable to load time clock" />
 
@@ -137,7 +152,7 @@ export function ClockInOutCard() {
   const shownRequest = activeRequest || existingActive
 
   return (
-    <Card>
+    <Card id="time-clock" className="scroll-mt-16">
       <CardHeader>
         <CardTitle>Time clock</CardTitle>
         <CardDescription>

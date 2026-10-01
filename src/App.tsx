@@ -46,6 +46,8 @@ const AdminPage = lazyNamed(() => import('@/pages/admin'), 'AdminPage')
 const SearchPage = lazyNamed(() => import('@/pages/search'), 'SearchPage')
 const TimesheetsPage = lazyNamed(() => import('@/pages/timesheets'), 'TimesheetsPage')
 const DraftsPage = lazyNamed(() => import('@/pages/drafts'), 'DraftsPage')
+const MySchedulePage = lazyNamed(() => import('@/pages/my-schedule'), 'MySchedulePage')
+const WorkSchedulePage = lazyNamed(() => import('@/pages/work-schedule'), 'WorkSchedulePage')
 const ClientPortalHomePage = lazyNamed(() => import('@/pages/client-portal-home'), 'ClientPortalHomePage')
 const ClientRequestsPage = lazyNamed(() => import('@/pages/client-requests'), 'ClientRequestsPage')
 const ClientProjectsPage = lazyNamed(() => import('@/pages/client-projects'), 'ClientProjectsPage')
@@ -126,11 +128,13 @@ export default function App() {
                       <Route path="/updates" element={<UpdatesPage />} />
                       <Route path="/drafts" element={<DraftsPage />} />
                       <Route path="/search" element={<SearchPage />} />
+                      <Route path="/schedule" element={<MySchedulePage />} />
 
                       <Route element={<ManagementRoute />}>
                         <Route path="/employees" element={<EmployeesPage />} />
                         <Route path="/subcontractors" element={<SubcontractorsPage />} />
                         <Route path="/timesheets" element={<TimesheetsPage />} />
+                        <Route path="/work-schedule" element={<WorkSchedulePage />} />
                         <Route path="/client-requests" element={<ProjectRequestsAdminPage />} />
                         <Route path="/payments" element={<PaymentsPage />} />
                       </Route>

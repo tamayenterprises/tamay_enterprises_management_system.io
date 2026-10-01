@@ -138,3 +138,39 @@ export function openStreetMapUrl(lat: number, lng: number): string {
 export function googleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps?q=${lat},${lng}`
 }
+
+export type NavigationTarget = {
+  latitude?: number | null
+  longitude?: number | null
+  address?: string | null
+}
+
+function usableCoords(target: NavigationTarget) {
+  const { latitude, longitude } = target
+  if (latitude == null || longitude == null) return null
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+  if (latitude === 0 && longitude === 0) return null
+  return { latitude, longitude }
+}
+
+/** Google Maps turn-by-turn link (no API key). Prefers verified coordinates, falls back to the address. */
+export function googleDirectionsUrl(target: NavigationTarget): string | null {
+  const coords = usableCoords(target)
+  if (coords) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${coords.latitude},${coords.longitude}`
+  }
+  const address = target.address?.trim()
+  if (!address) return null
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`
+}
+
+/** Waze deep link. Prefers verified coordinates, falls back to the address. */
+export function wazeUrl(target: NavigationTarget): string | null {
+  const coords = usableCoords(target)
+  if (coords) {
+    return `https://waze.com/ul?ll=${coords.latitude},${coords.longitude}&navigate=yes`
+  }
+  const address = target.address?.trim()
+  if (!address) return null
+  return `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`
+}
