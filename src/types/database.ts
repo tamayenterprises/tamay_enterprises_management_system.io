@@ -220,6 +220,8 @@ export interface ProjectAssignment {
   assigned_at: string
   removed_at: string | null
   is_active: boolean
+  /** Canonical project contact; optional until the Primary Client migration is applied. */
+  is_primary_client?: boolean
   profile?: Profile
   project?: Project
 }
@@ -727,6 +729,13 @@ export interface WorkScheduleAssignee {
   > | null
 }
 
+/** Row returned by `get_my_project_contact` — resolved project contact only. */
+export interface MyProjectContact {
+  project_id: string
+  client_name: string | null
+  client_phone: string | null
+}
+
 /** Row returned by `get_my_work_schedule` — operational fields only. */
 export interface MyWorkScheduleItem {
   entry_id: string
@@ -966,6 +975,8 @@ export interface Database {
         SaveWorkScheduleResult
       >
       delete_work_schedule_entry: Rpc<{ p_id: string }, null>
+      set_project_primary_client: Rpc<{ p_project_id: string; p_profile_id: string }, string>
+      get_my_project_contact: Rpc<{ p_project_id: string }, MyProjectContact[]>
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

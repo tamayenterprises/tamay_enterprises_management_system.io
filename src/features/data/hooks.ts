@@ -2,8 +2,10 @@ export { useActivityLog } from '@/features/data/activity'
 export {
   useAssignWorker,
   useClearProfileAssignments,
+  useMyProjectContact,
   useProfileAssignments,
   useRemoveAssignment,
+  useSetPrimaryClient,
 } from '@/features/data/assignments'
 export {
   createCertificationProofUrl,

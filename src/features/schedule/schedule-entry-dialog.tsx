@@ -258,6 +258,11 @@ function ScheduleEntryForm({
             <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
             <span>
               {contactsLoading ? 'Loading client…' : projectContact?.client?.name || 'No client on file'}
+              {!contactsLoading && projectContact?.needsPrimaryClient ? (
+                <span className="block text-xs text-amber-700">
+                  Primary client not selected. Choose one on the project page.
+                </span>
+              ) : null}
             </span>
           </p>
           <p className="flex items-start gap-1.5">
