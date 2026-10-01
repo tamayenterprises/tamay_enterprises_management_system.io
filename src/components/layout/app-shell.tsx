@@ -3,6 +3,8 @@ import {
   Activity,
   Bell,
   Briefcase,
+  CalendarDays,
+  CalendarRange,
   ClipboardList,
   Clock3,
   FileText,
@@ -27,15 +29,18 @@ import { SidebarProfileAvatar } from '@/features/profile/avatar'
 import { NotificationBell } from '@/features/notifications/notification-bell'
 import { cn, isManagementRole } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
+import { canHaveWorkSchedule } from '@/features/schedule/hooks'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: Briefcase },
+  { to: '/schedule', label: 'My Schedule', icon: CalendarDays, schedule: true },
   { to: '/client-requests', label: 'Client requests', icon: ClipboardList, management: true },
   { to: '/updates', label: 'Updates', icon: MessageSquareText },
   { to: '/employees', label: 'Employees', icon: Users, management: true },
   { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, management: true },
   { to: '/timesheets', label: 'Timesheets', icon: Clock3, management: true },
+  { to: '/work-schedule', label: 'Work Schedule', icon: CalendarRange, management: true },
   { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
   { to: '/documents', label: 'Documents', icon: FileText },
@@ -64,6 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const visibleNav = navItems.filter((item) => {
     if (item.admin) return profile?.role === 'admin'
     if (item.management) return isManagementRole(profile?.role)
+    if (item.schedule) return canHaveWorkSchedule(profile?.role)
     return true
   })
 

@@ -17,6 +17,7 @@ import { useDashboardData } from '@/features/data/hooks'
 import { MyWorkStatusCard, WorkforceStatusPanel } from '@/features/workforce/status-cards'
 import { ClockInOutCard } from '@/features/attendance/clock-card'
 import { DailyAttendanceSummary } from '@/features/attendance/timesheets'
+import { TodayWorkCard } from '@/features/schedule/today-work-card'
 import {
   formatDate,
   formatRelative,
@@ -103,6 +104,8 @@ export function DashboardPage() {
           </Button>
         )}
       </div>
+
+      <TodayWorkCard />
 
       {profile?.role === 'employee' || profile?.role === 'subcontractor' || profile?.role === 'project_manager' ? (
         <div className="grid gap-4 lg:grid-cols-2">

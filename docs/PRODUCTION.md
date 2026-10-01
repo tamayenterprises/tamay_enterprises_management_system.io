@@ -47,6 +47,7 @@ In Supabase → **SQL Editor**, run each file in order (or use `supabase db push
 35. `supabase/migrations/20260340000001_finance_proof_client_view_and_doc_kinds.sql` (client payment-proof storage policy + `documents.kind_label`)
 36. `supabase/migrations/20260341000000_employee_own_receipts_and_kind_label.sql` (employee receipts own-only RLS; ensure `kind_label`)
 37. `supabase/migrations/20260902115833_record_manual_payments.sql` (manual cash/check rows on Payment History)
+38. `supabase/migrations/20260343000000_work_schedule.sql` (Employee Work Schedule Phase 1 — tables, read-only RLS, `get_my_work_schedule` / `save_work_schedule_entry` / `delete_work_schedule_entry`, in-app schedule notifications). Independent of #37; the filename sorts earlier but it was added later — apply it after #37. Verify on Development first.
 
 ### This release — Production migration notes
 
