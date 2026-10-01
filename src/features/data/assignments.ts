@@ -1,7 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
-import type { ProjectAssignment, UserRole } from '@/types/database'
+import type { MyProjectContact, ProjectAssignment, UserRole } from '@/types/database'
+
+/** Assigning, removing or promoting a client can change the resolved project contact. */
+function invalidateClientContact(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['schedule-project-contacts'] })
+  queryClient.invalidateQueries({ queryKey: ['my-work-schedule'] })
+  queryClient.invalidateQueries({ queryKey: ['my-project-contact'] })
+}
+
+/**
+ * Employee only: resolved project contact (Primary Client, else earliest client) for a project the
+ * signed-in employee is assigned to. Employees cannot read other people's assignment rows.
+ */
+export function useMyProjectContact(projectId?: string) {
+  const { profile } = useAuth()
+  return useQuery({
+    queryKey: ['my-project-contact', profile?.id, projectId],
+    enabled: Boolean(projectId && profile?.id) && profile?.role === 'employee',
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_my_project_contact', { p_project_id: projectId! })
+      if (error) throw error
+      return ((data ?? []) as MyProjectContact[])[0] ?? null
+    },
+  })
+}
 
 export function useAssignWorker() {
   const queryClient = useQueryClient()
@@ -60,6 +84,25 @@ export function useAssignWorker() {
       queryClient.invalidateQueries({ queryKey: ['assignment-history', variables.projectId] })
       queryClient.invalidateQueries({ queryKey: ['profile-assignments', variables.profileId] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+      invalidateClientContact(queryClient)
+    },
+  })
+}
+
+/** Management only (enforced by `set_project_primary_client`). Never changes project access. */
+export function useSetPrimaryClient() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ projectId, profileId }: { projectId: string; profileId: string }) => {
+      const { error } = await supabase.rpc('set_project_primary_client', {
+        p_project_id: projectId,
+        p_profile_id: profileId,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['project-assignments', variables.projectId] })
+      invalidateClientContact(queryClient)
     },
   })
 }
@@ -142,6 +185,7 @@ export function useClearProfileAssignments() {
       queryClient.invalidateQueries({ queryKey: ['project-assignments'] })
       queryClient.invalidateQueries({ queryKey: ['assignment-history'] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+      invalidateClientContact(queryClient)
     },
   })
 }
@@ -187,6 +231,7 @@ export function useRemoveAssignment() {
       queryClient.invalidateQueries({ queryKey: ['project-assignments', variables.projectId] })
       queryClient.invalidateQueries({ queryKey: ['assignment-history', variables.projectId] })
       queryClient.invalidateQueries({ queryKey: ['profile-assignments', variables.profileId] })
+      invalidateClientContact(queryClient)
     },
   })
 }

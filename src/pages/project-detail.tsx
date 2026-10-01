@@ -55,6 +55,8 @@ import { confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 import { ProjectContentUploadDialog } from '@/features/projects/project-content-upload'
+import { ProjectClientsSection } from '@/features/projects/project-clients-section'
+import { ProjectContactSection } from '@/features/projects/project-contact-section'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
@@ -76,7 +78,6 @@ export function ProjectDetailPage() {
   const removeAssignment = useRemoveAssignment()
   const deleteDocument = useDeleteDocument()
   const [selectedWorker, setSelectedWorker] = useState('')
-  const [selectedClient, setSelectedClient] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const focusDocId = params.get('doc')
@@ -704,103 +705,20 @@ export function ProjectDetailPage() {
                 )}
               </div>
 
-              <div className="border-t border-border pt-6 space-y-3">
-                <div>
-                  <p className="text-sm font-medium">Assign to client</p>
-                  <p className="text-xs text-muted-foreground">
-                    Gives the customer access to this project in the client portal.
-                  </p>
+              {canManage ? (
+                <div className="border-t border-border pt-6">
+                  <ProjectClientsSection
+                    projectId={project.id}
+                    clientAssignments={clientAssignments}
+                    availableClients={availableClients}
+                    canManage={canManage}
+                  />
                 </div>
-                {canManage ? (
-                  <div className="space-y-2">
-                    <Select value={selectedClient} onValueChange={setSelectedClient}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableClients.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            No available clients
-                          </SelectItem>
-                        ) : (
-                          availableClients.map((client) => (
-                            <SelectItem key={client.id} value={client.id}>
-                              {fullName(client.first_name, client.last_name)}
-                              {client.company_name ? ` · ${client.company_name}` : ''}
-                              {client.email ? ` (${client.email})` : ''}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      disabled={!selectedClient || selectedClient === 'none'}
-                      onClick={async () => {
-                        try {
-                          await assignWorker.mutateAsync({
-                            projectId: project.id,
-                            profileId: selectedClient,
-                          })
-                          setSelectedClient('')
-                          toast.success('Client assigned')
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : 'Assignment failed')
-                        }
-                      }}
-                    >
-                      Assign client
-                    </Button>
-                  </div>
-                ) : null}
-                {clientAssignments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No clients assigned yet.</p>
-                ) : (
-                  clientAssignments.map((assignment) => (
-                    <div
-                      key={assignment.id}
-                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {assignment.profile
-                            ? fullName(assignment.profile.first_name, assignment.profile.last_name)
-                            : 'Client'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Client
-                          {assignment.profile?.company_name
-                            ? ` · ${assignment.profile.company_name}`
-                            : ''}{' '}
-                          · assigned {formatRelative(assignment.assigned_at)}
-                        </p>
-                      </div>
-                      {canManage ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="min-h-11 w-full sm:w-auto"
-                          onClick={async () => {
-                            try {
-                              await removeAssignment.mutateAsync({
-                                assignmentId: assignment.id,
-                                projectId: project.id,
-                                profileId: assignment.profile_id,
-                              })
-                              toast.success('Client removed')
-                            } catch (error) {
-                              toast.error(error instanceof Error ? error.message : 'Remove failed')
-                            }
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                  ))
-                )}
-              </div>
+              ) : profile?.role === 'employee' ? (
+                <div className="border-t border-border pt-6">
+                  <ProjectContactSection projectId={project.id} />
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 

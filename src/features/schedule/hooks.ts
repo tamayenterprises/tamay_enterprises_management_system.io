@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { isManagementRole } from '@/lib/utils'
+import { resolvePrimaryClient } from '@/lib/primary-client'
 import type {
   MyWorkScheduleItem,
   Profile,
+  ProjectAssignment,
   SaveWorkScheduleResult,
   UserRole,
   WorkScheduleEntry,
@@ -57,12 +59,16 @@ export function useWorkSchedule(from: string, to: string) {
 
 export type ScheduleProjectContact = {
   client: { name: string; phone: string | null } | null
+  /** Several clients and no Primary Client chosen: `client` is the temporary earliest-assigned fallback. */
+  needsPrimaryClient: boolean
   activeProfileIds: Set<string>
 }
 
+type ContactProfile = Pick<Profile, 'id' | 'first_name' | 'last_name' | 'company_name' | 'phone' | 'role' | 'archived_at'>
+
 /**
- * Management-only: primary client (earliest active client assignment) and active assignee ids
- * per project. Employees get the same client info only through `get_my_work_schedule`.
+ * Management-only: resolved client contact (Primary Client, else earliest active client) and active
+ * assignee ids per project. Employees get the same client info only through `get_my_work_schedule`.
  */
 export function useScheduleProjectContacts(projectIds: string[]) {
   const { profile } = useAuth()
@@ -74,32 +80,39 @@ export function useScheduleProjectContacts(projectIds: string[]) {
       const { data, error } = await supabase
         .from('project_assignments')
         .select(
-          'project_id, profile_id, assigned_at, profile:profiles!profile_id(id, first_name, last_name, company_name, phone, role, archived_at)',
+          '*, profile:profiles!profile_id(id, first_name, last_name, company_name, phone, role, archived_at)',
         )
         .in('project_id', ids)
         .eq('is_active', true)
-        .order('assigned_at', { ascending: true })
       if (error) throw error
 
-      const byProject = new Map<string, ScheduleProjectContact>()
-      for (const id of ids) byProject.set(id, { client: null, activeProfileIds: new Set() })
+      type ContactRow = Omit<ProjectAssignment, 'profile' | 'project'> & { profile: ContactProfile | null }
+      const rowsByProject = new Map<string, ContactRow[]>()
+      for (const id of ids) rowsByProject.set(id, [])
+      for (const raw of (data ?? []) as unknown as Array<
+        Omit<ContactRow, 'profile'> & { profile: ContactProfile | ContactProfile[] | null }
+      >) {
+        const person = Array.isArray(raw.profile) ? raw.profile[0] : raw.profile
+        rowsByProject.get(raw.project_id)?.push({ ...raw, profile: person ?? null })
+      }
 
-      for (const row of (data ?? []) as unknown as Array<{
-        project_id: string
-        profile_id: string
-        profile:
-          | Pick<Profile, 'id' | 'first_name' | 'last_name' | 'company_name' | 'phone' | 'role' | 'archived_at'>
-          | Array<Pick<Profile, 'id' | 'first_name' | 'last_name' | 'company_name' | 'phone' | 'role' | 'archived_at'>>
-          | null
-      }>) {
-        const entry = byProject.get(row.project_id)
-        if (!entry) continue
-        entry.activeProfileIds.add(row.profile_id)
-        const person = Array.isArray(row.profile) ? row.profile[0] : row.profile
-        if (!person || person.role !== 'client' || person.archived_at || entry.client) continue
-        const name =
-          `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim() || person.company_name?.trim() || 'Client'
-        entry.client = { name, phone: person.phone?.trim() || null }
+      const byProject = new Map<string, ScheduleProjectContact>()
+      for (const [projectId, rows] of rowsByProject) {
+        const { contact, status } = resolvePrimaryClient(rows)
+        const person = contact?.profile
+        byProject.set(projectId, {
+          client: person
+            ? {
+                name:
+                  `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim() ||
+                  person.company_name?.trim() ||
+                  'Client',
+                phone: person.phone?.trim() || null,
+              }
+            : null,
+          needsPrimaryClient: status === 'needs_selection',
+          activeProfileIds: new Set(rows.map((row) => row.profile_id)),
+        })
       }
       return byProject
     },
