@@ -18,6 +18,7 @@ import { MyWorkStatusCard, WorkforceStatusPanel } from '@/features/workforce/sta
 import { ClockInOutCard } from '@/features/attendance/clock-card'
 import { DailyAttendanceSummary } from '@/features/attendance/timesheets'
 import { TodayWorkCard } from '@/features/schedule/today-work-card'
+import { EmployeeDashboard } from '@/features/dashboard/employee-dashboard'
 import {
   formatDate,
   formatRelative,
@@ -37,6 +38,10 @@ export function DashboardPage() {
     profile,
     isManagement,
   } = useDashboardData()
+
+  if (profile?.role === 'employee' || profile?.role === 'subcontractor') {
+    return <EmployeeDashboard />
+  }
 
   const loading =
     projects.isLoading ||
@@ -107,7 +112,7 @@ export function DashboardPage() {
 
       <TodayWorkCard />
 
-      {profile?.role === 'employee' || profile?.role === 'subcontractor' || profile?.role === 'project_manager' ? (
+      {profile?.role === 'project_manager' ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <ClockInOutCard />
           <MyWorkStatusCard />

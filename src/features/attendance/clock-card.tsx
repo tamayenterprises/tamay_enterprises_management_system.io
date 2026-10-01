@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { Clock3 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Disclosure } from '@/components/ui/disclosure'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
@@ -23,6 +25,7 @@ import {
 } from '@/features/attendance/hooks'
 import { useProjects, useWorkerEligibility } from '@/features/data/hooks'
 import { useAuth } from '@/features/auth/auth-hooks'
+import { DashboardSectionTitle } from '@/features/dashboard/dashboard-section-title'
 import {
   actionButtonLabel,
   formatBreakDuration,
@@ -33,10 +36,20 @@ import {
 } from '@/lib/geo'
 import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
 import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
-import { formatHoursDuration, formatRelative } from '@/lib/utils'
+import { cn, formatHoursDuration, formatRelative } from '@/lib/utils'
 import type { AttendanceActionResult, AttendanceExceptionRequest } from '@/types/database'
 
-export function ClockInOutCard() {
+/**
+ * `compact` is the Employee Dashboard "Work Status" presentation: status and the main
+ * action stay visible, secondary info collapses. Behavior is identical in both modes.
+ */
+export function ClockInOutCard({
+  compact = false,
+  moreOptions,
+}: {
+  compact?: boolean
+  moreOptions?: ReactNode
+} = {}) {
   const { profile } = useAuth()
   const { data: openRecord, isLoading, isError } = useMyOpenAttendance()
   const { data: history = [] } = useMyAttendanceHistory(5)
@@ -151,19 +164,51 @@ export function ClockInOutCard() {
 
   const shownRequest = activeRequest || existingActive
 
-  return (
-    <Card id="time-clock" className="scroll-mt-16">
-      <CardHeader>
-        <CardTitle>Time clock</CardTitle>
-        <CardDescription>
-          Clock in, take breaks, and clock out at the job site. Location is checked for each action.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="rounded-lg border border-border bg-[#fbfcff] px-3 py-2 text-xs text-muted-foreground">
-          Your location is checked only when you record a work or break action. Tamay Enterprises does not
-          continuously track your location through this feature.
+  const privacyNote = (
+    <p className="rounded-lg border border-border bg-[#fbfcff] px-3 py-2 text-xs text-muted-foreground">
+      Your location is checked only when you record a work or break action. Tamay Enterprises does not
+      continuously track your location through this feature.
+    </p>
+  )
+
+  const recentShifts = history.map((row) => (
+    <div
+      key={row.id}
+      className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="min-w-0">
+        <p>{format(new Date(row.clock_in_time), 'MMM d')}</p>
+        <p className="text-xs text-muted-foreground">{row.project?.name || 'No project'}</p>
+      </div>
+      <div className="text-xs text-muted-foreground sm:text-right">
+        <p>
+          {format(new Date(row.clock_in_time), 'h:mm a')}
+          {row.clock_out_time ? ` – ${format(new Date(row.clock_out_time), 'h:mm a')}` : ' – open'}
         </p>
+        <p>
+          Paid {formatHoursDuration(row.paid_hours ?? row.total_hours)}
+          {row.break_seconds ? ` · break ${formatBreakDuration(row.break_seconds)}` : ''}
+        </p>
+      </div>
+    </div>
+  ))
+
+  return (
+    <Card id="time-clock" className={cn('scroll-mt-16', compact && 'rounded-2xl')}>
+      {compact ? (
+        <CardHeader className="pb-3">
+          <DashboardSectionTitle icon={Clock3}>Work Status</DashboardSectionTitle>
+        </CardHeader>
+      ) : (
+        <CardHeader>
+          <CardTitle>Time clock</CardTitle>
+          <CardDescription>
+            Clock in, take breaks, and clock out at the job site. Location is checked for each action.
+          </CardDescription>
+        </CardHeader>
+      )}
+      <CardContent className={cn('space-y-4', compact && 'space-y-3')}>
+        {compact ? null : privacyNote}
 
         {!canClock ? (
           <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
@@ -180,13 +225,26 @@ export function ClockInOutCard() {
 
         {openRecord ? (
           <div className="space-y-1 rounded-xl border border-border bg-[#fbfcff] px-3 py-3">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">
-                {workflowStatus === 'on_break' ? 'On break' : 'Working'}
-              </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              {compact ? (
+                <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                  <span
+                    className={cn(
+                      'h-2.5 w-2.5 rounded-full',
+                      workflowStatus === 'on_break' ? 'bg-amber-500' : 'bg-emerald-500',
+                    )}
+                    aria-hidden
+                  />
+                  {workflowStatus === 'on_break' ? 'On break' : 'Working'}
+                </span>
+              ) : (
+                <Badge variant="secondary">
+                  {workflowStatus === 'on_break' ? 'On break' : 'Working'}
+                </Badge>
+              )}
               {openRecord.geofence_enforced ? <Badge variant="outline">Geofenced</Badge> : null}
             </div>
-            <p className="font-display text-2xl font-semibold">
+            <p className={cn('font-display text-2xl font-semibold', compact && 'text-primary')}>
               {format(new Date(openRecord.clock_in_time), 'h:mm a')}
             </p>
             <p className="text-sm text-muted-foreground">
@@ -199,6 +257,12 @@ export function ClockInOutCard() {
           </div>
         ) : (
           <div className="space-y-3">
+            {compact ? (
+              <p className="flex items-center gap-2 font-display text-xl font-semibold text-primary">
+                <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" aria-hidden />
+                Not clocked in
+              </p>
+            ) : null}
             <div className="space-y-1">
               <Label>Assigned project (required)</Label>
               <Select value={projectId || undefined} onValueChange={setProjectId}>
@@ -229,7 +293,7 @@ export function ClockInOutCard() {
                 clock-in. You can still submit an exception request if needed.
               </p>
             ) : null}
-            <p className="text-sm text-muted-foreground">You are currently not working.</p>
+            {compact ? null : <p className="text-sm text-muted-foreground">You are currently not working.</p>}
           </div>
         )}
 
@@ -251,8 +315,8 @@ export function ClockInOutCard() {
           ))}
           <Button
             type="button"
-            variant="outline"
-            className="min-h-11 w-full sm:w-auto"
+            variant={compact ? 'ghost' : 'outline'}
+            className={cn('min-h-11 w-full sm:w-auto', compact && 'text-muted-foreground')}
             disabled={!canRequestException}
             onClick={() => {
               if (!canRequestException) {
@@ -285,30 +349,26 @@ export function ClockInOutCard() {
           </div>
         ) : null}
 
-        {history.length > 0 ? (
+        {compact ? (
+          <div className="divide-y divide-border border-t border-border">
+            {history.length > 0 ? (
+              <Disclosure label="Recent shifts" count={history.length} panelClassName="space-y-2 pb-2">
+                {recentShifts}
+              </Disclosure>
+            ) : null}
+            <Disclosure label="Location information" desktopOpen panelClassName="pb-2 lg:pt-2">
+              {privacyNote}
+            </Disclosure>
+            {moreOptions ? (
+              <Disclosure label="More options" panelClassName="pb-2">
+                {moreOptions}
+              </Disclosure>
+            ) : null}
+          </div>
+        ) : history.length > 0 ? (
           <div className="space-y-2 border-t border-border pt-3">
             <p className="text-sm font-medium">Recent shifts</p>
-            {history.map((row) => (
-              <div
-                key={row.id}
-                className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p>{format(new Date(row.clock_in_time), 'MMM d')}</p>
-                  <p className="text-xs text-muted-foreground">{row.project?.name || 'No project'}</p>
-                </div>
-                <div className="text-xs text-muted-foreground sm:text-right">
-                  <p>
-                    {format(new Date(row.clock_in_time), 'h:mm a')}
-                    {row.clock_out_time ? ` – ${format(new Date(row.clock_out_time), 'h:mm a')}` : ' – open'}
-                  </p>
-                  <p>
-                    Paid {formatHoursDuration(row.paid_hours ?? row.total_hours)}
-                    {row.break_seconds ? ` · break ${formatBreakDuration(row.break_seconds)}` : ''}
-                  </p>
-                </div>
-              </div>
-            ))}
+            {recentShifts}
           </div>
         ) : null}
 
