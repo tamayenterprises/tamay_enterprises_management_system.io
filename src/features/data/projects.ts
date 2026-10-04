@@ -160,7 +160,7 @@ export function useProjectAssignments(projectId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_assignments')
-        .select('*, profile:profiles(*)')
+        .select('*, profile:profiles!profile_id(*)')
         .eq('project_id', projectId!)
         .eq('is_active', true)
       if (error) throw error
