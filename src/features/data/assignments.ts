@@ -33,6 +33,17 @@ export function useAssignWorker() {
 
   return useMutation({
     mutationFn: async ({ projectId, profileId }: { projectId: string; profileId: string }) => {
+      const existing = await supabase
+        .from('project_assignments')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('profile_id', profileId)
+        .eq('is_active', true)
+        .maybeSingle()
+      if (existing.error) throw existing.error
+      // Already on the project: no new history entry or notification.
+      if (existing.data) return existing.data as ProjectAssignment
+
       const { data, error } = await supabase
         .from('project_assignments')
         .upsert(

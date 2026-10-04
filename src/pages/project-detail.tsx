@@ -64,7 +64,11 @@ export function ProjectDetailPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const { data: project, isLoading, isError } = useProject(projectId)
-  const { data: assignments = [] } = useProjectAssignments(projectId)
+  const {
+    data: assignments = [],
+    isLoading: assignmentsLoading,
+    isError: assignmentsError,
+  } = useProjectAssignments(projectId)
   const { data: documents = [] } = useProjectDocuments(projectId)
   const { data: history = [] } = useAssignmentHistory(projectId)
   const { data: warrantyAudit = [] } = useProjectWarrantyAudit(projectId)
@@ -125,15 +129,13 @@ export function ProjectDetailPage() {
     )
   }, [workers, assignedIds])
 
-  const availableClients = useMemo(() => {
-    return clients.filter(
-      (client) =>
-        client.approval_status === 'approved' &&
-        client.is_active &&
-        !client.archived_at &&
-        !assignedIds.has(client.id),
-    )
-  }, [clients, assignedIds])
+  const clientOptions = useMemo(
+    () =>
+      clients.filter(
+        (client) => client.approval_status === 'approved' && client.is_active && !client.archived_at,
+      ),
+    [clients],
+  )
 
   const workerAssignments = useMemo(
     () => assignments.filter((item) => item.profile?.role !== 'client'),
@@ -710,8 +712,10 @@ export function ProjectDetailPage() {
                   <ProjectClientsSection
                     projectId={project.id}
                     clientAssignments={clientAssignments}
-                    availableClients={availableClients}
+                    clientOptions={clientOptions}
                     canManage={canManage}
+                    assignmentsLoading={assignmentsLoading}
+                    assignmentsError={assignmentsError}
                   />
                 </div>
               ) : profile?.role === 'employee' ? (
