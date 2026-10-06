@@ -13,12 +13,14 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
-  createDocumentSignedUrl,
+  downloadDocumentFile,
   useDeleteDocument,
   useDocuments,
   useProjects,
   useUploadDocument,
+  viewDocumentFile,
 } from '@/features/data/hooks'
+import { canRemoveDocument, canViewerSeeDocument } from '@/lib/document-visibility'
 import {
   documentCategoryLabel,
   formatDate,
@@ -71,21 +73,25 @@ export function DocumentsPage() {
   const uploadDocument = useUploadDocument()
   const deleteDocument = useDeleteDocument()
 
+  const authorizedRows = useMemo(
+    () => (data ?? []).filter((doc) => canViewerSeeDocument(doc, profile)),
+    [data, profile],
+  )
+
   const documents = useMemo(() => {
-    const rows = data ?? []
-    if (projectFilter === 'none') return rows.filter((doc) => !doc.project_id)
-    return rows
-  }, [data, projectFilter])
+    if (projectFilter === 'none') return authorizedRows.filter((doc) => !doc.project_id)
+    return authorizedRows
+  }, [authorizedRows, projectFilter])
 
   const counts = useMemo(() => {
-    const rows = data ?? []
+    const rows = authorizedRows
     return {
       total: rows.length,
       company: rows.filter((doc) => !doc.project_id).length,
       project: rows.filter((doc) => Boolean(doc.project_id)).length,
       mine: rows.filter((doc) => doc.owner_id === profile?.id || doc.uploaded_by === profile?.id).length,
     }
-  }, [data, profile?.id])
+  }, [authorizedRows, profile?.id])
 
   if (isLoading && !data) return <LoadingState />
   if (isError && !data) return <EmptyState title="Unable to load documents" />
@@ -310,11 +316,17 @@ export function DocumentsPage() {
             <DocumentCard
               key={doc.id}
               doc={doc}
-              canDelete={canManage || doc.uploaded_by === profile?.id || doc.owner_id === profile?.id}
+              canDelete={canRemoveDocument(doc, profile)}
+              onView={async () => {
+                try {
+                  await viewDocumentFile(doc)
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Open failed')
+                }
+              }}
               onDownload={async () => {
                 try {
-                  const url = await createDocumentSignedUrl(doc)
-                  window.open(url, '_blank', 'noopener,noreferrer')
+                  await downloadDocumentFile(doc)
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : 'Download failed')
                 }
@@ -350,11 +362,13 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
 function DocumentCard({
   doc,
   canDelete,
+  onView,
   onDownload,
   onDelete,
 }: {
   doc: DocumentRecord
   canDelete: boolean
+  onView: () => Promise<void>
   onDownload: () => Promise<void>
   onDelete: () => Promise<void>
 }) {
@@ -378,6 +392,9 @@ function DocumentCard({
           {doc.mime_type ? ` · ${doc.mime_type}` : ''}
         </p>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={onView}>
+            View
+          </Button>
           <Button size="sm" variant="outline" onClick={onDownload}>
             Download
           </Button>

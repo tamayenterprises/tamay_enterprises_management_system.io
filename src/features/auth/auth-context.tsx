@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { AuthContext } from '@/features/auth/auth-context-instance'
@@ -23,12 +24,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const cachedUserId = useRef<string | null>(null)
 
   useEffect(() => {
     let mounted = true
 
+    // Cached queries hold one user's authorized data; drop all of it whenever the
+    // signed-in user changes (sign-out, sign-in, account switch).
+    const resetCacheForUser = (userId: string | null) => {
+      if (cachedUserId.current === userId) return
+      cachedUserId.current = userId
+      queryClient.clear()
+    }
+
     const syncSession = async (nextSession: Session | null) => {
       if (!mounted) return
+      resetCacheForUser(nextSession?.user?.id ?? null)
 
       if (!nextSession?.user) {
         setSession(null)
@@ -65,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [])
+  }, [queryClient])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -83,12 +95,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       signOut: async () => {
         await supabase.auth.signOut({ scope: 'global' })
+        cachedUserId.current = null
+        queryClient.clear()
         setSession(null)
         setProfile(null)
         setLoading(false)
       },
     }),
-    [session, profile, loading],
+    [session, profile, loading, queryClient],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

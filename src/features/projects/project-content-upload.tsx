@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,7 +11,9 @@ import {
   usePostProjectPhotosToThread,
   useUploadDocument,
 } from '@/features/data/hooks'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { formatUnknownError } from '@/lib/auth-errors'
+import { canUploadProjectDocuments } from '@/lib/document-visibility'
 import { DOCUMENT_KIND_OPTIONS, PHOTO_KIND_OPTIONS } from '@/lib/utils'
 import {
   isImageUploadFile,
@@ -35,6 +36,9 @@ type Props = {
  * Receipts upload lives exclusively in the Project receipts section.
  */
 export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Props) {
+  const { profile } = useAuth()
+  // Employees / subcontractors upload photos only; formal documents come from management.
+  const canUploadDocuments = canUploadProjectDocuments(profile)
   const uploadDocument = useUploadDocument()
   const postPhotosToThread = usePostProjectPhotosToThread()
   const postDocumentsToThread = usePostProjectDocumentsToThread()
@@ -99,13 +103,7 @@ export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Pr
         } else {
           await postDocumentsToThread.mutateAsync({
             projectId,
-            documents: uploaded.map((doc) => ({
-              name: titleNote.trim()
-                ? `${titleNote.trim()}${kindLabel ? ` (${kindLabel})` : ''}: ${doc.name}`
-                : kindLabel
-                  ? `${kindLabel}: ${doc.name}`
-                  : doc.name,
-            })),
+            documentCount: uploaded.length,
             visibleToClient: true,
           })
         }
@@ -162,18 +160,24 @@ export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Pr
                 </span>
               </span>
             </Button>
-            <Button
-              variant="outline"
-              className="h-auto justify-start px-3 py-3 text-left"
-              onClick={() => setStep('document')}
-            >
-              <span className="block">
-                <span className="font-medium">Document</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Agreements, designs, work orders, warranties
+            {canUploadDocuments ? (
+              <Button
+                variant="outline"
+                className="h-auto justify-start px-3 py-3 text-left"
+                onClick={() => setStep('document')}
+              >
+                <span className="block">
+                  <span className="font-medium">Document</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    Agreements, designs, work orders, warranties
+                  </span>
                 </span>
-              </span>
-            </Button>
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Project documents are uploaded by management.
+              </p>
+            )}
           </div>
         ) : null}
 
@@ -241,7 +245,7 @@ export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Pr
           </div>
         ) : null}
 
-        {step === 'document' ? (
+        {step === 'document' && canUploadDocuments ? (
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Document type</Label>
@@ -262,14 +266,10 @@ export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Pr
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Title / note (optional)</Label>
-              <Input
-                value={titleNote}
-                onChange={(e) => setTitleNote(e.target.value)}
-                placeholder="e.g. Signed agreement — bathroom"
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Documents are visible to management and the client. Management can share a document with
+              the project team.
+            </p>
             <FilePickerButton
               accept={resolvedDocumentUploadAccept()}
               label="Choose document(s)"

@@ -408,6 +408,10 @@ export function usePostProjectPhotosToThread() {
     },
   })
 }
+export function projectDocumentsThreadNotice(count: number) {
+  return count === 1 ? 'Shared a document' : `Shared ${count} documents`
+}
+
 export function usePostProjectDocumentsToThread() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
@@ -415,21 +419,18 @@ export function usePostProjectDocumentsToThread() {
   return useMutation({
     mutationFn: async ({
       projectId,
-      documents,
+      documentCount,
     }: {
       projectId: string
-      documents: Array<{ name: string }>
+      documentCount: number
       /** @deprecated Always shared with assigned clients */
       visibleToClient?: boolean
     }) => {
       if (!profile?.id) throw new Error('Missing profile')
-      if (documents.length === 0) return []
+      if (documentCount === 0) return []
 
-      const names = documents.map((doc) => doc.name)
-      const content =
-        names.length === 1
-          ? `Shared a document: ${names[0]}`
-          : `Shared ${names.length} documents:\n${names.map((name) => `• ${name}`).join('\n')}`
+      // The whole project team reads the thread; names and titles stay in the Documents list.
+      const content = projectDocumentsThreadNotice(documentCount)
 
       const payload = {
         project_id: projectId,

@@ -213,7 +213,7 @@ export function ClientProjectDetailPage() {
         try {
           await postDocumentsToThread.mutateAsync({
             projectId,
-            documents: threadDocs,
+            documentCount: threadDocs.length,
           })
         } catch (error) {
           threadErrors.push(
