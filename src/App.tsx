@@ -35,6 +35,7 @@ const ChangePasswordPage = lazyNamed(() => import('@/pages/auth-misc'), 'ChangeP
 const DashboardPage = lazyNamed(() => import('@/pages/dashboard'), 'DashboardPage')
 const EmployeesPage = lazyNamed(() => import('@/pages/employees'), 'EmployeesPage')
 const SubcontractorsPage = lazyNamed(() => import('@/pages/subcontractors'), 'SubcontractorsPage')
+const ClientsPage = lazyNamed(() => import('@/pages/clients'), 'ClientsPage')
 const ProjectsPage = lazyNamed(() => import('@/pages/projects'), 'ProjectsPage')
 const ProjectDetailPage = lazyNamed(() => import('@/pages/project-detail'), 'ProjectDetailPage')
 const CertificationsPage = lazyNamed(() => import('@/pages/certifications'), 'CertificationsPage')
@@ -140,6 +141,7 @@ export default function App() {
                       </Route>
 
                       <Route element={<AdminRoute />}>
+                        <Route path="/clients" element={<ClientsPage />} />
                         <Route path="/admin" element={<AdminPage />} />
                       </Route>
                     </Route>
