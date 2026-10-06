@@ -98,7 +98,7 @@ export function ClientDocumentsPage() {
           try {
             await postDocumentsToThread.mutateAsync({
               projectId: linkedProjectId,
-              documents: threadDocs,
+              documentCount: threadDocs.length,
             })
           } catch (error) {
             threadErrors.push(

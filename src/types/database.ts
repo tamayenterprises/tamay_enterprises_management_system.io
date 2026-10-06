@@ -314,6 +314,8 @@ export interface DocumentRecord {
   storage_path: string
   mime_type: string | null
   file_size: number | null
+  /** Project documents only: assigned workers can view it when true. Photos ignore it. */
+  team_visible?: boolean
   created_at: string
   updated_at: string
   owner?: Profile

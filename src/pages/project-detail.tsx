@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { CompactAccordion } from '@/components/ui/compact-accordion'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -16,11 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
-  createDocumentSignedUrl,
   useArchiveProject,
   useAssignWorker,
   useAssignmentHistory,
-  useDeleteDocument,
   useHardDeleteProject,
   useProfiles,
   useProject,
@@ -42,7 +39,6 @@ import {
   canViewProjectReceipts,
 } from '@/lib/project-finance'
 import {
-  documentCategoryLabel,
   formatDate,
   formatRelative,
   fullName,
@@ -52,6 +48,7 @@ import {
   warrantyStatusLabel,
 } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
+import { ProjectFilesList } from '@/features/projects/project-files-list'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 import { ProjectContentUploadDialog } from '@/features/projects/project-content-upload'
@@ -80,7 +77,6 @@ export function ProjectDetailPage() {
   const hardDeleteProject = useHardDeleteProject()
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
-  const deleteDocument = useDeleteDocument()
   const [selectedWorker, setSelectedWorker] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -144,21 +140,6 @@ export function ProjectDetailPage() {
   const clientAssignments = useMemo(
     () => assignments.filter((item) => item.profile?.role === 'client'),
     [assignments],
-  )
-
-  const photos = useMemo(
-    () =>
-      documents.filter(
-        (doc) => doc.category === 'work_photo' || Boolean(doc.mime_type?.startsWith('image/')),
-      ),
-    [documents],
-  )
-  const projectDocuments = useMemo(
-    () =>
-      documents.filter(
-        (doc) => doc.category !== 'work_photo' && !doc.mime_type?.startsWith('image/'),
-      ),
-    [documents],
   )
 
   if (isLoading) return <LoadingState />
@@ -441,6 +422,12 @@ export function ProjectDetailPage() {
                     Photos are site images. Documents are formal project files. Expense receipts
                     belong in Your receipts / Project receipts above.
                   </p>
+                  {canManage ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Photos are shared with the assigned team. Documents stay with management and
+                      the client unless you turn on Visible to Project Team.
+                    </p>
+                  ) : null}
                 </div>
                 <Button
                   size="sm"
@@ -452,152 +439,7 @@ export function ProjectDetailPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <CompactAccordion
-                title="PHOTOS"
-                summary={
-                  photos.length === 0
-                    ? 'No project photos yet'
-                    : `${photos.length} project photo${photos.length === 1 ? '' : 's'}`
-                }
-                empty={photos.length === 0}
-                expandLabel="View Photos ▼"
-                collapseLabel="Hide Photos ▲"
-                defaultOpen={Boolean(focusDocId && photos.some((d) => d.id === focusDocId))}
-              >
-                {photos.map((doc) => (
-                  <div
-                    key={doc.id}
-                    id={`doc-${doc.id}`}
-                    className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between ${
-                      focusDocId === doc.id
-                        ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
-                        : 'border-border'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-medium">{doc.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {doc.kind_label || 'Photo'} · {formatRelative(doc.created_at)}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            const url = await createDocumentSignedUrl(doc)
-                            window.open(url, '_blank', 'noopener,noreferrer')
-                          } catch (error) {
-                            toast.error(
-                              error instanceof Error ? error.message : 'Download failed',
-                            )
-                          }
-                        }}
-                      >
-                        Open
-                      </Button>
-                      {canManage ||
-                      doc.uploaded_by === profile?.id ||
-                      doc.owner_id === profile?.id ? (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`))
-                              return
-                            try {
-                              await deleteDocument.mutateAsync(doc)
-                              toast.success('Photo removed')
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error ? error.message : 'Remove failed',
-                              )
-                            }
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </CompactAccordion>
-
-              <CompactAccordion
-                title="DOCUMENTS"
-                summary={
-                  projectDocuments.length === 0
-                    ? 'No project documents yet'
-                    : `${projectDocuments.length} project document${projectDocuments.length === 1 ? '' : 's'}`
-                }
-                empty={projectDocuments.length === 0}
-                expandLabel="View Documents ▼"
-                collapseLabel="Hide Documents ▲"
-                defaultOpen={Boolean(
-                  focusDocId && projectDocuments.some((d) => d.id === focusDocId),
-                )}
-              >
-                {projectDocuments.map((doc) => (
-                  <div
-                    key={doc.id}
-                    id={`doc-${doc.id}`}
-                    className={`flex flex-col gap-2 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between ${
-                      focusDocId === doc.id
-                        ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
-                        : 'border-border'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-medium">{doc.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {doc.kind_label || documentCategoryLabel(doc.category)} ·{' '}
-                        {formatRelative(doc.created_at)}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            const url = await createDocumentSignedUrl(doc)
-                            window.open(url, '_blank', 'noopener,noreferrer')
-                          } catch (error) {
-                            toast.error(
-                              error instanceof Error ? error.message : 'Download failed',
-                            )
-                          }
-                        }}
-                      >
-                        Download
-                      </Button>
-                      {canManage ||
-                      doc.uploaded_by === profile?.id ||
-                      doc.owner_id === profile?.id ? (
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={async () => {
-                            if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`))
-                              return
-                            try {
-                              await deleteDocument.mutateAsync(doc)
-                              toast.success('Document removed')
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error ? error.message : 'Remove failed',
-                              )
-                            }
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </CompactAccordion>
+              <ProjectFilesList documents={documents} viewer={profile} focusDocId={focusDocId} />
             </CardContent>
           </Card>
 

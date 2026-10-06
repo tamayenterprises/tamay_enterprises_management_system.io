@@ -17,9 +17,12 @@ export {
 export { useDashboardData } from '@/features/data/dashboard'
 export {
   createDocumentSignedUrl,
+  downloadDocumentFile,
+  viewDocumentFile,
   useDeleteDocument,
   useDocuments,
   useProjectDocuments,
+  useSetDocumentTeamVisibility,
   useUploadDocument,
 } from '@/features/data/documents'
 export {
