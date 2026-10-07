@@ -43,7 +43,7 @@ export function EmployeesPage() {
     return rows.filter((row) => (activeOnly ? row.is_active && !row.archived_at : true))
   }, [data, activeOnly])
 
-  if (isLoading) return <LoadingState />
+  if (isLoading && !data) return <LoadingState />
   if (isError) {
     return <EmptyState title="Unable to load employees" description="Verify Supabase access and try again." />
   }

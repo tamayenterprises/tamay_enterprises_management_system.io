@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { sanitizeSearchTerm } from '@/lib/utils'
@@ -14,6 +14,7 @@ export function useCertifications(filters?: {
 }) {
   return useQuery({
     queryKey: ['certifications', filters],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       let query = supabase
         .from('certifications')

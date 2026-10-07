@@ -70,7 +70,13 @@ export function AdminPage() {
     })
   }, [profiles.data, showArchived, roleFilter, approvalFilter])
 
-  if (pending.isLoading || profiles.isLoading || roles.isLoading) return <LoadingState />
+  if (
+    (pending.isLoading && !pending.data) ||
+    (profiles.isLoading && !profiles.data) ||
+    (roles.isLoading && !roles.data)
+  ) {
+    return <LoadingState />
+  }
   if (pending.isError || profiles.isError || roles.isError) {
     return <EmptyState title="Unable to load admin panel" />
   }

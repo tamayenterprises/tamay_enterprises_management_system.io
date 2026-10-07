@@ -145,7 +145,7 @@ function ManagementProjectsPage() {
     toast.message('Draft restored.')
   }, [createOpen, draft.draft, form])
 
-  if (isLoading) return <LoadingState />
+  if (isLoading && !data) return <LoadingState />
   if (isError) return <EmptyState title="Unable to load projects" />
 
   return (

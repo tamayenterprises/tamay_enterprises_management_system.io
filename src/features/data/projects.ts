@@ -29,6 +29,8 @@ export function useProjects(options?: {
   return useQuery({
     queryKey: ['projects', options, profile?.id],
     enabled: Boolean(profile),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === profile?.id ? previous : undefined,
     queryFn: async () => {
       let query = supabase.from('projects').select('*').order('updated_at', { ascending: false })
 

@@ -27,7 +27,7 @@ export function SubcontractorsPage() {
 
   const subcontractors = useMemo(() => data ?? [], [data])
 
-  if (isLoading) return <LoadingState />
+  if (isLoading && !data) return <LoadingState />
   if (isError) {
     return (
       <EmptyState

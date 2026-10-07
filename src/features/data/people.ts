@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { buildIlikeOrFilter } from '@/lib/utils'
@@ -20,6 +20,7 @@ export function useRoles() {
 export function useProfiles(filters?: { role?: UserRole | UserRole[]; search?: string; includeArchived?: boolean }) {
   return useQuery({
     queryKey: ['profiles', filters],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       let query = supabase.from('profiles').select('*').order('last_name')
 
