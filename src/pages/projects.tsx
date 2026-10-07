@@ -24,6 +24,7 @@ import {
   useProjects,
 } from '@/features/data/hooks'
 import { useFormDraft } from '@/features/drafts/use-form-draft'
+import { MyProjectsPage } from '@/pages/my-projects'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
   formatDate,
@@ -52,6 +53,12 @@ const WARRANTY_FILTERS: Array<{ value: 'all' | 'active' | 'expired'; label: stri
 ]
 
 export function ProjectsPage() {
+  const { profile } = useAuth()
+  if (!isManagementRole(profile?.role)) return <MyProjectsPage />
+  return <ManagementProjectsPage />
+}
+
+function ManagementProjectsPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
