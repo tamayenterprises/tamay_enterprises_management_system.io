@@ -7,7 +7,6 @@ import { validateImageUploadFile, uploadErrorMessage, prepareUploadFileAsync } f
 import type { ProjectFormValues } from '@/lib/validations'
 import type {
   ActivityLog,
-  AssignmentHistory,
   Profile,
   Project,
   ProjectAssignment,
@@ -167,23 +166,6 @@ export function useProjectAssignments(projectId?: string) {
         .eq('is_active', true)
       if (error) throw error
       return (data ?? []) as ProjectAssignment[]
-    },
-  })
-}
-
-export function useAssignmentHistory(projectId?: string) {
-  return useQuery({
-    queryKey: ['assignment-history', projectId],
-    enabled: Boolean(projectId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('assignment_history')
-        .select('*, profile:profiles!profile_id(*)')
-        .eq('project_id', projectId!)
-        .order('created_at', { ascending: false })
-        .limit(20)
-      if (error) throw error
-      return (data ?? []) as Array<AssignmentHistory & { profile?: Profile }>
     },
   })
 }

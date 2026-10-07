@@ -17,7 +17,6 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import {
   useArchiveProject,
   useAssignWorker,
-  useAssignmentHistory,
   useHardDeleteProject,
   useProfiles,
   useProject,
@@ -67,7 +66,6 @@ export function ProjectDetailPage() {
     isError: assignmentsError,
   } = useProjectAssignments(projectId)
   const { data: documents = [] } = useProjectDocuments(projectId)
-  const { data: history = [] } = useAssignmentHistory(projectId)
   const { data: warrantyAudit = [] } = useProjectWarrantyAudit(projectId)
   const { data: workers = [] } = useProfiles({ role: ['employee', 'subcontractor', 'project_manager'] })
   const { data: clients = [] } = useProfiles({ role: 'client' })
@@ -567,29 +565,6 @@ export function ProjectDetailPage() {
               ) : null}
             </CardContent>
           </Card>
-
-          {canManage ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Assignment history</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {history.length === 0 ? (
-                  <EmptyState title="No assignment history" />
-                ) : (
-                  history.map((item) => (
-                    <div key={item.id} className="rounded-md border border-border px-3 py-2 text-sm">
-                      <p className="font-medium capitalize">{item.action}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.profile ? fullName(item.profile.first_name, item.profile.last_name) : 'Person'} ·{' '}
-                        {formatRelative(item.created_at)}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
 
           {canManage ? (
             <Card>

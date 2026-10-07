@@ -40,7 +40,6 @@ export {
 export {
   createUpdatePhotoSignedUrl,
   useArchiveProject,
-  useAssignmentHistory,
   useCreateProject,
   useCreateProjectUpdate,
   useHardDeleteProject,
