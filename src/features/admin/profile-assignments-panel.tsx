@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { ASSIGNED_PROJECTS_PREVIEW, visibleAssignments } from '@/features/admin/assignment-preview'
 import {
   useClearProfileAssignments,
   useProfileAssignments,
@@ -22,6 +24,8 @@ export function ProfileAssignmentsPanel({
   const { data: assignments = [], isLoading } = useProfileAssignments(profileId)
   const removeAssignment = useRemoveAssignment()
   const clearAll = useClearProfileAssignments()
+  const [showAll, setShowAll] = useState(false)
+  const shown = visibleAssignments(assignments, showAll)
 
   if (isLoading) {
     return <p className="text-xs text-muted-foreground">Loading projects…</p>
@@ -71,7 +75,7 @@ export function ProfileAssignmentsPanel({
         ) : null}
       </div>
       <ul className="space-y-1.5">
-        {assignments.map((assignment) => {
+        {shown.map((assignment) => {
           const project = assignment.project
           const name = project?.name ?? 'Project'
           return (
@@ -124,6 +128,18 @@ export function ProfileAssignmentsPanel({
           )
         })}
       </ul>
+      {assignments.length > ASSIGNED_PROJECTS_PREVIEW ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="w-full"
+          aria-expanded={showAll}
+          onClick={() => setShowAll((open) => !open)}
+        >
+          {showAll ? 'Show less' : 'Show more'}
+        </Button>
+      ) : null}
     </div>
   )
 }
