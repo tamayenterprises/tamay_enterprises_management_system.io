@@ -21,6 +21,7 @@ import {
   useResolveExceptionRequest,
   type AttendanceFilters,
 } from '@/features/attendance/hooks'
+import { ASSIGNED_PROJECTS_PREVIEW, visibleAssignments } from '@/features/admin/assignment-preview'
 import { useProfiles, useProjects, useSetWorkerStatus, useWorkerEligibility } from '@/features/data/hooks'
 import {
   CORRECTION_REASON_OPTIONS,
@@ -82,6 +83,9 @@ export function TimesheetsPanel() {
     fromDate: format(startOfDay(new Date()), 'yyyy-MM-dd'),
     toDate: format(new Date(), 'yyyy-MM-dd'),
   })
+  const [showAllHistory, setShowAllHistory] = useState(false)
+  const [showAllExceptions, setShowAllExceptions] = useState(false)
+  const [showAllRejected, setShowAllRejected] = useState(false)
   const [selected, setSelected] = useState<AttendanceRecord | null>(null)
   const [linkedException, setLinkedException] = useState<AttendanceExceptionRequest | null>(null)
   const { data: projects = [] } = useProjects()
@@ -89,6 +93,7 @@ export function TimesheetsPanel() {
     role: ['employee', 'subcontractor', 'project_manager'],
   })
   const { data = [], isLoading, isError } = useAttendanceRecords(filters)
+  const historyRows = visibleAssignments(data, showAllHistory)
   const correct = useCorrectAttendance()
 
   const [clockIn, setClockIn] = useState('')
@@ -107,6 +112,8 @@ export function TimesheetsPanel() {
   const { data: corrections = [] } = useAttendanceCorrections(selected?.id)
   const { data: rejectedAttempts = [] } = useAttendanceAttempts({ onlyRejected: true })
   const { data: pendingExceptions = [] } = useExceptionRequests('pending')
+  const exceptionRows = visibleAssignments(pendingExceptions, showAllExceptions)
+  const rejectedRows = visibleAssignments(rejectedAttempts, showAllRejected)
   const resolveException = useResolveExceptionRequest()
   const [params] = useSearchParams()
   const focusExceptionId = params.get('exception')
@@ -347,7 +354,7 @@ export function TimesheetsPanel() {
           ) : null}
           {!isLoading &&
             !isError &&
-            data.map((row) => (
+            historyRows.map((row) => (
               <button
                 key={row.id}
                 type="button"
@@ -357,6 +364,13 @@ export function TimesheetsPanel() {
                 <AttendanceRow record={row} />
               </button>
             ))}
+          {!isLoading && !isError ? (
+            <ShowMoreButton
+              total={data.length}
+              expanded={showAllHistory}
+              onToggle={() => setShowAllHistory((open) => !open)}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -371,7 +385,7 @@ export function TimesheetsPanel() {
           {pendingExceptions.length === 0 ? (
             <EmptyState title="No pending exceptions" />
           ) : (
-            pendingExceptions.map((req) => {
+            exceptionRows.map((req) => {
               const related = data.find(
                 (row) =>
                   row.id === req.attendance_record_id ||
@@ -458,6 +472,11 @@ export function TimesheetsPanel() {
               )
             })
           )}
+          <ShowMoreButton
+            total={pendingExceptions.length}
+            expanded={showAllExceptions}
+            onToggle={() => setShowAllExceptions((open) => !open)}
+          />
         </CardContent>
       </Card>
 
@@ -470,7 +489,7 @@ export function TimesheetsPanel() {
           {rejectedAttempts.length === 0 ? (
             <EmptyState title="No rejected attempts" />
           ) : (
-            rejectedAttempts.slice(0, 20).map((attempt) => (
+            rejectedRows.map((attempt) => (
               <div key={attempt.id} className="rounded-md border border-border px-3 py-2 text-sm">
                 <p className="font-medium">
                   {attempt.profile
@@ -486,6 +505,11 @@ export function TimesheetsPanel() {
               </div>
             ))
           )}
+          <ShowMoreButton
+            total={rejectedAttempts.length}
+            expanded={showAllRejected}
+            onToggle={() => setShowAllRejected((open) => !open)}
+          />
         </CardContent>
       </Card>
 
@@ -1002,6 +1026,30 @@ function ExceptionRequestCard({
         </p>
       ) : null}
     </div>
+  )
+}
+
+function ShowMoreButton({
+  total,
+  expanded,
+  onToggle,
+}: {
+  total: number
+  expanded: boolean
+  onToggle: () => void
+}) {
+  if (total <= ASSIGNED_PROJECTS_PREVIEW) return null
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="w-full"
+      aria-expanded={expanded}
+      onClick={onToggle}
+    >
+      {expanded ? 'Show less' : 'Show more'}
+    </Button>
   )
 }
 
