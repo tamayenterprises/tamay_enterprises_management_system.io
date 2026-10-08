@@ -244,9 +244,14 @@ export function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Upcoming deadlines</CardTitle>
-            <CardDescription>Nearest project due dates.</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle>Upcoming deadlines</CardTitle>
+              <CardDescription>Nearest project due dates.</CardDescription>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/projects">View all</Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {upcoming.length === 0 ? (
