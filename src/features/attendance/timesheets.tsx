@@ -43,6 +43,7 @@ import type { AttendanceExceptionRequest, AttendanceRecord, UserRole } from '@/t
 export function DailyAttendanceSummary() {
   const today = format(startOfDay(new Date()), 'yyyy-MM-dd')
   const { data = [], isLoading, isError } = useAttendanceRecords({ fromDate: today, toDate: today })
+  const [showPeople, setShowPeople] = useState(false)
 
   if (isLoading) return <LoadingState label="Loading today's attendance..." />
   if (isError) return <EmptyState title="Unable to load attendance" />
@@ -52,12 +53,12 @@ export function DailyAttendanceSummary() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0">
+      <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-start">
         <div>
           <CardTitle>Today&apos;s attendance</CardTitle>
-          <CardDescription>Who clocked in today across the workforce.</CardDescription>
+          <CardDescription className="hidden sm:block">Who clocked in today across the workforce.</CardDescription>
         </div>
-        <Button asChild variant="outline" size="sm">
+        <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
           <Link to="/timesheets">View timesheets</Link>
         </Button>
       </CardHeader>
@@ -70,7 +71,22 @@ export function DailyAttendanceSummary() {
         {data.length === 0 ? (
           <EmptyState title="No attendance yet today" description="Records appear when workers clock in." />
         ) : (
-          data.slice(0, 8).map((row) => <AttendanceRow key={row.id} record={row} compact />)
+          <>
+            <div className={showPeople ? 'space-y-2' : 'hidden space-y-2 lg:block'}>
+              {data.slice(0, 8).map((row) => (
+                <AttendanceRow key={row.id} record={row} compact />
+              ))}
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-full lg:hidden"
+              onClick={() => setShowPeople((open) => !open)}
+            >
+              {showPeople ? 'Show less' : 'See more'}
+            </Button>
+          </>
         )}
       </CardContent>
     </Card>

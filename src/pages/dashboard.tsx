@@ -325,32 +325,34 @@ export function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Recent activity</CardTitle>
-              <CardDescription>Latest notifications for your account.</CardDescription>
+              <CardDescription className="hidden sm:block">Latest notifications for your account.</CardDescription>
             </div>
             <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
-              <Link to="/notifications">View all</Link>
+              <Link to="/activity">View all</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentNotifications.length === 0 ? (
-              <EmptyState title="No recent notifications" />
-            ) : (
-              recentNotifications.map((item) => (
-                <Link
-                  key={item.id}
-                  to={item.link || '/notifications'}
-                  className="block rounded-md border border-border px-3 py-3 transition hover:bg-muted/60"
-                >
-                  <p className="font-medium">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.message} · {formatRelative(item.created_at)}
-                  </p>
-                </Link>
-              ))
-            )}
             <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
-              <Link to="/notifications">View all</Link>
+              <Link to="/activity">See activity</Link>
             </Button>
+            <div className="hidden space-y-3 sm:block">
+              {recentNotifications.length === 0 ? (
+                <EmptyState title="No recent notifications" />
+              ) : (
+                recentNotifications.map((item) => (
+                  <Link
+                    key={item.id}
+                    to={item.link || '/notifications'}
+                    className="block rounded-md border border-border px-3 py-3 transition hover:bg-muted/60"
+                  >
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.message} · {formatRelative(item.created_at)}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
