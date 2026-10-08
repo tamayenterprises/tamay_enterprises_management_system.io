@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -17,6 +18,7 @@ import {
   useProjects,
   useUploadDocument,
 } from '@/features/data/hooks'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
 import {
   categoryForUploadFile,
@@ -50,6 +52,7 @@ export function ClientDocumentsPage() {
         (doc.project_id != null && assignedIds.has(doc.project_id)),
     )
   }, [documents, profile?.id, projects])
+  const list = useListPreview(clientDocs, clientDocs.length)
 
   if (isLoading) return <LoadingState label="Loading documents..." />
   if (isError) return <EmptyState title="Unable to load documents" />
@@ -255,7 +258,7 @@ export function ClientDocumentsPage() {
         <EmptyState title="No documents yet" description="Upload a photo or file to get started." />
       ) : (
         <div className="space-y-2">
-          {clientDocs.map((doc) => {
+          {list.visible.map((doc) => {
             const projectName = projects.find((p) => p.id === doc.project_id)?.name
             return (
               <button
@@ -284,6 +287,7 @@ export function ClientDocumentsPage() {
               </button>
             )
           })}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
 

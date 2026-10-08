@@ -4,12 +4,14 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useNotifications,
 } from '@/features/notifications/hooks'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { cn, formatRelative } from '@/lib/utils'
 
 export function ClientNotificationsPage() {
@@ -24,6 +26,7 @@ export function ClientNotificationsPage() {
     if (filter === 'unread') return all.filter((n) => !n.is_read)
     return all
   }, [all, filter])
+  const list = useListPreview(notifications, filter)
 
   if (isLoading) return <LoadingState label="Loading notifications..." />
   if (isError) {
@@ -90,7 +93,7 @@ export function ClientNotificationsPage() {
         />
       ) : (
         <div className="space-y-2">
-          {notifications.map((item) => (
+          {list.visible.map((item) => (
             <Card
               key={item.id}
               className={cn(!item.is_read && 'border-accent/40 bg-accent/5')}
@@ -130,6 +133,7 @@ export function ClientNotificationsPage() {
               </CardContent>
             </Card>
           ))}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

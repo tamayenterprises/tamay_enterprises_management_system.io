@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -25,6 +26,7 @@ import {
   fullName,
   roleLabel,
 } from '@/lib/utils'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import type { ApprovalStatus, Profile, UserRole } from '@/types/database'
@@ -35,14 +37,11 @@ export function AdminPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [approvalFilter, setApprovalFilter] = useState<string>('all')
   const [showArchived, setShowArchived] = useState(false)
-  const [showAllActivity, setShowAllActivity] = useState(false)
-
   const pending = usePendingApprovals()
   const profiles = useProfiles({ includeArchived: true, search: search || undefined })
   const roles = useRoles()
   const activity = useActivityLog(80)
   const activityRows = activity.data ?? []
-  const visibleActivity = showAllActivity ? activityRows : activityRows.slice(0, 5)
   const approveUser = useApproveUser()
   const updateRole = useUpdateUserRole()
   const setAccess = useAdminSetUserAccess()
@@ -72,6 +71,11 @@ export function AdminPage() {
       return true
     })
   }, [profiles.data, showArchived, roleFilter, approvalFilter])
+
+  const pendingRows = pending.data ?? []
+  const pendingList = useListPreview(pendingRows, 'pending')
+  const directoryList = useListPreview(directory, `${search}:${roleFilter}:${approvalFilter}:${showArchived}`)
+  const activityList = useListPreview(activityRows, 'admin-activity')
 
   if (
     (pending.isLoading && !pending.data) ||
@@ -133,7 +137,7 @@ export function AdminPage() {
           {(pending.data ?? []).length === 0 ? (
             <EmptyState title="No pending approvals" description="New sign-ups will appear here until you approve or reject them." />
           ) : (
-            (pending.data ?? []).map((user) => (
+            pendingList.visible.map((user) => (
               <div
                 key={user.id}
                 className="flex flex-col gap-3 rounded-md border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -187,6 +191,12 @@ export function AdminPage() {
               </div>
             ))
           )}
+          <SeeMoreButton
+            shown={pendingList.shown}
+            total={pendingList.total}
+            step={LIST_PREVIEW}
+            onMore={pendingList.showMore}
+          />
         </CardContent>
       </Card>
 
@@ -244,7 +254,7 @@ export function AdminPage() {
           {directory.length === 0 ? (
             <EmptyState title="No users match these filters" />
           ) : (
-            directory.map((user) => (
+            directoryList.visible.map((user) => (
               <UserRow
                 key={user.id}
                 user={user}
@@ -309,22 +319,18 @@ export function AdminPage() {
               />
             ))
           )}
+          <SeeMoreButton
+            shown={directoryList.shown}
+            total={directoryList.total}
+            step={LIST_PREVIEW}
+            onMore={directoryList.showMore}
+          />
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader>
           <CardTitle>Recent admin activity</CardTitle>
-          {activityRows.length > 5 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="hidden sm:inline-flex"
-              onClick={() => setShowAllActivity((open) => !open)}
-            >
-              {showAllActivity ? 'Show less' : 'View all'}
-            </Button>
-          ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
           {activity.isLoading ? (
@@ -335,7 +341,7 @@ export function AdminPage() {
               description="Approvals, role changes, and access updates will appear here."
             />
           ) : (
-            visibleActivity.map((entry) => (
+            activityList.visible.map((entry) => (
               <div key={entry.id} className="rounded-md border border-border px-3 py-2 text-sm">
                 <p className="font-medium">{formatActivityAction(entry.action)}</p>
                 <p className="text-xs text-muted-foreground">
@@ -351,16 +357,12 @@ export function AdminPage() {
               </div>
             ))
           )}
-          {activityRows.length > 5 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full sm:hidden"
-              onClick={() => setShowAllActivity((open) => !open)}
-            >
-              {showAllActivity ? 'Show less' : 'View all'}
-            </Button>
-          ) : null}
+          <SeeMoreButton
+            shown={activityList.shown}
+            total={activityList.total}
+            step={LIST_PREVIEW}
+            onMore={activityList.showMore}
+          />
         </CardContent>
       </Card>
     </div>

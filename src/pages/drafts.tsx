@@ -4,13 +4,16 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useMyFormDrafts } from '@/features/drafts/use-form-draft'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import { supabase } from '@/lib/supabase'
 
 export function DraftsPage() {
   const { data = [], isLoading, isError, refetch } = useMyFormDrafts()
+  const list = useListPreview(data, data.length)
 
   if (isLoading) return <LoadingState label="Loading drafts..." />
   if (isError) return <EmptyState title="Unable to load drafts" />
@@ -32,7 +35,7 @@ export function DraftsPage() {
           {data.length === 0 ? (
             <EmptyState title="No active drafts" description="Start a project update or new project to create one." />
           ) : (
-            data.map((draft) => {
+            list.visible.map((draft) => {
               const preview =
                 typeof draft.payload?.content === 'string'
                   ? draft.payload.content
@@ -83,6 +86,7 @@ export function DraftsPage() {
               )
             })
           )}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </CardContent>
       </Card>
     </div>

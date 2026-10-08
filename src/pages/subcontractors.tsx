@@ -9,10 +9,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import { fullName } from '@/lib/utils'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,6 +28,7 @@ export function SubcontractorsPage() {
   const setAccess = useAdminSetUserAccess()
 
   const subcontractors = useMemo(() => data ?? [], [data])
+  const list = useListPreview(subcontractors, search)
 
   if (isLoading && !data) return <LoadingState />
   if (isError) {
@@ -58,8 +61,9 @@ export function SubcontractorsPage() {
       {subcontractors.length === 0 ? (
         <EmptyState title="No subcontractors found" />
       ) : (
+        <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
-          {subcontractors.map((person) => (
+          {list.visible.map((person) => (
             <SubcontractorCard
               key={person.id}
               person={person}
@@ -101,6 +105,8 @@ export function SubcontractorsPage() {
               }}
             />
           ))}
+        </div>
+        <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

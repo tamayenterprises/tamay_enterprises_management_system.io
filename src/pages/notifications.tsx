@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -24,6 +25,7 @@ import {
   useReviewNotification,
   useUpdateNotificationPreferences,
 } from '@/features/notifications/hooks'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { canAccessAdmin, formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import type { Notification, NotificationPreferences } from '@/types/database'
 
@@ -68,6 +70,7 @@ export function NotificationsPage() {
     if (status === 'read') return allNotifications.filter((item) => item.is_read)
     return allNotifications
   }, [allNotifications, status])
+  const list = useListPreview(notifications, status)
 
   const recipients = useMemo(
     () =>
@@ -313,7 +316,7 @@ export function NotificationsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {notifications.map((item) => (
+          {list.visible.map((item) => (
             <NotificationCard
               key={item.id}
               item={item}
@@ -365,6 +368,7 @@ export function NotificationsPage() {
               }}
             />
           ))}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

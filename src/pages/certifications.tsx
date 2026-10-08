@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +23,7 @@ import {
   useProfiles,
   useUpdateCertification,
 } from '@/features/data/hooks'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
@@ -69,6 +71,7 @@ export function CertificationsPage() {
   )
 
   const certifications = data ?? []
+  const list = useListPreview(certifications, `${search}:${status}:${type}`)
   const alertCounts = useMemo(() => {
     const all = data ?? []
     return {
@@ -263,8 +266,9 @@ export function CertificationsPage() {
           description="Add OSHA, CPR, equipment, or trade credentials with a proof file to start tracking."
         />
       ) : (
+        <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
-          {certifications.map((cert) => (
+          {list.visible.map((cert) => (
             <CertificationCard
               key={cert.id}
               cert={cert}
@@ -303,6 +307,8 @@ export function CertificationsPage() {
               }}
             />
           ))}
+        </div>
+        <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

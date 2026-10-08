@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
@@ -6,15 +6,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { useProjects } from '@/features/data/hooks'
 import { useProjectActivityFeed, relevanceLabel } from '@/features/notifications/hooks'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { canAccessAdmin, isManagementRole } from '@/lib/utils'
 import type { ProjectActivityType } from '@/types/database'
-
-const ACTIVITY_PREVIEW = 5
 
 const ATTENDANCE_TYPES: ProjectActivityType[] = [
   'ATTENDANCE_EXCEPTION_SUBMITTED',
@@ -58,7 +58,6 @@ export function RecentActivityPage() {
   const isAdmin = canAccessAdmin(profile?.role)
   const [filter, setFilter] = useState('all')
   const [projectId, setProjectId] = useState<string>('all')
-  const [showAll, setShowAll] = useState(false)
   const { data: projects = [] } = useProjects({ assignedOnly: !isAdmin })
 
   const active = FILTERS.find((f) => f.value === filter) ?? FILTERS[0]
@@ -75,11 +74,7 @@ export function RecentActivityPage() {
     limit: 50,
   })
 
-  useEffect(() => {
-    setShowAll(false)
-  }, [filter, projectId])
-
-  const visible = showAll ? data : data.slice(0, ACTIVITY_PREVIEW)
+  const list = useListPreview(data, `${filter}:${projectId}`)
 
   if (!canManage && profile?.role !== 'employee' && profile?.role !== 'subcontractor') {
     return <EmptyState title="Activity feed unavailable" />
@@ -136,18 +131,8 @@ export function RecentActivityPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader>
           <CardTitle>Activity timeline</CardTitle>
-          {data.length > ACTIVITY_PREVIEW ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="hidden sm:inline-flex"
-              onClick={() => setShowAll((open) => !open)}
-            >
-              {showAll ? 'Show less' : 'View all'}
-            </Button>
-          ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading ? <LoadingState label="Loading activity..." /> : null}
@@ -162,10 +147,10 @@ export function RecentActivityPage() {
               }
             />
           ) : null}
-          {!isLoading && !isError && visible.length === 0 ? (
+          {!isLoading && !isError && list.total === 0 ? (
             <EmptyState title="No activity matches the selected filters." />
           ) : null}
-          {visible.map((item) => {
+          {list.visible.map((item) => {
             const actorName = item.actor
               ? `${item.actor.first_name} ${item.actor.last_name}`.trim()
               : 'Someone'
@@ -208,16 +193,7 @@ export function RecentActivityPage() {
               </div>
             )
           })}
-          {data.length > ACTIVITY_PREVIEW ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full sm:hidden"
-              onClick={() => setShowAll((open) => !open)}
-            >
-              {showAll ? 'Show less' : 'View all'}
-            </Button>
-          ) : null}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </CardContent>
       </Card>
     </div>

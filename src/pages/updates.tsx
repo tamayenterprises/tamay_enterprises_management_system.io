@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -29,6 +30,7 @@ import {
   resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
 import { RichUpdateText } from '@/features/updates/rich-update-text'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedImageUploadAccept } from '@/lib/uploads'
 import type { CompanyUpdateAudience, Profile, Project } from '@/types/database'
@@ -552,6 +554,18 @@ export function UpdatesPage() {
     return { roots: rootsList, repliesByParent: map }
   }, [companyRows])
 
+  const companyList = useListPreview(roots, 'company')
+  const projectList = useListPreview(projectRows, tab)
+
+  useEffect(() => {
+    if (focusId) {
+      companyList.revealAll()
+      projectList.revealAll()
+    }
+    // Expand once when deep-linking to a specific update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId])
+
   useEffect(() => {
     if (!focusId) return
     const timer = window.setTimeout(() => {
@@ -621,7 +635,7 @@ export function UpdatesPage() {
             {!companyLoading && !companyError && roots.length === 0 ? (
               <EmptyState title="No company updates yet" description="Management can post the first update." />
             ) : null}
-            {roots.map((update) => (
+            {companyList.visible.map((update) => (
               <CompanyUpdateCard
                 key={update.id}
                 update={update}
@@ -634,6 +648,12 @@ export function UpdatesPage() {
                 }
               />
             ))}
+            <SeeMoreButton
+              shown={companyList.shown}
+              total={companyList.total}
+              step={LIST_PREVIEW}
+              onMore={companyList.showMore}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -652,7 +672,7 @@ export function UpdatesPage() {
             {!projectLoading && projectRows.length === 0 ? (
               <EmptyState title="No project updates yet" />
             ) : null}
-            {projectRows.map((note) => {
+            {projectList.visible.map((note) => {
               const project = (note as { project?: Project }).project
               const author = (note as { author?: Profile }).author
               return (
@@ -674,6 +694,12 @@ export function UpdatesPage() {
                 </div>
               )
             })}
+            <SeeMoreButton
+              shown={projectList.shown}
+              total={projectList.total}
+              step={LIST_PREVIEW}
+              onMore={projectList.showMore}
+            />
           </CardContent>
         </Card>
       )}

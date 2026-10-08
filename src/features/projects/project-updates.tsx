@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -28,6 +29,7 @@ import {
   resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
 import { RichUpdateText } from '@/features/updates/rich-update-text'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
 import { useAuth } from '@/features/auth/auth-hooks'
@@ -581,6 +583,14 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
     return { roots: rootsList, repliesByParent: map }
   }, [notes])
 
+  const orderedRoots = useMemo(() => [...roots].reverse(), [roots])
+  const updateList = useListPreview(orderedRoots, projectId)
+
+  useEffect(() => {
+    if (focusId) updateList.revealAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId])
+
   useEffect(() => {
     if (!focusId) return
     const timer = window.setTimeout(() => {
@@ -626,7 +636,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
           />
         ) : (
           <div className="space-y-3">
-            {[...roots].reverse().map((update) => (
+            {updateList.visible.map((update) => (
               <UpdateCard
                 key={update.id}
                 update={update}
@@ -640,6 +650,12 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
                 }
               />
             ))}
+            <SeeMoreButton
+              shown={updateList.shown}
+              total={updateList.total}
+              step={LIST_PREVIEW}
+              onMore={updateList.showMore}
+            />
           </div>
         )}
       </CardContent>

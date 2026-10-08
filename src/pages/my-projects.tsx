@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowUpDown, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,6 +20,7 @@ import {
   type StatusFilter,
 } from '@/features/projects/my-projects-model'
 import { STATUS_DOT } from '@/features/projects/my-projects-styles'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { cn } from '@/lib/utils'
 
 const SEARCH_PLACEHOLDER = 'Search projects, clients, or addresses…'
@@ -77,6 +79,7 @@ export function MyProjectsPage() {
     () => sortProjects(searched.filter((view) => matchesStatus(view, status)), sort),
     [searched, status, sort],
   )
+  const list = useListPreview(visible, `${search}:${status}:${sort}`)
   const filtered = Boolean(search.trim()) || status !== 'all'
   const showMobileSearch = mobileSearchOpen || Boolean(search)
 
@@ -213,7 +216,7 @@ export function MyProjectsPage() {
         />
       ) : (
         <div data-testid="my-projects-list" className="flex flex-col gap-3 lg:gap-4">
-          {visible.map((view) => (
+          {list.visible.map((view) => (
             <MyProjectCard
               key={view.project.id}
               view={view}
@@ -221,6 +224,7 @@ export function MyProjectsPage() {
               showClient={showClient}
             />
           ))}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

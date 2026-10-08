@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -18,6 +19,7 @@ import {
 } from '@/features/workforce/hooks'
 import { useProjects, useSetWorkerStatus } from '@/features/data/hooks'
 import { accountChangeReason, workforceAdminActions } from '@/features/workforce/admin-actions'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import {
   WORKFORCE_STATUSES,
@@ -184,6 +186,7 @@ export function WorkforceStatusPanel() {
   const { data = [], isLoading, isError } = useCurrentWorkforceStatuses(
     projectFilter === 'all' ? undefined : projectFilter,
   )
+  const list = useListPreview(data, projectFilter)
   const clockOut = useAdminClockOutWorker()
   const setWorkerStatus = useSetWorkerStatus()
   const selectedActions = selected
@@ -252,7 +255,7 @@ export function WorkforceStatusPanel() {
         {data.length === 0 ? (
           <EmptyState title="No workforce status yet" description="Workers will appear here after their first update." />
         ) : (
-          data.map((worker) => (
+          list.visible.map((worker) => (
             <button
               key={worker.user_id}
               type="button"
@@ -280,6 +283,7 @@ export function WorkforceStatusPanel() {
             </button>
           ))
         )}
+        <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
       </CardContent>
 
       <Dialog

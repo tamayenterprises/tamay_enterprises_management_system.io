@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import {
   useProjectFinancialAudit,
   useProjectPayments,
@@ -22,6 +23,7 @@ import {
 } from '@/features/projects/finance-hooks'
 import { useFinanceProofViewer } from '@/features/projects/finance-proof-viewer'
 import { formatUnknownError } from '@/lib/auth-errors'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import {
   clientPayNowLabel,
   exceedsBalanceWarning,
@@ -177,6 +179,8 @@ export function ProjectFinancePanel({
   const [receiptsExpanded, setReceiptsExpanded] = useState(false)
   const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null)
   const [paymentsExpanded, setPaymentsExpanded] = useState(false)
+  const paymentList = useListPreview(payments, projectId)
+  const receiptList = useListPreview(receipts, projectId)
 
   const totalPaid = useMemo(() => sumValidPayments(payments), [payments])
   const recordedReceipts = useMemo(() => sumActiveReceipts(receipts), [receipts])
@@ -453,7 +457,7 @@ export function ProjectFinancePanel({
               open={paymentsExpanded}
               onOpenChange={setPaymentsExpanded}
             >
-              {payments.map((payment) => (
+              {paymentList.visible.map((payment) => (
                 <PaymentCard
                   key={payment.id}
                   payment={payment}
@@ -510,6 +514,12 @@ export function ProjectFinancePanel({
                   }}
                 />
               ))}
+              <SeeMoreButton
+                shown={paymentList.shown}
+                total={paymentList.total}
+                step={LIST_PREVIEW}
+                onMore={paymentList.showMore}
+              />
             </CompactAccordion>
           </CardContent>
         </Card>
@@ -560,7 +570,7 @@ export function ProjectFinancePanel({
                 ) : null
               }
             >
-              {receipts.map((receipt) => {
+              {receiptList.visible.map((receipt) => {
                 const isOpen = expandedReceiptId === receipt.id
                 const uploaderName = receipt.uploader
                   ? fullName(receipt.uploader.first_name, receipt.uploader.last_name)
@@ -654,6 +664,12 @@ export function ProjectFinancePanel({
                   </div>
                 )
               })}
+              <SeeMoreButton
+                shown={receiptList.shown}
+                total={receiptList.total}
+                step={LIST_PREVIEW}
+                onMore={receiptList.showMore}
+              />
             </CompactAccordion>
             {canManageContract && audit.length > 0 ? (
               <div className="border-t border-border pt-3">

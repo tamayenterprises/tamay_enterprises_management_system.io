@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatDate, fullName, isManagementRole } from '@/lib/utils'
 import type { PaymentStatus } from '@/types/database'
 
@@ -59,6 +61,8 @@ export function PaymentsPage() {
     () => profiles.filter((item) => item.is_active),
     [profiles],
   )
+
+  const list = useListPreview(payments, payments.length)
 
   const copyLink = async (url: string) => {
     await navigator.clipboard?.writeText(url)
@@ -283,8 +287,9 @@ export function PaymentsPage() {
           {payments.length === 0 ? (
             <EmptyState title="No payments yet" description="Stripe links and manually recorded payments will appear here." />
           ) : (
+            <div className="space-y-3">
             <div className="divide-y divide-border">
-              {payments.map((payment) => {
+              {list.visible.map((payment) => {
                 const isManual = payment.method === 'manual'
                 return (
                   <div
@@ -327,6 +332,8 @@ export function PaymentsPage() {
                   </div>
                 )
               })}
+            </div>
+            <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
             </div>
           )}
         </CardContent>

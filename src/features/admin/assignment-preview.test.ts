@@ -21,4 +21,9 @@ describe('growPreview', () => {
     expect(growPreview(9, 10)).toBe(10)
     expect(growPreview(10, 10)).toBe(10)
   })
+
+  it('adds five rows for directory lists', () => {
+    expect(growPreview(5, 18, 5)).toBe(10)
+    expect(growPreview(15, 18, 5)).toBe(18)
+  })
 })

@@ -15,6 +15,7 @@ import {
 import { ClientProjectSummaryCards } from '@/features/client/project-summary-cards'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import {
   createUpdatePhotoSignedUrl,
@@ -32,6 +33,7 @@ import {
   remainingBalance,
   sumValidPayments,
 } from '@/lib/project-finance'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { cn, formatRelative } from '@/lib/utils'
 import type { Project, ProjectNote } from '@/types/database'
 
@@ -262,6 +264,7 @@ function HomeWithProject({
   const balance = remainingBalance(primary.current_project_total, totalPaid)
   const payLink = activeStripePayLink(payments)
   const payPct = paymentProgressPercent(primary.current_project_total, totalPaid)
+  const othersList = useListPreview(others, others.length)
   const latestUpdate = useMemo(() => {
     const roots = notes.filter((n) => !n.parent_id)
     if (roots.length === 0) return null
@@ -310,10 +313,18 @@ function HomeWithProject({
               More of your work with Tamay
             </h2>
           </div>
+          <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            {others.map((project) => (
+            {othersList.visible.map((project) => (
               <ClientHomeOtherProjectCard key={project.id} project={project} />
             ))}
+          </div>
+          <SeeMoreButton
+            shown={othersList.shown}
+            total={othersList.total}
+            step={LIST_PREVIEW}
+            onMore={othersList.showMore}
+          />
           </div>
         </section>
       ) : null}

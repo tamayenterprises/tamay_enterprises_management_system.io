@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import {
   useProfiles,
@@ -24,6 +25,7 @@ import {
 import { ProfileAvatar } from '@/features/profile/avatar'
 import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
 import { formatDate, fullName, roleLabel } from '@/lib/utils'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import { profileSchema, type ProfileFormValues } from '@/lib/validations'
 import type { Profile } from '@/types/database'
@@ -42,6 +44,7 @@ export function EmployeesPage() {
     const rows = data ?? []
     return rows.filter((row) => (activeOnly ? row.is_active && !row.archived_at : true))
   }, [data, activeOnly])
+  const list = useListPreview(employees, `${search}:${activeOnly}`)
 
   if (isLoading && !data) return <LoadingState />
   if (isError) {
@@ -78,8 +81,9 @@ export function EmployeesPage() {
       {employees.length === 0 ? (
         <EmptyState title="No employees found" description="Adjust filters or approve registrations to populate this list." />
       ) : (
+        <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
-          {employees.map((employee) => (
+          {list.visible.map((employee) => (
             <EmployeeCard
               key={employee.id}
               employee={employee}
@@ -113,6 +117,8 @@ export function EmployeesPage() {
               }}
             />
           ))}
+        </div>
+        <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

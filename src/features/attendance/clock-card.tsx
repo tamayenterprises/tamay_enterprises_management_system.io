@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Disclosure } from '@/components/ui/disclosure'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -36,6 +37,7 @@ import {
 } from '@/lib/geo'
 import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
 import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { cn, formatHoursDuration, formatRelative } from '@/lib/utils'
 import type { AttendanceActionResult, AttendanceExceptionRequest } from '@/types/database'
 
@@ -52,7 +54,8 @@ export function ClockInOutCard({
 } = {}) {
   const { profile } = useAuth()
   const { data: openRecord, isLoading, isError } = useMyOpenAttendance()
-  const { data: history = [] } = useMyAttendanceHistory(5)
+  const { data: history = [] } = useMyAttendanceHistory(20)
+  const historyList = useListPreview(history, history.length)
   const { data: projects = [] } = useProjects({ assignedOnly: true })
   const { data: eligibilityRpc } = useWorkerEligibility(profile?.id)
   const recordAction = useRecordAttendanceAction()
@@ -171,27 +174,37 @@ export function ClockInOutCard({
     </p>
   )
 
-  const recentShifts = history.map((row) => (
-    <div
-      key={row.id}
-      className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="min-w-0">
-        <p>{format(new Date(row.clock_in_time), 'MMM d')}</p>
-        <p className="text-xs text-muted-foreground">{row.project?.name || 'No project'}</p>
-      </div>
-      <div className="text-xs text-muted-foreground sm:text-right">
-        <p>
-          {format(new Date(row.clock_in_time), 'h:mm a')}
-          {row.clock_out_time ? ` – ${format(new Date(row.clock_out_time), 'h:mm a')}` : ' – open'}
-        </p>
-        <p>
-          Paid {formatHoursDuration(row.paid_hours ?? row.total_hours)}
-          {row.break_seconds ? ` · break ${formatBreakDuration(row.break_seconds)}` : ''}
-        </p>
-      </div>
-    </div>
-  ))
+  const recentShifts = (
+    <>
+      {historyList.visible.map((row) => (
+        <div
+          key={row.id}
+          className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0">
+            <p>{format(new Date(row.clock_in_time), 'MMM d')}</p>
+            <p className="text-xs text-muted-foreground">{row.project?.name || 'No project'}</p>
+          </div>
+          <div className="text-xs text-muted-foreground sm:text-right">
+            <p>
+              {format(new Date(row.clock_in_time), 'h:mm a')}
+              {row.clock_out_time ? ` – ${format(new Date(row.clock_out_time), 'h:mm a')}` : ' – open'}
+            </p>
+            <p>
+              Paid {formatHoursDuration(row.paid_hours ?? row.total_hours)}
+              {row.break_seconds ? ` · break ${formatBreakDuration(row.break_seconds)}` : ''}
+            </p>
+          </div>
+        </div>
+      ))}
+      <SeeMoreButton
+        shown={historyList.shown}
+        total={historyList.total}
+        step={LIST_PREVIEW}
+        onMore={historyList.showMore}
+      />
+    </>
+  )
 
   return (
     <Card id="time-clock" className={cn('scroll-mt-16', compact && 'rounded-2xl')}>

@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { downloadDocumentFile, useDeleteDocument, viewDocumentFile } from '@/features/data/hooks'
 import { DocumentTeamAccess } from '@/features/projects/document-team-access'
 import {
@@ -9,6 +10,7 @@ import {
   canViewerSeeDocument,
   isProjectPhotoDocument,
 } from '@/lib/document-visibility'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import { documentCategoryLabel, formatRelative, isManagementRole } from '@/lib/utils'
 import type { DocumentRecord, Profile } from '@/types/database'
@@ -31,6 +33,16 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
       projectDocuments: visible.filter((doc) => !isProjectPhotoDocument(doc)),
     }
   }, [documents, viewer])
+
+  const photoList = useListPreview(photos, photos.length)
+  const docList = useListPreview(projectDocuments, projectDocuments.length)
+
+  useEffect(() => {
+    if (!focusDocId) return
+    photoList.revealAll()
+    docList.revealAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusDocId])
 
   async function run(action: () => Promise<void>, fallback: string) {
     try {
@@ -67,7 +79,7 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
         collapseLabel="Hide Photos ▲"
         defaultOpen={Boolean(focusDocId && photos.some((d) => d.id === focusDocId))}
       >
-        {photos.map((doc) => (
+        {photoList.visible.map((doc) => (
           <div key={doc.id} id={`doc-${doc.id}`} className={rowClass(doc)}>
             <div>
               <p className="font-medium">{doc.name}</p>
@@ -87,6 +99,12 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
             </div>
           </div>
         ))}
+        <SeeMoreButton
+          shown={photoList.shown}
+          total={photoList.total}
+          step={LIST_PREVIEW}
+          onMore={photoList.showMore}
+        />
       </CompactAccordion>
 
       <CompactAccordion
@@ -101,7 +119,7 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
         collapseLabel="Hide Documents ▲"
         defaultOpen={Boolean(focusDocId && projectDocuments.some((d) => d.id === focusDocId))}
       >
-        {projectDocuments.map((doc) => (
+        {docList.visible.map((doc) => (
           <div key={doc.id} id={`doc-${doc.id}`} className={rowClass(doc)}>
             <div className="min-w-0 flex-1">
               <p className="font-medium">{doc.name}</p>
@@ -129,6 +147,7 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
             </div>
           </div>
         ))}
+        <SeeMoreButton shown={docList.shown} total={docList.total} step={LIST_PREVIEW} onMore={docList.showMore} />
       </CompactAccordion>
     </>
   )

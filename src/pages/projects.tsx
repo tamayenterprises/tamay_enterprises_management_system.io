@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -34,6 +35,7 @@ import {
   projectStatusLabel,
   warrantyStatusLabel,
 } from '@/lib/utils'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
@@ -117,6 +119,7 @@ function ManagementProjectsPage() {
   const { data: clientsByProject } = useProjectClientAssignees(
     archivedView === 'archived' ? projectIds : [],
   )
+  const list = useListPreview(projects, `${search}:${status}:${archivedView}:${warrantyFilter}`)
 
   useEffect(() => {
     if (!createOpen) return
@@ -401,8 +404,9 @@ function ManagementProjectsPage() {
           }
         />
       ) : (
+        <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
-          {projects.map((project) => {
+          {list.visible.map((project) => {
             const projectClients = clientsByProject?.get(project.id) ?? []
             const warrantyActive = isWarrantyActive(project.warranty_ends_on)
             return (
@@ -531,6 +535,8 @@ function ManagementProjectsPage() {
             </Card>
             )
           })}
+        </div>
+        <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

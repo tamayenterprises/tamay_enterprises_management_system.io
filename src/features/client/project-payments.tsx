@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { useProjectPayments } from '@/features/projects/finance-hooks'
 import { useFinanceProofViewer } from '@/features/projects/finance-proof-viewer'
 import { paymentProgressPercent } from '@/lib/client-portal-progress'
@@ -17,6 +18,7 @@ import {
   remainingBalance,
   sumValidPayments,
 } from '@/lib/project-finance'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { cn, formatDate } from '@/lib/utils'
 import type { Project, ProjectPayment } from '@/types/database'
 
@@ -48,6 +50,7 @@ export function ClientProjectPayments({ project }: { project: Project }) {
   const nextDue = nextPaymentDue(payments)
   const payLink = activeStripePayLink(payments)
   const visiblePayments = payments.filter((p) => p.status !== 'void')
+  const paymentList = useListPreview(visiblePayments, project.id)
   const payPct = paymentProgressPercent(project.current_project_total, totalPaid)
 
   return (
@@ -146,7 +149,7 @@ export function ClientProjectPayments({ project }: { project: Project }) {
         onOpenChange={setHistoryOpen}
         className="rounded-2xl border-border/80 bg-white shadow-[0_1px_2px_rgba(9,46,76,0.04)]"
       >
-        {visiblePayments.map((payment) => (
+        {paymentList.visible.map((payment) => (
           <div
             key={payment.id}
             className="rounded-xl border border-border/80 bg-[#fbfcff] px-3 py-3 text-sm"
@@ -193,6 +196,12 @@ export function ClientProjectPayments({ project }: { project: Project }) {
             </div>
           </div>
         ))}
+        <SeeMoreButton
+          shown={paymentList.shown}
+          total={paymentList.total}
+          step={LIST_PREVIEW}
+          onMore={paymentList.showMore}
+        />
       </CompactAccordion>
       {viewer}
     </div>

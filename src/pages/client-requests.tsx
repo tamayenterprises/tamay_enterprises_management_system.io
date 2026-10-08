@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList, isNativeFilePickerOpen } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,6 +20,7 @@ import {
   useMyProjectRequests,
   useUploadProjectRequestFile,
 } from '@/features/client/hooks'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatFileSize, formatRelative } from '@/lib/utils'
 import {
   isMobileUploadDevice,
@@ -39,6 +41,7 @@ function statusBadge(status: ProjectRequest['status']) {
 
 export function ClientRequestsPage() {
   const { data: requests = [], isLoading, isError } = useMyProjectRequests()
+  const list = useListPreview(requests, requests.length)
   const createRequest = useCreateProjectRequest()
   const uploadFile = useUploadProjectRequestFile()
   const [open, setOpen] = useState(false)
@@ -199,7 +202,7 @@ export function ClientRequestsPage() {
         />
       ) : (
         <div className="space-y-3">
-          {requests.map((request) => (
+          {list.visible.map((request) => (
             <Card key={request.id}>
               <CardHeader className="pb-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -306,6 +309,7 @@ export function ClientRequestsPage() {
               </CardContent>
             </Card>
           ))}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import {
   createProjectRequestFileSignedUrl,
@@ -11,10 +12,12 @@ import {
   useManagementProjectRequests,
   useReviewProjectRequest,
 } from '@/features/client/hooks'
+import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatFileSize, formatRelative, fullName } from '@/lib/utils'
 
 export function ProjectRequestsAdminPage() {
   const { data: requests = [], isLoading, isError } = useManagementProjectRequests('open')
+  const list = useListPreview(requests, requests.length)
   const review = useReviewProjectRequest()
   const convert = useConvertProjectRequest()
 
@@ -34,7 +37,7 @@ export function ProjectRequestsAdminPage() {
         <EmptyState title="No open client requests" description="New client requests will appear here." />
       ) : (
         <div className="space-y-3">
-          {requests.map((request) => (
+          {list.visible.map((request) => (
             <Card key={request.id}>
               <CardHeader className="pb-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -150,6 +153,7 @@ export function ProjectRequestsAdminPage() {
               </CardContent>
             </Card>
           ))}
+          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
       )}
     </div>
