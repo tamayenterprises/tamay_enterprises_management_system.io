@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowUpDown, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -215,6 +215,7 @@ export function MyProjectsPage() {
           }
         />
       ) : (
+        <MobileListGate>
         <div data-testid="my-projects-list" className="flex flex-col gap-3 lg:gap-4">
           {list.visible.map((view) => (
             <MyProjectCard
@@ -226,6 +227,7 @@ export function MyProjectsPage() {
           ))}
           <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
     </div>
   )

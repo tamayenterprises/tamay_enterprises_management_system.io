@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useMyFormDrafts } from '@/features/drafts/use-form-draft'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
@@ -35,7 +35,8 @@ export function DraftsPage() {
           {data.length === 0 ? (
             <EmptyState title="No active drafts" description="Start a project update or new project to create one." />
           ) : (
-            list.visible.map((draft) => {
+            <MobileListGate>
+            {list.visible.map((draft) => {
               const preview =
                 typeof draft.payload?.content === 'string'
                   ? draft.payload.content
@@ -84,9 +85,10 @@ export function DraftsPage() {
                   </div>
                 </div>
               )
-            })
+            })}
+            <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+            </MobileListGate>
           )}
-          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </CardContent>
       </Card>
     </div>

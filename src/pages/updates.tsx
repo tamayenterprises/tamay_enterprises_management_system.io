@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -635,6 +635,7 @@ export function UpdatesPage() {
             {!companyLoading && !companyError && roots.length === 0 ? (
               <EmptyState title="No company updates yet" description="Management can post the first update." />
             ) : null}
+            <MobileListGate>
             {companyList.visible.map((update) => (
               <CompanyUpdateCard
                 key={update.id}
@@ -654,6 +655,7 @@ export function UpdatesPage() {
               step={LIST_PREVIEW}
               onMore={companyList.showMore}
             />
+            </MobileListGate>
           </CardContent>
         </Card>
       ) : (
@@ -672,6 +674,7 @@ export function UpdatesPage() {
             {!projectLoading && projectRows.length === 0 ? (
               <EmptyState title="No project updates yet" />
             ) : null}
+            <MobileListGate>
             {projectList.visible.map((note) => {
               const project = (note as { project?: Project }).project
               const author = (note as { author?: Profile }).author
@@ -700,6 +703,7 @@ export function UpdatesPage() {
               step={LIST_PREVIEW}
               onMore={projectList.showMore}
             />
+            </MobileListGate>
           </CardContent>
         </Card>
       )}

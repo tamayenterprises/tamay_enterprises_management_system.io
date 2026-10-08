@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import {
   createProjectRequestFileSignedUrl,
@@ -36,6 +36,7 @@ export function ProjectRequestsAdminPage() {
       {requests.length === 0 ? (
         <EmptyState title="No open client requests" description="New client requests will appear here." />
       ) : (
+        <MobileListGate>
         <div className="space-y-3">
           {list.visible.map((request) => (
             <Card key={request.id}>
@@ -155,6 +156,7 @@ export function ProjectRequestsAdminPage() {
           ))}
           <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { MobileListGate } from '@/components/ui/see-more-button'
 import { ASSIGNED_PROJECTS_PREVIEW, visibleAssignments } from '@/features/admin/assignment-preview'
 import {
   useClearProfileAssignments,
@@ -74,6 +75,7 @@ export function ProfileAssignmentsPanel({
           </Button>
         ) : null}
       </div>
+      <MobileListGate>
       <ul className="space-y-1.5">
         {shown.map((assignment) => {
           const project = assignment.project
@@ -140,6 +142,7 @@ export function ProfileAssignmentsPanel({
           {showAll ? 'Show less' : 'Show more'}
         </Button>
       ) : null}
+      </MobileListGate>
     </div>
   )
 }

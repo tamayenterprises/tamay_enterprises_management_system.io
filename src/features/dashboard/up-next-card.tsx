@@ -27,7 +27,7 @@ export function UpNextCard() {
         ) : null}
 
         {shown.length > 0 ? (
-          <ul className="divide-y divide-border">
+          <ul className="hidden divide-y divide-border lg:block">
             {shown.map((item) => (
               <li key={item.entry_id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="w-24 shrink-0">

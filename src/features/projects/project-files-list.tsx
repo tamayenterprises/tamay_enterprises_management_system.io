@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { downloadDocumentFile, useDeleteDocument, viewDocumentFile } from '@/features/data/hooks'
 import { DocumentTeamAccess } from '@/features/projects/document-team-access'
 import {
@@ -79,6 +79,7 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
         collapseLabel="Hide Photos ▲"
         defaultOpen={Boolean(focusDocId && photos.some((d) => d.id === focusDocId))}
       >
+        <MobileListGate enabled={photos.length > 0}>
         {photoList.visible.map((doc) => (
           <div key={doc.id} id={`doc-${doc.id}`} className={rowClass(doc)}>
             <div>
@@ -105,6 +106,7 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
           step={LIST_PREVIEW}
           onMore={photoList.showMore}
         />
+        </MobileListGate>
       </CompactAccordion>
 
       <CompactAccordion
@@ -119,6 +121,7 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
         collapseLabel="Hide Documents ▲"
         defaultOpen={Boolean(focusDocId && projectDocuments.some((d) => d.id === focusDocId))}
       >
+        <MobileListGate enabled={projectDocuments.length > 0}>
         {docList.visible.map((doc) => (
           <div key={doc.id} id={`doc-${doc.id}`} className={rowClass(doc)}>
             <div className="min-w-0 flex-1">
@@ -148,6 +151,7 @@ export function ProjectFilesList({ documents, viewer, focusDocId }: Props) {
           </div>
         ))}
         <SeeMoreButton shown={docList.shown} total={docList.total} step={LIST_PREVIEW} onMore={docList.showMore} />
+        </MobileListGate>
       </CompactAccordion>
     </>
   )

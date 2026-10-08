@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import {
   useProfiles,
@@ -81,6 +81,7 @@ export function EmployeesPage() {
       {employees.length === 0 ? (
         <EmptyState title="No employees found" description="Adjust filters or approve registrations to populate this list." />
       ) : (
+        <MobileListGate>
         <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
           {list.visible.map((employee) => (
@@ -120,6 +121,7 @@ export function EmployeesPage() {
         </div>
         <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
     </div>
   )

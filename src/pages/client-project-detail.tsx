@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MobileListGate } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { ClientProjectHero } from '@/features/client/project-hero'
@@ -353,11 +354,13 @@ export function ClientProjectDetailPage() {
         }}
         className="rounded-2xl border-border/80 bg-white shadow-[0_1px_2px_rgba(9,46,76,0.04)]"
       >
+        <MobileListGate enabled={photos.length > 0}>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
           {photos.map((doc) => (
             <PhotoThumb key={doc.id} doc={doc} />
           ))}
         </div>
+        </MobileListGate>
       </CompactAccordion>
 
       <CompactAccordion
@@ -377,6 +380,7 @@ export function ClientProjectDetailPage() {
         }}
         className="rounded-2xl border-border/80 bg-white shadow-[0_1px_2px_rgba(9,46,76,0.04)]"
       >
+        <MobileListGate enabled={fileDocs.length > 0}>
         {fileDocs.map((doc) => (
           <div
             key={doc.id}
@@ -412,6 +416,7 @@ export function ClientProjectDetailPage() {
             </div>
           </div>
         ))}
+        </MobileListGate>
       </CompactAccordion>
 
       {/* Desktop-only help card — mobile uses MobileAskQuestionCard after Payment Summary */}

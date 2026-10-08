@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList, isNativeFilePickerOpen } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -201,6 +201,7 @@ export function ClientRequestsPage() {
           description="Create a request to get started with Tamay Enterprises."
         />
       ) : (
+        <MobileListGate>
         <div className="space-y-3">
           {list.visible.map((request) => (
             <Card key={request.id}>
@@ -311,6 +312,7 @@ export function ClientRequestsPage() {
           ))}
           <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
     </div>
   )

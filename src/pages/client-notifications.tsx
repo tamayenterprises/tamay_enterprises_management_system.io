@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import {
   useMarkAllNotificationsRead,
@@ -92,6 +92,7 @@ export function ClientNotificationsPage() {
           description="You’ll be notified when Tamay reviews a request or shares a project update."
         />
       ) : (
+        <MobileListGate>
         <div className="space-y-2">
           {list.visible.map((item) => (
             <Card
@@ -135,6 +136,7 @@ export function ClientNotificationsPage() {
           ))}
           <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
     </div>
   )

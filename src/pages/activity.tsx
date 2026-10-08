@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-hooks'
@@ -150,50 +150,54 @@ export function RecentActivityPage() {
           {!isLoading && !isError && list.total === 0 ? (
             <EmptyState title="No activity matches the selected filters." />
           ) : null}
-          {list.visible.map((item) => {
-            const actorName = item.actor
-              ? `${item.actor.first_name} ${item.actor.last_name}`.trim()
-              : 'Someone'
-            const relevance =
-              item.requires_attention
-                ? 'requires_attention'
-                : canManage && !item.project_id
-                  ? 'general'
-                  : 'assigned_project'
-            return (
-              <div key={item.id} className="rounded-xl border border-border px-3 py-3">
-                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 space-y-1">
-                    <p className="font-medium">{item.title}</p>
-                    <p className="text-sm text-muted-foreground">{item.preview_text}</p>
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="secondary">{item.activity_type.replaceAll('_', ' ')}</Badge>
-                      <Badge variant="outline">{relevanceLabel(relevance)}</Badge>
-                      {item.project?.name ? <Badge variant="outline">{item.project.name}</Badge> : null}
+          {!isLoading && !isError && list.total > 0 ? (
+            <MobileListGate>
+              {list.visible.map((item) => {
+                const actorName = item.actor
+                  ? `${item.actor.first_name} ${item.actor.last_name}`.trim()
+                  : 'Someone'
+                const relevance =
+                  item.requires_attention
+                    ? 'requires_attention'
+                    : canManage && !item.project_id
+                      ? 'general'
+                      : 'assigned_project'
+                return (
+                  <div key={item.id} className="rounded-xl border border-border px-3 py-3">
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-medium">{item.title}</p>
+                        <p className="text-sm text-muted-foreground">{item.preview_text}</p>
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant="secondary">{item.activity_type.replaceAll('_', ' ')}</Badge>
+                          <Badge variant="outline">{relevanceLabel(relevance)}</Badge>
+                          {item.project?.name ? <Badge variant="outline">{item.project.name}</Badge> : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {actorName} · {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full shrink-0 sm:w-auto"
+                        onClick={() => {
+                          if (!item.destination_route) {
+                            toast.message('This activity is no longer available.')
+                            return
+                          }
+                          navigate(item.destination_route)
+                        }}
+                      >
+                        View activity
+                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {actorName} · {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                    </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full shrink-0 sm:w-auto"
-                    onClick={() => {
-                      if (!item.destination_route) {
-                        toast.message('This activity is no longer available.')
-                        return
-                      }
-                      navigate(item.destination_route)
-                    }}
-                  >
-                    View activity
-                  </Button>
-                </div>
-              </div>
-            )
-          })}
-          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+                )
+              })}
+              <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+            </MobileListGate>
+          ) : null}
         </CardContent>
       </Card>
     </div>

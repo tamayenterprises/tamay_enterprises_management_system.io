@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -257,6 +257,7 @@ export function ClientDocumentsPage() {
       {clientDocs.length === 0 ? (
         <EmptyState title="No documents yet" description="Upload a photo or file to get started." />
       ) : (
+        <MobileListGate>
         <div className="space-y-2">
           {list.visible.map((doc) => {
             const projectName = projects.find((p) => p.id === doc.project_id)?.name
@@ -289,6 +290,7 @@ export function ClientDocumentsPage() {
           })}
           <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
 
       {projects.length > 0 ? (

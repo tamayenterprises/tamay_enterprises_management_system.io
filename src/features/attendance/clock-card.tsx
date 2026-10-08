@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Disclosure } from '@/components/ui/disclosure'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -175,7 +175,7 @@ export function ClockInOutCard({
   )
 
   const recentShifts = (
-    <>
+    <MobileListGate>
       {historyList.visible.map((row) => (
         <div
           key={row.id}
@@ -203,7 +203,7 @@ export function ClockInOutCard({
         step={LIST_PREVIEW}
         onMore={historyList.showMore}
       />
-    </>
+    </MobileListGate>
   )
 
   return (

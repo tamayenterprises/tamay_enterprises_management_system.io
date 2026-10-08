@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -182,7 +182,6 @@ export function WorkforceStatusPanel() {
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [selected, setSelected] = useState<CurrentWorkerStatus | null>(null)
   const [reason, setReason] = useState('')
-  const [showPeople, setShowPeople] = useState(false)
   const { data: projects = [] } = useProjects()
   const { data = [], isLoading, isError } = useCurrentWorkforceStatuses(
     projectFilter === 'all' ? undefined : projectFilter,
@@ -256,47 +255,36 @@ export function WorkforceStatusPanel() {
         {data.length === 0 ? (
           <EmptyState title="No workforce status yet" description="Workers will appear here after their first update." />
         ) : (
-          <>
-            <div className={showPeople ? 'space-y-2' : 'hidden space-y-2 lg:block'}>
-              {list.visible.map((worker) => (
-                <button
-                  key={worker.user_id}
-                  type="button"
-                  className="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-left transition hover:bg-muted/50"
-                  onClick={() => setSelected(worker)}
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <ProfileAvatar
-                      firstName={worker.first_name}
-                      lastName={worker.last_name}
-                      avatarUrl={worker.avatar_url}
-                      fallbackClassName="bg-muted text-xs"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{fullName(worker.first_name, worker.last_name)}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {roleLabel(worker.role)}
-                        {worker.project_name ? ` · ${worker.project_name}` : ''}
-                      </p>
-                    </div>
+          <MobileListGate>
+            {list.visible.map((worker) => (
+              <button
+                key={worker.user_id}
+                type="button"
+                className="mb-2 flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-left transition hover:bg-muted/50"
+                onClick={() => setSelected(worker)}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <ProfileAvatar
+                    firstName={worker.first_name}
+                    lastName={worker.last_name}
+                    avatarUrl={worker.avatar_url}
+                    fallbackClassName="bg-muted text-xs"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{fullName(worker.first_name, worker.last_name)}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {roleLabel(worker.role)}
+                      {worker.project_name ? ` · ${worker.project_name}` : ''}
+                    </p>
                   </div>
-                  <Badge variant="secondary" className="shrink-0">
-                    {workforceStatusEmoji(worker.status)} {workforceStatusLabel(worker.status)}
-                  </Badge>
-                </button>
-              ))}
-              <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="w-full lg:hidden"
-              onClick={() => setShowPeople((open) => !open)}
-            >
-              {showPeople ? 'Show less' : 'See more'}
-            </Button>
-          </>
+                </div>
+                <Badge variant="secondary" className="shrink-0">
+                  {workforceStatusEmoji(worker.status)} {workforceStatusLabel(worker.status)}
+                </Badge>
+              </button>
+            ))}
+            <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+          </MobileListGate>
         )}
       </CardContent>
 

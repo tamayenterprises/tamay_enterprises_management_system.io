@@ -179,7 +179,7 @@ export function DashboardPage() {
               <Link to="/admin">Open admin</Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="hidden space-y-2 lg:block">
             {(pendingApprovals.data ?? []).slice(0, 3).map((user) => (
               <div key={user.id} className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm">
                 <div>
@@ -204,7 +204,7 @@ export function DashboardPage() {
                 {isManagement ? 'All active company projects.' : 'Projects currently connected to your account.'}
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+            <Button asChild size="sm" variant="outline" className="hidden lg:inline-flex">
               <Link to="/projects">View all</Link>
             </Button>
           </CardHeader>
@@ -226,23 +226,27 @@ export function DashboardPage() {
                 }
               />
             ) : (
-              projectList.slice(0, 6).map((project) => (
-                <Link
-                  key={project.id}
-                  to={`/projects/${project.id}`}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-3 transition hover:bg-muted/60"
-                >
-                  <div>
-                    <p className="font-medium">{project.name}</p>
-                    <p className="text-xs text-muted-foreground">{project.location || 'No location set'}</p>
-                  </div>
-                  <Badge variant="secondary">{projectStatusLabel(project.status)}</Badge>
-                </Link>
-              ))
+              <>
+                <div className="hidden space-y-3 lg:block">
+                  {projectList.slice(0, 6).map((project) => (
+                    <Link
+                      key={project.id}
+                      to={`/projects/${project.id}`}
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-3 transition hover:bg-muted/60"
+                    >
+                      <div>
+                        <p className="font-medium">{project.name}</p>
+                        <p className="text-xs text-muted-foreground">{project.location || 'No location set'}</p>
+                      </div>
+                      <Badge variant="secondary">{projectStatusLabel(project.status)}</Badge>
+                    </Link>
+                  ))}
+                </div>
+                <Button asChild size="sm" variant="outline" className="w-full lg:hidden">
+                  <Link to="/projects">View all</Link>
+                </Button>
+              </>
             )}
-            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
-              <Link to="/projects">View all</Link>
-            </Button>
           </CardContent>
         </Card>
 
@@ -252,7 +256,7 @@ export function DashboardPage() {
               <CardTitle>Upcoming deadlines</CardTitle>
               <CardDescription>Nearest project due dates.</CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+            <Button asChild size="sm" variant="outline" className="hidden lg:inline-flex">
               <Link to="/projects">View all</Link>
             </Button>
           </CardHeader>
@@ -260,23 +264,27 @@ export function DashboardPage() {
             {upcoming.length === 0 ? (
               <EmptyState title="No upcoming deadlines" />
             ) : (
-              upcoming.map((project) => (
-                <Link
-                  key={project.id}
-                  to={`/projects/${project.id}`}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-3 transition hover:bg-muted/60"
-                >
-                  <div>
-                    <p className="font-medium">{project.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(project.deadline)}</p>
-                  </div>
-                  <Badge variant="warning">{project.priority}</Badge>
-                </Link>
-              ))
+              <>
+                <div className="hidden space-y-3 lg:block">
+                  {upcoming.map((project) => (
+                    <Link
+                      key={project.id}
+                      to={`/projects/${project.id}`}
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-3 transition hover:bg-muted/60"
+                    >
+                      <div>
+                        <p className="font-medium">{project.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(project.deadline)}</p>
+                      </div>
+                      <Badge variant="warning">{project.priority}</Badge>
+                    </Link>
+                  ))}
+                </div>
+                <Button asChild size="sm" variant="outline" className="w-full lg:hidden">
+                  <Link to="/projects">View all</Link>
+                </Button>
+              </>
             )}
-            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
-              <Link to="/projects">View all</Link>
-            </Button>
           </CardContent>
         </Card>
 
@@ -288,7 +296,7 @@ export function DashboardPage() {
                 {isManagement ? 'Expiring or expired credentials across the workforce.' : 'Your credentials that need attention.'}
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+            <Button asChild size="sm" variant="outline" className="hidden lg:inline-flex">
               <Link to="/certifications">View all</Link>
             </Button>
           </CardHeader>
@@ -298,26 +306,32 @@ export function DashboardPage() {
                 ? certAlerts
                 : certAlerts.filter((c) => c.profile_id === profile?.id)
               if (alerts.length === 0) return <EmptyState title="No certification alerts" />
-              return alerts.slice(0, 5).map((cert) => (
-                <div key={cert.id} className="rounded-md border border-border px-3 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium">{cert.name}</p>
-                    <Badge variant={cert.status === 'expired' ? 'destructive' : 'warning'}>
-                      {cert.status === 'expired' ? 'Expired' : 'Expiring soon'}
-                    </Badge>
+              return (
+                <>
+                  <div className="hidden space-y-3 lg:block">
+                    {alerts.slice(0, 5).map((cert) => (
+                      <div key={cert.id} className="rounded-md border border-border px-3 py-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium">{cert.name}</p>
+                          <Badge variant={cert.status === 'expired' ? 'destructive' : 'warning'}>
+                            {cert.status === 'expired' ? 'Expired' : 'Expiring soon'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {isManagement && cert.profile
+                            ? `${fullName(cert.profile.first_name, cert.profile.last_name)} · `
+                            : ''}
+                          expires {formatDate(cert.expiration_date)}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {isManagement && cert.profile
-                      ? `${fullName(cert.profile.first_name, cert.profile.last_name)} · `
-                      : ''}
-                    expires {formatDate(cert.expiration_date)}
-                  </p>
-                </div>
-              ))
+                  <Button asChild size="sm" variant="outline" className="w-full lg:hidden">
+                    <Link to="/certifications">View all</Link>
+                  </Button>
+                </>
+              )
             })()}
-            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
-              <Link to="/certifications">View all</Link>
-            </Button>
           </CardContent>
         </Card>
 
@@ -325,17 +339,17 @@ export function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Recent activity</CardTitle>
-              <CardDescription className="hidden sm:block">Latest notifications for your account.</CardDescription>
+              <CardDescription className="hidden lg:block">Latest notifications for your account.</CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+            <Button asChild size="sm" variant="outline" className="hidden lg:inline-flex">
               <Link to="/activity">View all</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
+            <Button asChild size="sm" variant="outline" className="w-full lg:hidden">
               <Link to="/activity">See activity</Link>
             </Button>
-            <div className="hidden space-y-3 sm:block">
+            <div className="hidden space-y-3 lg:block">
               {recentNotifications.length === 0 ? (
                 <EmptyState title="No recent notifications" />
               ) : (

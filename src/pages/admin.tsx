@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -137,7 +137,8 @@ export function AdminPage() {
           {(pending.data ?? []).length === 0 ? (
             <EmptyState title="No pending approvals" description="New sign-ups will appear here until you approve or reject them." />
           ) : (
-            pendingList.visible.map((user) => (
+            <MobileListGate>
+            {pendingList.visible.map((user) => (
               <div
                 key={user.id}
                 className="flex flex-col gap-3 rounded-md border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -189,14 +190,15 @@ export function AdminPage() {
                   </Button>
                 </div>
               </div>
-            ))
+            ))}
+            <SeeMoreButton
+              shown={pendingList.shown}
+              total={pendingList.total}
+              step={LIST_PREVIEW}
+              onMore={pendingList.showMore}
+            />
+            </MobileListGate>
           )}
-          <SeeMoreButton
-            shown={pendingList.shown}
-            total={pendingList.total}
-            step={LIST_PREVIEW}
-            onMore={pendingList.showMore}
-          />
         </CardContent>
       </Card>
 
@@ -254,7 +256,8 @@ export function AdminPage() {
           {directory.length === 0 ? (
             <EmptyState title="No users match these filters" />
           ) : (
-            directoryList.visible.map((user) => (
+            <MobileListGate>
+            {directoryList.visible.map((user) => (
               <UserRow
                 key={user.id}
                 user={user}
@@ -317,14 +320,15 @@ export function AdminPage() {
                   }
                 }}
               />
-            ))
+            ))}
+            <SeeMoreButton
+              shown={directoryList.shown}
+              total={directoryList.total}
+              step={LIST_PREVIEW}
+              onMore={directoryList.showMore}
+            />
+            </MobileListGate>
           )}
-          <SeeMoreButton
-            shown={directoryList.shown}
-            total={directoryList.total}
-            step={LIST_PREVIEW}
-            onMore={directoryList.showMore}
-          />
         </CardContent>
       </Card>
 
@@ -341,7 +345,8 @@ export function AdminPage() {
               description="Approvals, role changes, and access updates will appear here."
             />
           ) : (
-            activityList.visible.map((entry) => (
+            <MobileListGate>
+            {activityList.visible.map((entry) => (
               <div key={entry.id} className="rounded-md border border-border px-3 py-2 text-sm">
                 <p className="font-medium">{formatActivityAction(entry.action)}</p>
                 <p className="text-xs text-muted-foreground">
@@ -355,14 +360,15 @@ export function AdminPage() {
                   {typeof entry.metadata?.email === 'string' ? ` · ${entry.metadata.email}` : ''}
                 </p>
               </div>
-            ))
+            ))}
+            <SeeMoreButton
+              shown={activityList.shown}
+              total={activityList.total}
+              step={LIST_PREVIEW}
+              onMore={activityList.showMore}
+            />
+            </MobileListGate>
           )}
-          <SeeMoreButton
-            shown={activityList.shown}
-            total={activityList.total}
-            step={LIST_PREVIEW}
-            onMore={activityList.showMore}
-          />
         </CardContent>
       </Card>
     </div>

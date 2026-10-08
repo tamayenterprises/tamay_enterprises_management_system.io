@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MobileListGate } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -43,8 +44,6 @@ import type { AttendanceExceptionRequest, AttendanceRecord, UserRole } from '@/t
 export function DailyAttendanceSummary() {
   const today = format(startOfDay(new Date()), 'yyyy-MM-dd')
   const { data = [], isLoading, isError } = useAttendanceRecords({ fromDate: today, toDate: today })
-  const [showPeople, setShowPeople] = useState(false)
-
   if (isLoading) return <LoadingState label="Loading today's attendance..." />
   if (isError) return <EmptyState title="Unable to load attendance" />
 
@@ -71,22 +70,11 @@ export function DailyAttendanceSummary() {
         {data.length === 0 ? (
           <EmptyState title="No attendance yet today" description="Records appear when workers clock in." />
         ) : (
-          <>
-            <div className={showPeople ? 'space-y-2' : 'hidden space-y-2 lg:block'}>
-              {data.slice(0, 8).map((row) => (
-                <AttendanceRow key={row.id} record={row} compact />
-              ))}
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="w-full lg:hidden"
-              onClick={() => setShowPeople((open) => !open)}
-            >
-              {showPeople ? 'Show less' : 'See more'}
-            </Button>
-          </>
+          <MobileListGate>
+            {data.slice(0, 8).map((row) => (
+              <AttendanceRow key={row.id} record={row} compact />
+            ))}
+          </MobileListGate>
         )}
       </CardContent>
     </Card>
@@ -376,24 +364,24 @@ export function TimesheetsPanel() {
           {!isLoading && !isError && data.length === 0 ? (
             <EmptyState title="No attendance records" description="Try adjusting filters or wait for workers to clock in." />
           ) : null}
-          {!isLoading &&
-            !isError &&
-            historyRows.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                className="w-full text-left"
-                onClick={() => openCorrection(row)}
-              >
-                <AttendanceRow record={row} />
-              </button>
-            ))}
-          {!isLoading && !isError ? (
-            <ShowMoreButton
-              shown={historyShown}
-              total={data.length}
-              onMore={() => setHistoryShown((n) => growPreview(n, data.length))}
-            />
+          {!isLoading && !isError && data.length > 0 ? (
+            <MobileListGate>
+              {historyRows.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => openCorrection(row)}
+                >
+                  <AttendanceRow record={row} />
+                </button>
+              ))}
+              <ShowMoreButton
+                shown={historyShown}
+                total={data.length}
+                onMore={() => setHistoryShown((n) => growPreview(n, data.length))}
+              />
+            </MobileListGate>
           ) : null}
         </CardContent>
       </Card>
@@ -409,7 +397,8 @@ export function TimesheetsPanel() {
           {pendingExceptions.length === 0 ? (
             <EmptyState title="No pending exceptions" />
           ) : (
-            exceptionRows.map((req) => {
+            <MobileListGate>
+            {exceptionRows.map((req) => {
               const related = data.find(
                 (row) =>
                   row.id === req.attendance_record_id ||
@@ -494,13 +483,14 @@ export function TimesheetsPanel() {
                   }}
                 />
               )
-            })
+            })}
+            <ShowMoreButton
+              shown={exceptionsShown}
+              total={pendingExceptions.length}
+              onMore={() => setExceptionsShown((n) => growPreview(n, pendingExceptions.length))}
+            />
+            </MobileListGate>
           )}
-          <ShowMoreButton
-            shown={exceptionsShown}
-            total={pendingExceptions.length}
-            onMore={() => setExceptionsShown((n) => growPreview(n, pendingExceptions.length))}
-          />
         </CardContent>
       </Card>
 
@@ -513,7 +503,8 @@ export function TimesheetsPanel() {
           {rejectedAttempts.length === 0 ? (
             <EmptyState title="No rejected attempts" />
           ) : (
-            rejectedRows.map((attempt) => (
+            <MobileListGate>
+            {rejectedRows.map((attempt) => (
               <div key={attempt.id} className="rounded-md border border-border px-3 py-2 text-sm">
                 <p className="font-medium">
                   {attempt.profile
@@ -527,13 +518,14 @@ export function TimesheetsPanel() {
                 </p>
                 <p className="text-xs">{attempt.rejection_reason}</p>
               </div>
-            ))
+            ))}
+            <ShowMoreButton
+              shown={rejectedShown}
+              total={rejectedAttempts.length}
+              onMore={() => setRejectedShown((n) => growPreview(n, rejectedAttempts.length))}
+            />
+            </MobileListGate>
           )}
-          <ShowMoreButton
-            shown={rejectedShown}
-            total={rejectedAttempts.length}
-            onMore={() => setRejectedShown((n) => growPreview(n, rejectedAttempts.length))}
-          />
         </CardContent>
       </Card>
 

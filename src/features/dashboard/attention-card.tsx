@@ -73,7 +73,7 @@ export function AttentionCard() {
         ) : null}
 
         {shown.length > 0 ? (
-          <ul id={listId} className="divide-y divide-border">
+          <ul id={listId} className={cn('divide-y divide-border', !expanded && 'hidden lg:block')}>
             {shown.map((item) => (
               <AttentionRow key={item.id} item={item} />
             ))}
@@ -85,13 +85,29 @@ export function AttentionCard() {
           </ul>
         ) : null}
 
+        {items.length > 0 ? (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={listId}
+            onClick={() => setExpanded((value) => !value)}
+            className="flex min-h-11 w-full items-center justify-between rounded-lg px-2 text-sm font-semibold text-primary transition hover:bg-accent/10 aria-expanded:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+          >
+            <span>{expanded ? 'Show less' : 'See more'}</span>
+            <ChevronDown
+              className={cn('h-4 w-4 transition-transform duration-200', expanded && 'rotate-180')}
+              aria-hidden
+            />
+          </button>
+        ) : null}
+
         {hiddenCount > 0 ? (
           <button
             type="button"
             aria-expanded={expanded}
             aria-controls={listId}
             onClick={() => setExpanded((value) => !value)}
-            className="flex min-h-11 w-full items-center justify-between rounded-lg px-2 text-sm font-semibold text-primary transition hover:bg-accent/10 aria-expanded:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="hidden min-h-11 w-full items-center justify-between rounded-lg px-2 text-sm font-semibold text-primary transition hover:bg-accent/10 aria-expanded:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
           >
             <span>{expanded ? 'Show less' : `View ${hiddenCount} more`}</span>
             <ChevronDown

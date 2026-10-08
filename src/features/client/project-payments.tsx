@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { useProjectPayments } from '@/features/projects/finance-hooks'
 import { useFinanceProofViewer } from '@/features/projects/finance-proof-viewer'
 import { paymentProgressPercent } from '@/lib/client-portal-progress'
@@ -149,6 +149,7 @@ export function ClientProjectPayments({ project }: { project: Project }) {
         onOpenChange={setHistoryOpen}
         className="rounded-2xl border-border/80 bg-white shadow-[0_1px_2px_rgba(9,46,76,0.04)]"
       >
+        <MobileListGate>
         {paymentList.visible.map((payment) => (
           <div
             key={payment.id}
@@ -202,6 +203,7 @@ export function ClientProjectPayments({ project }: { project: Project }) {
           step={LIST_PREVIEW}
           onMore={paymentList.showMore}
         />
+        </MobileListGate>
       </CompactAccordion>
       {viewer}
     </div>

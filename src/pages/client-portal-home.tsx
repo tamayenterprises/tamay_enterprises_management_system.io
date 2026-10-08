@@ -15,7 +15,7 @@ import {
 import { ClientProjectSummaryCards } from '@/features/client/project-summary-cards'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import {
   createUpdatePhotoSignedUrl,
@@ -313,6 +313,7 @@ function HomeWithProject({
               More of your work with Tamay
             </h2>
           </div>
+          <MobileListGate>
           <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             {othersList.visible.map((project) => (
@@ -326,6 +327,7 @@ function HomeWithProject({
             onMore={othersList.showMore}
           />
           </div>
+          </MobileListGate>
         </section>
       ) : null}
     </div>

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -635,6 +635,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
             description="Post the first update so the next person on site knows where things stand."
           />
         ) : (
+          <MobileListGate>
           <div className="space-y-3">
             {updateList.visible.map((update) => (
               <UpdateCard
@@ -657,6 +658,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
               onMore={updateList.showMore}
             />
           </div>
+          </MobileListGate>
         )}
       </CardContent>
     </Card>

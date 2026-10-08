@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import {
   useProjectFinancialAudit,
   useProjectPayments,
@@ -457,6 +457,7 @@ export function ProjectFinancePanel({
               open={paymentsExpanded}
               onOpenChange={setPaymentsExpanded}
             >
+              <MobileListGate>
               {paymentList.visible.map((payment) => (
                 <PaymentCard
                   key={payment.id}
@@ -520,6 +521,7 @@ export function ProjectFinancePanel({
                 step={LIST_PREVIEW}
                 onMore={paymentList.showMore}
               />
+              </MobileListGate>
             </CompactAccordion>
           </CardContent>
         </Card>
@@ -570,6 +572,7 @@ export function ProjectFinancePanel({
                 ) : null
               }
             >
+              <MobileListGate>
               {receiptList.visible.map((receipt) => {
                 const isOpen = expandedReceiptId === receipt.id
                 const uploaderName = receipt.uploader
@@ -670,6 +673,7 @@ export function ProjectFinancePanel({
                 step={LIST_PREVIEW}
                 onMore={receiptList.showMore}
               />
+              </MobileListGate>
             </CompactAccordion>
             {canManageContract && audit.length > 0 ? (
               <div className="border-t border-border pt-3">

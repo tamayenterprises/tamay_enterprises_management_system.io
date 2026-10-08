@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useProjects } from '@/features/data/hooks'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
@@ -30,6 +30,7 @@ export function ClientProjectsPage() {
           description="Submit a project request first. After Tamay approves it, your project will show here."
         />
       ) : (
+        <MobileListGate>
         <div className="space-y-3">
         <div className="grid gap-3 md:grid-cols-2">
           {list.visible.map((project) => (
@@ -51,6 +52,7 @@ export function ClientProjectsPage() {
         </div>
         <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
     </div>
   )

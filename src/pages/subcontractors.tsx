@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
@@ -61,6 +61,7 @@ export function SubcontractorsPage() {
       {subcontractors.length === 0 ? (
         <EmptyState title="No subcontractors found" />
       ) : (
+        <MobileListGate>
         <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
           {list.visible.map((person) => (
@@ -108,6 +109,7 @@ export function SubcontractorsPage() {
         </div>
         <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
+        </MobileListGate>
       )}
     </div>
   )

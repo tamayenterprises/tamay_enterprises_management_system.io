@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { MobileListGate } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -514,7 +515,7 @@ export function ProjectDetailPage() {
                 {workerAssignments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No workers assigned yet.</p>
                 ) : (
-                  <>
+                  <MobileListGate>
                     {visibleWorkerAssignments.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No project manager assigned.</p>
                     ) : (
@@ -563,14 +564,14 @@ export function ProjectDetailPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="w-full"
+                        className="mt-2 hidden w-full lg:inline-flex"
                         aria-expanded={showAllPeople}
                         onClick={() => setShowAllPeople((open) => !open)}
                       >
                         {showAllPeople ? 'See less' : 'See more'}
                       </Button>
                     ) : null}
-                  </>
+                  </MobileListGate>
                 )}
               </div>
 

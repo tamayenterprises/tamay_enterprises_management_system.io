@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
@@ -287,6 +287,7 @@ export function PaymentsPage() {
           {payments.length === 0 ? (
             <EmptyState title="No payments yet" description="Stripe links and manually recorded payments will appear here." />
           ) : (
+            <MobileListGate>
             <div className="space-y-3">
             <div className="divide-y divide-border">
               {list.visible.map((payment) => {
@@ -335,6 +336,7 @@ export function PaymentsPage() {
             </div>
             <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
             </div>
+            </MobileListGate>
           )}
         </CardContent>
       </Card>

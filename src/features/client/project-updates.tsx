@@ -341,18 +341,6 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
 
   const ordered = useMemo(() => [...roots].reverse(), [roots])
 
-  /** Mobile: always ≥1; default up to 3 unless the latest update is already tall. */
-  const mobilePreviewLimit = useMemo(() => {
-    if (ordered.length === 0) return 0
-    const latest = ordered[0]!
-    const latestReplies = repliesByParent.get(latest.id) ?? []
-    if (isTallClientUpdate(latest, latestReplies)) return 1
-    return Math.min(3, ordered.length)
-  }, [ordered, repliesByParent])
-
-  const hiddenCount = Math.max(0, ordered.length - mobilePreviewLimit)
-  const canToggle = hiddenCount > 0
-
   return (
     <section className="rounded-2xl border border-border/80 bg-white p-4 shadow-[0_1px_2px_rgba(9,46,76,0.04),0_8px_24px_rgba(9,46,76,0.04)] sm:p-5">
       <div className="mb-4">
@@ -445,14 +433,9 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
           />
         ) : (
           <>
-            <div id="client-project-updates-list">
-              {ordered.map((update, index) => (
-                <div
-                  key={update.id}
-                  className={cn(
-                    index >= mobilePreviewLimit && !showAll && 'max-lg:hidden',
-                  )}
-                >
+            <div id="client-project-updates-list" className={showAll ? 'space-y-3' : 'hidden space-y-3 lg:block'}>
+              {ordered.map((update) => (
+                <div key={update.id}>
                   <ClientUpdateCard
                     update={update}
                     replies={repliesByParent.get(update.id) ?? []}
@@ -461,20 +444,16 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
                 </div>
               ))}
             </div>
-            {canToggle ? (
-              <Button
-                type="button"
-                variant={showAll ? 'ghost' : 'outline'}
-                className="mt-2 h-11 w-full rounded-xl lg:hidden"
-                aria-expanded={showAll}
-                aria-controls="client-project-updates-list"
-                onClick={() => setShowAll((open) => !open)}
-              >
-                {showAll
-                  ? 'Show Less'
-                  : `View More Updates${hiddenCount > 0 ? ` (${hiddenCount})` : ''}`}
-              </Button>
-            ) : null}
+            <Button
+              type="button"
+              variant={showAll ? 'ghost' : 'outline'}
+              className="mt-2 h-11 w-full rounded-xl lg:hidden"
+              aria-expanded={showAll}
+              aria-controls="client-project-updates-list"
+              onClick={() => setShowAll((open) => !open)}
+            >
+              {showAll ? 'Show less' : 'See more'}
+            </Button>
           </>
         )}
       </div>
