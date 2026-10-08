@@ -35,11 +35,14 @@ export function AdminPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [approvalFilter, setApprovalFilter] = useState<string>('all')
   const [showArchived, setShowArchived] = useState(false)
+  const [showAllActivity, setShowAllActivity] = useState(false)
 
   const pending = usePendingApprovals()
   const profiles = useProfiles({ includeArchived: true, search: search || undefined })
   const roles = useRoles()
-  const activity = useActivityLog(20)
+  const activity = useActivityLog(80)
+  const activityRows = activity.data ?? []
+  const visibleActivity = showAllActivity ? activityRows : activityRows.slice(0, 5)
   const approveUser = useApproveUser()
   const updateRole = useUpdateUserRole()
   const setAccess = useAdminSetUserAccess()
@@ -310,19 +313,28 @@ export function AdminPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Recent admin activity</CardTitle>
+          {activityRows.length > 5 ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAllActivity((open) => !open)}
+            >
+              {showAllActivity ? 'Show less' : 'View all'}
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
           {activity.isLoading ? (
             <LoadingState label="Loading activity..." />
-          ) : (activity.data ?? []).length === 0 ? (
+          ) : activityRows.length === 0 ? (
             <EmptyState
               title="No activity yet"
               description="Approvals, role changes, and access updates will appear here."
             />
           ) : (
-            (activity.data ?? []).map((entry) => (
+            visibleActivity.map((entry) => (
               <div key={entry.id} className="rounded-md border border-border px-3 py-2 text-sm">
                 <p className="font-medium">{formatActivityAction(entry.action)}</p>
                 <p className="text-xs text-muted-foreground">
