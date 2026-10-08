@@ -14,3 +14,8 @@ export function workforceAdminActions(input: {
     canHireBack: isAdmin && !isSelf && !input.isActive,
   }
 }
+
+export function accountChangeReason(typed: string, fallback: string) {
+  const value = typed.trim()
+  return value.length >= 3 ? value : fallback
+}

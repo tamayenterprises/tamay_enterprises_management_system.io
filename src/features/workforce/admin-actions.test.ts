@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { workforceAdminActions } from './admin-actions'
+import { accountChangeReason, workforceAdminActions } from './admin-actions'
 
 describe('workforceAdminActions', () => {
   it('lets an admin clock out, deactivate, and remove someone else', () => {
@@ -49,5 +49,10 @@ describe('workforceAdminActions', () => {
     })
     expect(actions.canHireBack).toBe(true)
     expect(actions.canDeactivate).toBe(false)
+  })
+
+  it('uses a typed reason, or a dashboard default so Deactivate and Remove still run', () => {
+    expect(accountChangeReason('Safety hold', 'Deactivated from Workforce status')).toBe('Safety hold')
+    expect(accountChangeReason('  ', 'Removed from Workforce status')).toBe('Removed from Workforce status')
   })
 })

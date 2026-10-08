@@ -17,7 +17,7 @@ import {
   useUpdateWorkerStatus,
 } from '@/features/workforce/hooks'
 import { useProjects, useSetWorkerStatus } from '@/features/data/hooks'
-import { workforceAdminActions } from '@/features/workforce/admin-actions'
+import { accountChangeReason, workforceAdminActions } from '@/features/workforce/admin-actions'
 import { confirmAction } from '@/lib/uploads'
 import {
   WORKFORCE_STATUSES,
@@ -195,7 +195,6 @@ export function WorkforceStatusPanel() {
       })
     : null
   const busy = clockOut.isPending || setWorkerStatus.isPending
-  const reasonReady = reason.trim().length >= 3
 
   const counts = useMemo(() => {
     const summary: Record<WorkforceStatus, number> = {
@@ -321,11 +320,11 @@ export function WorkforceStatusPanel() {
                 <div className="space-y-3 border-t border-border pt-4">
                   {profile?.role === 'admin' ? (
                     <div className="space-y-1">
-                      <Label>Reason (required for account changes)</Label>
+                      <Label>Reason (optional)</Label>
                       <Textarea
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
-                        placeholder="Why is this worker’s status changing?"
+                        placeholder="Why is this worker’s status changing? Deactivate and Remove work without this."
                         rows={3}
                       />
                     </div>
@@ -356,13 +355,13 @@ export function WorkforceStatusPanel() {
                       <Button
                         size="sm"
                         variant="outline"
-                        disabled={busy || !reasonReady}
+                        disabled={busy}
                         onClick={async () => {
                           try {
                             await setWorkerStatus.mutateAsync({
                               workerId: selected.user_id,
                               action: 'deactivate',
-                              reason: reason.trim(),
+                              reason: accountChangeReason(reason, 'Deactivated from Workforce status'),
                             })
                             toast.success('Worker deactivated')
                             setSelected(null)
@@ -378,13 +377,13 @@ export function WorkforceStatusPanel() {
                     {selectedActions.canHireBack ? (
                       <Button
                         size="sm"
-                        disabled={busy || !reasonReady}
+                        disabled={busy}
                         onClick={async () => {
                           try {
                             await setWorkerStatus.mutateAsync({
                               workerId: selected.user_id,
                               action: 'activate',
-                              reason: reason.trim(),
+                              reason: accountChangeReason(reason, 'Activated from Workforce status'),
                             })
                             toast.success('Worker activated')
                             setSelected(null)
@@ -401,7 +400,7 @@ export function WorkforceStatusPanel() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        disabled={busy || !reasonReady}
+                        disabled={busy}
                         onClick={async () => {
                           const name = fullName(selected.first_name, selected.last_name)
                           if (
@@ -415,7 +414,7 @@ export function WorkforceStatusPanel() {
                             const result = await setWorkerStatus.mutateAsync({
                               workerId: selected.user_id,
                               action: 'archive',
-                              reason: reason.trim(),
+                              reason: accountChangeReason(reason, 'Removed from Workforce status'),
                             })
                             toast.success(
                               result.unassignedCount > 0
