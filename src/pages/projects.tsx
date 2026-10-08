@@ -342,23 +342,25 @@ function ManagementProjectsPage() {
       <div className="flex flex-wrap items-center gap-2">
         {canManage ? (
           <>
-            <Button
-              size="sm"
-              variant={archivedView === 'active' ? 'default' : 'outline'}
-              onClick={() => {
-                setArchivedView('active')
-                setWarrantyFilter('all')
+            <Select
+              value={archivedView}
+              onValueChange={(value) => {
+                const next = value as 'active' | 'archived'
+                setArchivedView(next)
+                if (next === 'active') setWarrantyFilter('all')
               }}
             >
-              Active
-            </Button>
-            <Button
-              size="sm"
-              variant={archivedView === 'archived' ? 'default' : 'outline'}
-              onClick={() => setArchivedView('archived')}
-            >
-              Archived
-            </Button>
+              <SelectTrigger
+                className="h-8 w-[10.5rem] rounded-md"
+                aria-label="Show active or archived projects"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active projects</SelectItem>
+                <SelectItem value="archived">Archived projects</SelectItem>
+              </SelectContent>
+            </Select>
             <span className="mx-1 hidden h-5 w-px bg-border sm:inline-block" aria-hidden />
           </>
         ) : null}
