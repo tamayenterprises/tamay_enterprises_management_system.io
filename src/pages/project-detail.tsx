@@ -53,6 +53,7 @@ import type { ProjectStatus } from '@/types/database'
 import { ProjectContentUploadDialog } from '@/features/projects/project-content-upload'
 import { ProjectClientsSection } from '@/features/projects/project-clients-section'
 import { ProjectContactSection } from '@/features/projects/project-contact-section'
+import { splitWorkerAssignments } from '@/features/projects/project-people'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
@@ -76,6 +77,7 @@ export function ProjectDetailPage() {
   const assignWorker = useAssignWorker()
   const removeAssignment = useRemoveAssignment()
   const [selectedWorker, setSelectedWorker] = useState('')
+  const [showAllPeople, setShowAllPeople] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const focusDocId = params.get('doc')
@@ -135,6 +137,13 @@ export function ProjectDetailPage() {
     () => assignments.filter((item) => item.profile?.role !== 'client'),
     [assignments],
   )
+  const { managers: managerAssignments, others: otherWorkerAssignments } = useMemo(
+    () => splitWorkerAssignments(workerAssignments),
+    [workerAssignments],
+  )
+  const visibleWorkerAssignments = showAllPeople
+    ? [...managerAssignments, ...otherWorkerAssignments]
+    : managerAssignments
   const clientAssignments = useMemo(
     () => assignments.filter((item) => item.profile?.role === 'client'),
     [assignments],
@@ -505,45 +514,63 @@ export function ProjectDetailPage() {
                 {workerAssignments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No workers assigned yet.</p>
                 ) : (
-                  workerAssignments.map((assignment) => (
-                    <div
-                      key={assignment.id}
-                      className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {assignment.profile
-                            ? fullName(assignment.profile.first_name, assignment.profile.last_name)
-                            : 'Worker'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {assignment.profile ? roleLabel(assignment.profile.role) : '—'} · assigned{' '}
-                          {formatRelative(assignment.assigned_at)}
-                        </p>
-                      </div>
-                      {canManage ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="min-h-11 w-full sm:w-auto"
-                          onClick={async () => {
-                            try {
-                              await removeAssignment.mutateAsync({
-                                assignmentId: assignment.id,
-                                projectId: project.id,
-                                profileId: assignment.profile_id,
-                              })
-                              toast.success('Worker removed')
-                            } catch (error) {
-                              toast.error(error instanceof Error ? error.message : 'Remove failed')
-                            }
-                          }}
+                  <>
+                    {visibleWorkerAssignments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No project manager assigned.</p>
+                    ) : (
+                      visibleWorkerAssignments.map((assignment) => (
+                        <div
+                          key={assignment.id}
+                          className="flex flex-col gap-2 rounded-md border border-border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between"
                         >
-                          Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                  ))
+                          <div>
+                            <p className="font-medium">
+                              {assignment.profile
+                                ? fullName(assignment.profile.first_name, assignment.profile.last_name)
+                                : 'Worker'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {assignment.profile ? roleLabel(assignment.profile.role) : '—'} · assigned{' '}
+                              {formatRelative(assignment.assigned_at)}
+                            </p>
+                          </div>
+                          {canManage ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="min-h-11 w-full sm:w-auto"
+                              onClick={async () => {
+                                try {
+                                  await removeAssignment.mutateAsync({
+                                    assignmentId: assignment.id,
+                                    projectId: project.id,
+                                    profileId: assignment.profile_id,
+                                  })
+                                  toast.success('Worker removed')
+                                } catch (error) {
+                                  toast.error(error instanceof Error ? error.message : 'Remove failed')
+                                }
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          ) : null}
+                        </div>
+                      ))
+                    )}
+                    {otherWorkerAssignments.length > 0 ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        aria-expanded={showAllPeople}
+                        onClick={() => setShowAllPeople((open) => !open)}
+                      >
+                        {showAllPeople ? 'See less' : 'See more'}
+                      </Button>
+                    ) : null}
+                  </>
                 )}
               </div>
 
