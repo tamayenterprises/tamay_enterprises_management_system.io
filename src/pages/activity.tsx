@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
@@ -13,6 +13,8 @@ import { useProjects } from '@/features/data/hooks'
 import { useProjectActivityFeed, relevanceLabel } from '@/features/notifications/hooks'
 import { canAccessAdmin, isManagementRole } from '@/lib/utils'
 import type { ProjectActivityType } from '@/types/database'
+
+const ACTIVITY_PREVIEW = 5
 
 const ATTENDANCE_TYPES: ProjectActivityType[] = [
   'ATTENDANCE_EXCEPTION_SUBMITTED',
@@ -56,6 +58,7 @@ export function RecentActivityPage() {
   const isAdmin = canAccessAdmin(profile?.role)
   const [filter, setFilter] = useState('all')
   const [projectId, setProjectId] = useState<string>('all')
+  const [showAll, setShowAll] = useState(false)
   const { data: projects = [] } = useProjects({ assignedOnly: !isAdmin })
 
   const active = FILTERS.find((f) => f.value === filter) ?? FILTERS[0]
@@ -72,7 +75,11 @@ export function RecentActivityPage() {
     limit: 50,
   })
 
-  const visible = data
+  useEffect(() => {
+    setShowAll(false)
+  }, [filter, projectId])
+
+  const visible = showAll ? data : data.slice(0, ACTIVITY_PREVIEW)
 
   if (!canManage && profile?.role !== 'employee' && profile?.role !== 'subcontractor') {
     return <EmptyState title="Activity feed unavailable" />
@@ -129,8 +136,13 @@ export function RecentActivityPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Activity timeline</CardTitle>
+          {data.length > ACTIVITY_PREVIEW ? (
+            <Button size="sm" variant="outline" onClick={() => setShowAll((open) => !open)}>
+              {showAll ? 'Show less' : 'View all'}
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading ? <LoadingState label="Loading activity..." /> : null}
