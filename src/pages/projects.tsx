@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -404,7 +404,6 @@ function ManagementProjectsPage() {
           }
         />
       ) : (
-        <MobileListGate>
         <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
           {list.visible.map((project) => {
@@ -539,7 +538,6 @@ function ManagementProjectsPage() {
         </div>
         <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
         </div>
-        </MobileListGate>
       )}
     </div>
   )
