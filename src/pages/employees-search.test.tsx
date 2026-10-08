@@ -43,6 +43,14 @@ beforeEach(() => {
 })
 
 describe('Employees search', () => {
+  it('shows All, Active, Inactive, and Removed filters', () => {
+    render(<EmployeesPage />)
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Active' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Inactive' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Removed' })).toBeInTheDocument()
+  })
+
   it('keeps the search box mounted while a new query is fetching', async () => {
     const user = userEvent.setup()
     const { rerender } = render(<EmployeesPage />)

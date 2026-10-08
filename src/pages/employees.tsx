@@ -25,26 +25,33 @@ import {
 import { ProfileAvatar } from '@/features/profile/avatar'
 import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
 import { formatDate, fullName, roleLabel } from '@/lib/utils'
+import { PersonDirectoryFilters } from '@/components/ui/person-directory-filters'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import {
+  matchesPersonDirectoryFilter,
+  personDirectoryEmptyTitle,
+  type PersonDirectoryFilter,
+} from '@/lib/person-directory'
 import { confirmAction } from '@/lib/uploads'
 import { profileSchema, type ProfileFormValues } from '@/lib/validations'
 import type { Profile } from '@/types/database'
 
 export function EmployeesPage() {
   const [search, setSearch] = useState('')
-  const [activeOnly, setActiveOnly] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<PersonDirectoryFilter>('active')
   const { data, isLoading, isError } = useProfiles({
     role: 'employee',
     search,
+    includeArchived: true,
   })
   const updateProfile = useUpdateProfile()
   const setAccess = useAdminSetUserAccess()
 
   const employees = useMemo(() => {
     const rows = data ?? []
-    return rows.filter((row) => (activeOnly ? row.is_active && !row.archived_at : true))
-  }, [data, activeOnly])
-  const list = useListPreview(employees, `${search}:${activeOnly}`)
+    return rows.filter((row) => matchesPersonDirectoryFilter(row, statusFilter))
+  }, [data, statusFilter])
+  const list = useListPreview(employees, `${search}:${statusFilter}`)
 
   if (isLoading && !data) return <LoadingState />
   if (isError) {
@@ -61,25 +68,21 @@ export function EmployeesPage() {
             projects without removing the person. Attendance eligibility follows Active worker status.
           </p>
         </div>
-        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row">
-          <Input
-            placeholder="Search employees..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full min-w-0 sm:w-64"
-          />
-          <Button
-            className="w-full sm:w-auto"
-            variant={activeOnly ? 'default' : 'outline'}
-            onClick={() => setActiveOnly((v) => !v)}
-          >
-            {activeOnly ? 'Active only' : 'All statuses'}
-          </Button>
-        </div>
+        <Input
+          placeholder="Search employees..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full min-w-0 sm:w-64"
+        />
       </div>
 
+      <PersonDirectoryFilters value={statusFilter} onChange={setStatusFilter} />
+
       {employees.length === 0 ? (
-        <EmptyState title="No employees found" description="Adjust filters or approve registrations to populate this list." />
+        <EmptyState
+          title={personDirectoryEmptyTitle('employees', statusFilter)}
+          description="Adjust filters or approve registrations to populate this list."
+        />
       ) : (
         <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -174,9 +177,13 @@ function EmployeeCard({
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Badge variant="secondary">{roleLabel(employee.role)}</Badge>
-          <Badge variant={eligibility.derived_status === 'ACTIVE' ? 'success' : 'destructive'}>
-            {eligibility.derived_status}
-          </Badge>
+          {employee.archived_at ? (
+            <Badge variant="destructive">Removed</Badge>
+          ) : (
+            <Badge variant={eligibility.derived_status === 'ACTIVE' ? 'success' : 'destructive'}>
+              {eligibility.derived_status}
+            </Badge>
+          )}
           {employee.approval_status === 'pending' ? <Badge variant="outline">Pending Activation</Badge> : null}
         </div>
       </CardHeader>
@@ -357,9 +364,11 @@ function EmployeeCard({
             </DialogContent>
           </Dialog>
 
-          <Button size="sm" variant="destructive" onClick={onArchive}>
-            Remove
-          </Button>
+          {employee.archived_at ? null : (
+            <Button size="sm" variant="destructive" onClick={onArchive}>
+              Remove
+            </Button>
+          )}
         </div>
         <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
           <ProfileAssignmentsPanel

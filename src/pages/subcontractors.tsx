@@ -14,7 +14,13 @@ import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-pa
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import { fullName } from '@/lib/utils'
+import { PersonDirectoryFilters } from '@/components/ui/person-directory-filters'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import {
+  matchesPersonDirectoryFilter,
+  personDirectoryEmptyTitle,
+  type PersonDirectoryFilter,
+} from '@/lib/person-directory'
 import { confirmAction } from '@/lib/uploads'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -23,12 +29,20 @@ import type { Profile } from '@/types/database'
 
 export function SubcontractorsPage() {
   const [search, setSearch] = useState('')
-  const { data, isLoading, isError } = useProfiles({ role: 'subcontractor', search })
+  const [statusFilter, setStatusFilter] = useState<PersonDirectoryFilter>('active')
+  const { data, isLoading, isError } = useProfiles({
+    role: 'subcontractor',
+    search,
+    includeArchived: true,
+  })
   const updateProfile = useUpdateProfile()
   const setAccess = useAdminSetUserAccess()
 
-  const subcontractors = useMemo(() => data ?? [], [data])
-  const list = useListPreview(subcontractors, search)
+  const subcontractors = useMemo(() => {
+    const rows = data ?? []
+    return rows.filter((row) => matchesPersonDirectoryFilter(row, statusFilter))
+  }, [data, statusFilter])
+  const list = useListPreview(subcontractors, `${search}:${statusFilter}`)
 
   if (isLoading && !data) return <LoadingState />
   if (isError) {
@@ -58,8 +72,10 @@ export function SubcontractorsPage() {
         />
       </div>
 
+      <PersonDirectoryFilters value={statusFilter} onChange={setStatusFilter} />
+
       {subcontractors.length === 0 ? (
-        <EmptyState title="No subcontractors found" />
+        <EmptyState title={personDirectoryEmptyTitle('subcontractors', statusFilter)} />
       ) : (
         <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -85,6 +101,18 @@ export function SubcontractorsPage() {
               }}
               onArchive={async () => {
                 const name = person.company_name || fullName(person.first_name, person.last_name)
+                if (person.archived_at) {
+                  if (!confirmAction(`Restore ${name}? They stay unassigned until you assign projects again.`)) {
+                    return
+                  }
+                  try {
+                    await setAccess.mutateAsync({ id: person.id, archived: false })
+                    toast.success('Subcontractor restored')
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Restore failed')
+                  }
+                  return
+                }
                 if (
                   !confirmAction(
                     `Remove ${name}? They will be archived, deactivated, and unassigned from all projects. You can restore them later.`,
@@ -156,9 +184,13 @@ function SubcontractorCard({
             </p>
           </div>
         </div>
-        <Badge variant={person.is_active ? 'success' : 'destructive'}>
-          {person.is_active ? 'Active' : 'Inactive'}
-        </Badge>
+        {person.archived_at ? (
+          <Badge variant="destructive">Removed</Badge>
+        ) : (
+          <Badge variant={person.is_active ? 'success' : 'destructive'}>
+            {person.is_active ? 'Active' : 'Inactive'}
+          </Badge>
+        )}
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <p>Trade: {person.trade_specialization || '—'}</p>
@@ -204,11 +236,13 @@ function SubcontractorCard({
               </form>
             </DialogContent>
           </Dialog>
-          <Button size="sm" variant="outline" onClick={onToggleActive}>
-            {person.is_active ? 'Deactivate' : 'Activate'}
-          </Button>
-          <Button size="sm" variant="destructive" onClick={onArchive}>
-            Remove
+          {person.archived_at ? null : (
+            <Button size="sm" variant="outline" onClick={onToggleActive}>
+              {person.is_active ? 'Deactivate' : 'Activate'}
+            </Button>
+          )}
+          <Button size="sm" variant={person.archived_at ? 'outline' : 'destructive'} onClick={onArchive}>
+            {person.archived_at ? 'Restore' : 'Remove'}
           </Button>
         </div>
         <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">

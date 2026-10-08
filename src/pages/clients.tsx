@@ -14,7 +14,13 @@ import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-pa
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import { approvalStatusLabel, fullName, roleLabel } from '@/lib/utils'
+import { PersonDirectoryFilters } from '@/components/ui/person-directory-filters'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import {
+  matchesPersonDirectoryFilter,
+  personDirectoryEmptyTitle,
+  type PersonDirectoryFilter,
+} from '@/lib/person-directory'
 import { confirmAction } from '@/lib/uploads'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -23,16 +29,16 @@ import type { Profile } from '@/types/database'
 
 export function ClientsPage() {
   const [search, setSearch] = useState('')
-  const [activeOnly, setActiveOnly] = useState(true)
-  const { data, isLoading, isError } = useProfiles({ role: 'client', search })
+  const [statusFilter, setStatusFilter] = useState<PersonDirectoryFilter>('active')
+  const { data, isLoading, isError } = useProfiles({ role: 'client', search, includeArchived: true })
   const updateProfile = useUpdateProfile()
   const setAccess = useAdminSetUserAccess()
 
   const clients = useMemo(() => {
     const rows = data ?? []
-    return rows.filter((row) => (activeOnly ? row.is_active && !row.archived_at : true))
-  }, [data, activeOnly])
-  const list = useListPreview(clients, `${search}:${activeOnly}`)
+    return rows.filter((row) => matchesPersonDirectoryFilter(row, statusFilter))
+  }, [data, statusFilter])
+  const list = useListPreview(clients, `${search}:${statusFilter}`)
 
   if (isLoading && !data) return <LoadingState />
   if (isError) {
@@ -49,25 +55,21 @@ export function ClientsPage() {
             Only admins see this directory.
           </p>
         </div>
-        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row">
-          <Input
-            placeholder="Search clients..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="w-full min-w-0 sm:w-64"
-          />
-          <Button
-            className="w-full sm:w-auto"
-            variant={activeOnly ? 'default' : 'outline'}
-            onClick={() => setActiveOnly((value) => !value)}
-          >
-            {activeOnly ? 'Active only' : 'All statuses'}
-          </Button>
-        </div>
+        <Input
+          placeholder="Search clients..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="w-full min-w-0 sm:w-64"
+        />
       </div>
 
+      <PersonDirectoryFilters value={statusFilter} onChange={setStatusFilter} />
+
       {clients.length === 0 ? (
-        <EmptyState title="No clients found" description="Approve client registrations or adjust filters." />
+        <EmptyState
+          title={personDirectoryEmptyTitle('clients', statusFilter)}
+          description="Approve client registrations or adjust filters."
+        />
       ) : (
         <div className="space-y-3">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -93,9 +95,21 @@ export function ClientsPage() {
               }}
               onArchive={async () => {
                 const name = fullName(client.first_name, client.last_name) || client.company_name || client.email
+                if (client.archived_at) {
+                  if (!confirmAction(`Restore ${name}? They stay unassigned until you assign projects again.`)) {
+                    return
+                  }
+                  try {
+                    await setAccess.mutateAsync({ id: client.id, archived: false })
+                    toast.success('Client restored')
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Restore failed')
+                  }
+                  return
+                }
                 if (
                   !confirmAction(
-                    `Remove ${name}? They will be archived, deactivated, and unassigned from all projects. You can restore them later from Admin.`,
+                    `Remove ${name}? They will be archived, deactivated, and unassigned from all projects. You can restore them later.`,
                   )
                 ) {
                   return
@@ -163,9 +177,13 @@ function ClientCard({
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Badge variant="secondary">{roleLabel(client.role)}</Badge>
-          <Badge variant={client.is_active ? 'success' : 'destructive'}>
-            {client.is_active ? 'Active' : 'Inactive'}
-          </Badge>
+          {client.archived_at ? (
+            <Badge variant="destructive">Removed</Badge>
+          ) : (
+            <Badge variant={client.is_active ? 'success' : 'destructive'}>
+              {client.is_active ? 'Active' : 'Inactive'}
+            </Badge>
+          )}
           {client.approval_status === 'pending' ? <Badge variant="outline">Pending</Badge> : null}
         </div>
       </CardHeader>
@@ -209,11 +227,13 @@ function ClientCard({
               </form>
             </DialogContent>
           </Dialog>
-          <Button size="sm" variant="outline" onClick={onToggleActive}>
-            {client.is_active ? 'Deactivate' : 'Activate'}
-          </Button>
-          <Button size="sm" variant="destructive" onClick={onArchive}>
-            Remove
+          {client.archived_at ? null : (
+            <Button size="sm" variant="outline" onClick={onToggleActive}>
+              {client.is_active ? 'Deactivate' : 'Activate'}
+            </Button>
+          )}
+          <Button size="sm" variant={client.archived_at ? 'outline' : 'destructive'} onClick={onArchive}>
+            {client.archived_at ? 'Restore' : 'Remove'}
           </Button>
         </div>
         <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
