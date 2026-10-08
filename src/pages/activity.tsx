@@ -136,13 +136,13 @@ export function RecentActivityPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Activity timeline</CardTitle>
           {data.length > ACTIVITY_PREVIEW ? (
             <Button
               size="sm"
               variant="outline"
-              className="w-full sm:w-auto"
+              className="hidden sm:inline-flex"
               onClick={() => setShowAll((open) => !open)}
             >
               {showAll ? 'Show less' : 'View all'}
@@ -208,6 +208,16 @@ export function RecentActivityPage() {
               </div>
             )
           })}
+          {data.length > ACTIVITY_PREVIEW ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full sm:hidden"
+              onClick={() => setShowAll((open) => !open)}
+            >
+              {showAll ? 'Show less' : 'View all'}
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
     </div>

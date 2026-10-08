@@ -197,14 +197,14 @@ export function DashboardPage() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
-          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>{isManagement ? 'Projects' : 'Assigned projects'}</CardTitle>
               <CardDescription>
                 {isManagement ? 'All active company projects.' : 'Projects currently connected to your account.'}
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
               <Link to="/projects">View all</Link>
             </Button>
           </CardHeader>
@@ -240,16 +240,19 @@ export function DashboardPage() {
                 </Link>
               ))
             )}
+            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
+              <Link to="/projects">View all</Link>
+            </Button>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Upcoming deadlines</CardTitle>
               <CardDescription>Nearest project due dates.</CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
               <Link to="/projects">View all</Link>
             </Button>
           </CardHeader>
@@ -271,18 +274,21 @@ export function DashboardPage() {
                 </Link>
               ))
             )}
+            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
+              <Link to="/projects">View all</Link>
+            </Button>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Certification alerts</CardTitle>
               <CardDescription>
                 {isManagement ? 'Expiring or expired credentials across the workforce.' : 'Your credentials that need attention.'}
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
               <Link to="/certifications">View all</Link>
             </Button>
           </CardHeader>
@@ -309,16 +315,19 @@ export function DashboardPage() {
                 </div>
               ))
             })()}
+            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
+              <Link to="/certifications">View all</Link>
+            </Button>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Recent activity</CardTitle>
               <CardDescription>Latest notifications for your account.</CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
               <Link to="/notifications">View all</Link>
             </Button>
           </CardHeader>
@@ -339,6 +348,9 @@ export function DashboardPage() {
                 </Link>
               ))
             )}
+            <Button asChild size="sm" variant="outline" className="w-full sm:hidden">
+              <Link to="/notifications">View all</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
