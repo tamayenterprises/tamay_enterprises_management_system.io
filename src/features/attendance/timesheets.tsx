@@ -21,7 +21,7 @@ import {
   useResolveExceptionRequest,
   type AttendanceFilters,
 } from '@/features/attendance/hooks'
-import { ASSIGNED_PROJECTS_PREVIEW, visibleAssignments } from '@/features/admin/assignment-preview'
+import { ASSIGNED_PROJECTS_PREVIEW, growPreview } from '@/features/admin/assignment-preview'
 import { useProfiles, useProjects, useSetWorkerStatus, useWorkerEligibility } from '@/features/data/hooks'
 import {
   CORRECTION_REASON_OPTIONS,
@@ -83,9 +83,9 @@ export function TimesheetsPanel() {
     fromDate: format(startOfDay(new Date()), 'yyyy-MM-dd'),
     toDate: format(new Date(), 'yyyy-MM-dd'),
   })
-  const [showAllHistory, setShowAllHistory] = useState(false)
-  const [showAllExceptions, setShowAllExceptions] = useState(false)
-  const [showAllRejected, setShowAllRejected] = useState(false)
+  const [historyShown, setHistoryShown] = useState(ASSIGNED_PROJECTS_PREVIEW)
+  const [exceptionsShown, setExceptionsShown] = useState(ASSIGNED_PROJECTS_PREVIEW)
+  const [rejectedShown, setRejectedShown] = useState(ASSIGNED_PROJECTS_PREVIEW)
   const [selected, setSelected] = useState<AttendanceRecord | null>(null)
   const [linkedException, setLinkedException] = useState<AttendanceExceptionRequest | null>(null)
   const { data: projects = [] } = useProjects()
@@ -93,7 +93,7 @@ export function TimesheetsPanel() {
     role: ['employee', 'subcontractor', 'project_manager'],
   })
   const { data = [], isLoading, isError } = useAttendanceRecords(filters)
-  const historyRows = visibleAssignments(data, showAllHistory)
+  const historyRows = data.slice(0, historyShown)
   const correct = useCorrectAttendance()
 
   const [clockIn, setClockIn] = useState('')
@@ -112,15 +112,23 @@ export function TimesheetsPanel() {
   const { data: corrections = [] } = useAttendanceCorrections(selected?.id)
   const { data: rejectedAttempts = [] } = useAttendanceAttempts({ onlyRejected: true })
   const { data: pendingExceptions = [] } = useExceptionRequests('pending')
-  const exceptionRows = visibleAssignments(pendingExceptions, showAllExceptions)
-  const rejectedRows = visibleAssignments(rejectedAttempts, showAllRejected)
+  const exceptionRows = pendingExceptions.slice(0, exceptionsShown)
+  const rejectedRows = rejectedAttempts.slice(0, rejectedShown)
   const resolveException = useResolveExceptionRequest()
   const [params] = useSearchParams()
   const focusExceptionId = params.get('exception')
   const focusRecordId = params.get('record')
 
   useEffect(() => {
+    setHistoryShown(ASSIGNED_PROJECTS_PREVIEW)
+  }, [filters])
+
+  useEffect(() => {
     if (!focusExceptionId) return
+    const index = pendingExceptions.findIndex((row) => row.id === focusExceptionId)
+    if (index >= 0) {
+      setExceptionsShown((n) => Math.max(n, index + 1))
+    }
     const timer = window.setTimeout(() => {
       document
         .getElementById(`exception-${focusExceptionId}`)
@@ -366,9 +374,9 @@ export function TimesheetsPanel() {
             ))}
           {!isLoading && !isError ? (
             <ShowMoreButton
+              shown={historyShown}
               total={data.length}
-              expanded={showAllHistory}
-              onToggle={() => setShowAllHistory((open) => !open)}
+              onMore={() => setHistoryShown((n) => growPreview(n, data.length))}
             />
           ) : null}
         </CardContent>
@@ -473,9 +481,9 @@ export function TimesheetsPanel() {
             })
           )}
           <ShowMoreButton
+            shown={exceptionsShown}
             total={pendingExceptions.length}
-            expanded={showAllExceptions}
-            onToggle={() => setShowAllExceptions((open) => !open)}
+            onMore={() => setExceptionsShown((n) => growPreview(n, pendingExceptions.length))}
           />
         </CardContent>
       </Card>
@@ -506,9 +514,9 @@ export function TimesheetsPanel() {
             ))
           )}
           <ShowMoreButton
+            shown={rejectedShown}
             total={rejectedAttempts.length}
-            expanded={showAllRejected}
-            onToggle={() => setShowAllRejected((open) => !open)}
+            onMore={() => setRejectedShown((n) => growPreview(n, rejectedAttempts.length))}
           />
         </CardContent>
       </Card>
@@ -1030,25 +1038,20 @@ function ExceptionRequestCard({
 }
 
 function ShowMoreButton({
+  shown,
   total,
-  expanded,
-  onToggle,
+  onMore,
 }: {
+  shown: number
   total: number
-  expanded: boolean
-  onToggle: () => void
+  onMore: () => void
 }) {
-  if (total <= ASSIGNED_PROJECTS_PREVIEW) return null
+  if (total <= shown) return null
+  const remaining = total - shown
+  const next = Math.min(ASSIGNED_PROJECTS_PREVIEW, remaining)
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      className="w-full"
-      aria-expanded={expanded}
-      onClick={onToggle}
-    >
-      {expanded ? 'Show less' : 'Show more'}
+    <Button type="button" size="sm" variant="outline" className="w-full" onClick={onMore}>
+      Show {next} more{remaining > next ? ` (${remaining} left)` : ''}
     </Button>
   )
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ASSIGNED_PROJECTS_PREVIEW, visibleAssignments } from './assignment-preview'
+import { ASSIGNED_PROJECTS_PREVIEW, growPreview, visibleAssignments } from './assignment-preview'
 
 describe('visibleAssignments', () => {
   it('shows at most three until Show more', () => {
@@ -11,5 +11,14 @@ describe('visibleAssignments', () => {
 
   it('does not collapse a short list', () => {
     expect(visibleAssignments([1, 2], false)).toEqual([1, 2])
+  })
+})
+
+describe('growPreview', () => {
+  it('adds three rows each time until the end', () => {
+    expect(growPreview(3, 10)).toBe(6)
+    expect(growPreview(6, 10)).toBe(9)
+    expect(growPreview(9, 10)).toBe(10)
+    expect(growPreview(10, 10)).toBe(10)
   })
 })
