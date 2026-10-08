@@ -245,7 +245,7 @@ function EmployeeCard({
           <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
-                {employee.is_active ? 'Deactivate / Suspend' : 'Activate Worker'}
+                {employee.is_active ? 'Deactivate' : 'Activate Worker'}
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -287,48 +287,26 @@ function EmployeeCard({
                     Activate Worker
                   </Button>
                 ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      disabled={setStatus.isPending || statusReason.trim().length < 3}
-                      onClick={async () => {
-                        try {
-                          await setStatus.mutateAsync({
-                            workerId: employee.id,
-                            action: 'deactivate',
-                            reason: statusReason.trim(),
-                          })
-                          toast.success('Worker deactivated')
-                          setStatusOpen(false)
-                          setStatusReason('')
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : 'Failed')
-                        }
-                      }}
-                    >
-                      Deactivate
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={setStatus.isPending || statusReason.trim().length < 3}
-                      onClick={async () => {
-                        try {
-                          await setStatus.mutateAsync({
-                            workerId: employee.id,
-                            action: 'suspend',
-                            reason: statusReason.trim(),
-                          })
-                          toast.success('Worker suspended')
-                          setStatusOpen(false)
-                          setStatusReason('')
-                        } catch (error) {
-                          toast.error(error instanceof Error ? error.message : 'Failed')
-                        }
-                      }}
-                    >
-                      Suspend
-                    </Button>
-                  </>
+                  <Button
+                    variant="outline"
+                    disabled={setStatus.isPending || statusReason.trim().length < 3}
+                    onClick={async () => {
+                      try {
+                        await setStatus.mutateAsync({
+                          workerId: employee.id,
+                          action: 'deactivate',
+                          reason: statusReason.trim(),
+                        })
+                        toast.success('Worker deactivated')
+                        setStatusOpen(false)
+                        setStatusReason('')
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Failed')
+                      }
+                    }}
+                  >
+                    Deactivate
+                  </Button>
                 )}
                 {employee.archived_at ? (
                   <Button

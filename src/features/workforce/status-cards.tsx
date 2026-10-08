@@ -222,7 +222,7 @@ export function WorkforceStatusPanel() {
             <CardTitle>Workforce status</CardTitle>
             <CardDescription>
               Live availability across employees and subcontractors. Admins can clock people out,
-              suspend, deactivate, or remove them from this board.
+              deactivate, or remove them from this board.
             </CardDescription>
           </div>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
@@ -373,29 +373,6 @@ export function WorkforceStatusPanel() {
                         }}
                       >
                         Deactivate
-                      </Button>
-                    ) : null}
-                    {selectedActions.canSuspend ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy || !reasonReady}
-                        onClick={async () => {
-                          try {
-                            await setWorkerStatus.mutateAsync({
-                              workerId: selected.user_id,
-                              action: 'suspend',
-                              reason: reason.trim(),
-                            })
-                            toast.success('Worker suspended')
-                            setSelected(null)
-                            setReason('')
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : 'Suspend failed')
-                          }
-                        }}
-                      >
-                        Suspend
                       </Button>
                     ) : null}
                     {selectedActions.canHireBack ? (

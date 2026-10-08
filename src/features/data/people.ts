@@ -265,7 +265,7 @@ export function useSetWorkerStatus() {
       reason,
     }: {
       workerId: string
-      action: 'activate' | 'deactivate' | 'suspend' | 'archive' | 'restore' | 'approve'
+      action: 'activate' | 'deactivate' | 'archive' | 'restore' | 'approve'
       reason: string
     }) => {
       const { data, error } = await supabase.rpc('set_worker_status', {
