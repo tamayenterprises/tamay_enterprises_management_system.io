@@ -24,7 +24,7 @@ import {
   useReviewNotification,
   useUpdateNotificationPreferences,
 } from '@/features/notifications/hooks'
-import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
+import { canAccessAdmin, formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import type { Notification, NotificationPreferences } from '@/types/database'
 
 export function NotificationsPage() {
@@ -101,7 +101,8 @@ export function NotificationsPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Notifications</h1>
           <p className="text-sm text-muted-foreground">
-            Mentions, replies, assigned project activity, and alerts that need your attention.
+            Mentions, replies, and alerts from projects assigned to you. Admins also see every
+            project.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -270,7 +271,7 @@ export function NotificationsPage() {
                 {label}
               </label>
             ))}
-            {canManage ? (
+            {canAccessAdmin(profile?.role) ? (
               <div className="space-y-1 sm:col-span-2">
                 <Label>Administrator activity scope</Label>
                 <Select
@@ -290,9 +291,9 @@ export function NotificationsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high_priority">Only high-priority activity</SelectItem>
-                    <SelectItem value="assigned_only">Only assigned project activity</SelectItem>
-                    <SelectItem value="all">All authorized project activity</SelectItem>
+                    <SelectItem value="high_priority">High-priority alerts plus project activity</SelectItem>
+                    <SelectItem value="assigned_only">Project activity (same as assigned crew)</SelectItem>
+                    <SelectItem value="all">All project activity</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">

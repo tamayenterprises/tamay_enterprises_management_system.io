@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/features/auth/auth-hooks'
 import { useProjects } from '@/features/data/hooks'
 import { useProjectActivityFeed, relevanceLabel } from '@/features/notifications/hooks'
-import { isManagementRole } from '@/lib/utils'
+import { canAccessAdmin, isManagementRole } from '@/lib/utils'
 import type { ProjectActivityType } from '@/types/database'
 
 const ATTENDANCE_TYPES: ProjectActivityType[] = [
@@ -53,9 +53,10 @@ export function RecentActivityPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const canManage = isManagementRole(profile?.role)
+  const isAdmin = canAccessAdmin(profile?.role)
   const [filter, setFilter] = useState('all')
   const [projectId, setProjectId] = useState<string>('all')
-  const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
+  const { data: projects = [] } = useProjects({ assignedOnly: !isAdmin })
 
   const active = FILTERS.find((f) => f.value === filter) ?? FILTERS[0]
   const { data = [], isLoading, isError, refetch } = useProjectActivityFeed({
@@ -83,8 +84,8 @@ export function RecentActivityPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Recent activity</h1>
           <p className="text-muted-foreground">
-            {canManage
-              ? 'See comments, replies, photos, and alerts across projects you can access.'
+            {isAdmin
+              ? 'See comments, replies, photos, and alerts across projects.'
               : 'Activity from projects assigned to you.'}
           </p>
         </div>
@@ -116,7 +117,7 @@ export function RecentActivityPage() {
               <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{canManage ? 'All projects' : 'My projects'}</SelectItem>
+              <SelectItem value="all">{isAdmin ? 'All projects' : 'My projects'}</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   {project.name}
