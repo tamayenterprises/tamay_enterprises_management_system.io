@@ -6,6 +6,14 @@ import { softUnassignAllForProfile } from '@/features/data/assignments'
 import type { ProfileFormValues } from '@/lib/validations'
 import type { Profile, RoleOption, UserRole } from '@/types/database'
 
+async function setWorkerLoginAccess(workerId: string, action: 'lock' | 'unlock') {
+  const { data, error } = await supabase.functions.invoke('manage-auth-access', {
+    body: { workerId, action },
+  })
+  if (data?.error) throw new Error(String(data.error))
+  if (error) throw new Error(error.message || 'Unable to update login access')
+}
+
 export function useRoles() {
   return useQuery({
     queryKey: ['roles'],
@@ -202,6 +210,10 @@ export function useAdminSetUserAccess() {
           profile.id,
           profile.organization_id,
         )
+        await setWorkerLoginAccess(id, 'lock')
+      }
+      if (archived === false) {
+        await setWorkerLoginAccess(id, 'unlock')
       }
 
       if (profile?.organization_id) {
@@ -221,6 +233,7 @@ export function useAdminSetUserAccess() {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       queryClient.invalidateQueries({ queryKey: ['worker-eligibility'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-status'] })
       queryClient.invalidateQueries({ queryKey: ['profile-assignments', vars.id] })
       queryClient.invalidateQueries({ queryKey: ['project-assignments'] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -269,6 +282,10 @@ export function useSetWorkerStatus() {
           profile.id,
           profile.organization_id,
         )
+        await setWorkerLoginAccess(workerId, 'lock')
+      }
+      if (action === 'restore' || action === 'activate') {
+        await setWorkerLoginAccess(workerId, 'unlock')
       }
 
       return {
@@ -286,6 +303,7 @@ export function useSetWorkerStatus() {
       queryClient.invalidateQueries({ queryKey: ['worker-eligibility', vars.workerId] })
       queryClient.invalidateQueries({ queryKey: ['activity-log'] })
       queryClient.invalidateQueries({ queryKey: ['worker-status-history'] })
+      queryClient.invalidateQueries({ queryKey: ['worker-status'] })
       if (vars.action === 'archive') {
         queryClient.invalidateQueries({ queryKey: ['profile-assignments', vars.workerId] })
         queryClient.invalidateQueries({ queryKey: ['project-assignments'] })

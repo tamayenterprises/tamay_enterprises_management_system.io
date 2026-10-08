@@ -94,3 +94,21 @@ export function useUpdateWorkerStatus() {
     },
   })
 }
+
+export function useAdminClockOutWorker() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ workerId, note }: { workerId: string; note?: string }) => {
+      const { data, error } = await supabase.rpc('admin_clock_out_worker', {
+        p_user_id: workerId,
+        p_note: note?.trim() || null,
+      })
+      if (error) throw error
+      return data as { ok: boolean; clocked_out: boolean; message: string }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['worker-status'] })
+      queryClient.invalidateQueries({ queryKey: ['attendance'] })
+    },
+  })
+}

@@ -485,6 +485,7 @@ export interface CurrentWorkerStatus {
   company_name: string | null
   project_name: string | null
   avatar_url: string | null
+  is_active?: boolean
 }
 
 export interface AttendanceRecord {
@@ -953,6 +954,7 @@ export interface Database {
       admin_hard_delete_project: Rpc
       get_worker_eligibility: Rpc
       set_worker_status: Rpc
+      admin_clock_out_worker: Rpc<{ p_user_id: string; p_note?: string | null }, { ok: boolean; clocked_out: boolean; message: string }>
       run_certification_maintenance: Rpc
       register_project_note_mentions: Rpc
       register_project_note_project_refs: Rpc

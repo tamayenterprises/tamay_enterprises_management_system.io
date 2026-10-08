@@ -8,12 +8,17 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { useAuth } from '@/features/auth/auth-hooks'
 import {
+  useAdminClockOutWorker,
   useCurrentWorkforceStatuses,
   useMyCurrentStatus,
   useUpdateWorkerStatus,
 } from '@/features/workforce/hooks'
-import { useProjects } from '@/features/data/hooks'
+import { useProjects, useSetWorkerStatus } from '@/features/data/hooks'
+import { workforceAdminActions } from '@/features/workforce/admin-actions'
+import { confirmAction } from '@/lib/uploads'
 import {
   WORKFORCE_STATUSES,
   formatRelative,
@@ -171,12 +176,26 @@ export function MyWorkStatusCard({ inline = false }: { inline?: boolean } = {}) 
 }
 
 export function WorkforceStatusPanel() {
+  const { profile } = useAuth()
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [selected, setSelected] = useState<CurrentWorkerStatus | null>(null)
+  const [reason, setReason] = useState('')
   const { data: projects = [] } = useProjects()
   const { data = [], isLoading, isError } = useCurrentWorkforceStatuses(
     projectFilter === 'all' ? undefined : projectFilter,
   )
+  const clockOut = useAdminClockOutWorker()
+  const setWorkerStatus = useSetWorkerStatus()
+  const selectedActions = selected
+    ? workforceAdminActions({
+        viewerRole: profile?.role,
+        viewerId: profile?.id,
+        workerId: selected.user_id,
+        isActive: selected.is_active !== false,
+      })
+    : null
+  const busy = clockOut.isPending || setWorkerStatus.isPending
+  const reasonReady = reason.trim().length >= 3
 
   const counts = useMemo(() => {
     const summary: Record<WorkforceStatus, number> = {
@@ -201,7 +220,10 @@ export function WorkforceStatusPanel() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <CardTitle>Workforce status</CardTitle>
-            <CardDescription>Live availability across employees and subcontractors.</CardDescription>
+            <CardDescription>
+              Live availability across employees and subcontractors. Admins can clock people out,
+              suspend, deactivate, or remove them from this board.
+            </CardDescription>
           </div>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
             <SelectTrigger className="w-52">
@@ -261,13 +283,21 @@ export function WorkforceStatusPanel() {
         )}
       </CardContent>
 
-      <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent>
+      <Dialog
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelected(null)
+            setReason('')
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Worker status</DialogTitle>
           </DialogHeader>
-          {selected ? (
-            <div className="space-y-2 text-sm">
+          {selected && selectedActions ? (
+            <div className="space-y-4 text-sm">
               <div className="flex items-center gap-3">
                 <ProfileAvatar
                   firstName={selected.first_name}
@@ -282,9 +312,158 @@ export function WorkforceStatusPanel() {
               <p>
                 Status: {workforceStatusEmoji(selected.status)} {workforceStatusLabel(selected.status)}
               </p>
+              <p>Account: {selected.is_active === false ? 'Inactive' : 'Active'}</p>
               <p>Project: {selected.project_name || '—'}</p>
               <p>Last update: {format(new Date(selected.updated_at), 'MMM d, yyyy h:mm a')}</p>
               <p className="text-muted-foreground">{formatRelative(selected.updated_at)}</p>
+
+              {selectedActions.canClockOut || selectedActions.canRemove ? (
+                <div className="space-y-3 border-t border-border pt-4">
+                  {profile?.role === 'admin' ? (
+                    <div className="space-y-1">
+                      <Label>Reason (required for account changes)</Label>
+                      <Textarea
+                        value={reason}
+                        onChange={(event) => setReason(event.target.value)}
+                        placeholder="Why is this worker’s status changing?"
+                        rows={3}
+                      />
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    {selectedActions.canClockOut ? (
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={async () => {
+                          try {
+                            const result = await clockOut.mutateAsync({
+                              workerId: selected.user_id,
+                              note: reason.trim() || undefined,
+                            })
+                            toast.success(result.message)
+                            setSelected(null)
+                            setReason('')
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Clock out failed')
+                          }
+                        }}
+                      >
+                        Clock out
+                      </Button>
+                    ) : null}
+                    {selectedActions.canDeactivate ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy || !reasonReady}
+                        onClick={async () => {
+                          try {
+                            await setWorkerStatus.mutateAsync({
+                              workerId: selected.user_id,
+                              action: 'deactivate',
+                              reason: reason.trim(),
+                            })
+                            toast.success('Worker deactivated')
+                            setSelected(null)
+                            setReason('')
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Deactivate failed')
+                          }
+                        }}
+                      >
+                        Deactivate
+                      </Button>
+                    ) : null}
+                    {selectedActions.canSuspend ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy || !reasonReady}
+                        onClick={async () => {
+                          try {
+                            await setWorkerStatus.mutateAsync({
+                              workerId: selected.user_id,
+                              action: 'suspend',
+                              reason: reason.trim(),
+                            })
+                            toast.success('Worker suspended')
+                            setSelected(null)
+                            setReason('')
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Suspend failed')
+                          }
+                        }}
+                      >
+                        Suspend
+                      </Button>
+                    ) : null}
+                    {selectedActions.canHireBack ? (
+                      <Button
+                        size="sm"
+                        disabled={busy || !reasonReady}
+                        onClick={async () => {
+                          try {
+                            await setWorkerStatus.mutateAsync({
+                              workerId: selected.user_id,
+                              action: 'activate',
+                              reason: reason.trim(),
+                            })
+                            toast.success('Worker activated')
+                            setSelected(null)
+                            setReason('')
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Activate failed')
+                          }
+                        }}
+                      >
+                        Hire back / activate
+                      </Button>
+                    ) : null}
+                    {selectedActions.canRemove ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={busy || !reasonReady}
+                        onClick={async () => {
+                          const name = fullName(selected.first_name, selected.last_name)
+                          if (
+                            !confirmAction(
+                              `Remove ${name}? They will be taken off all jobs and will not be able to sign in until an admin restores them.`,
+                            )
+                          ) {
+                            return
+                          }
+                          try {
+                            const result = await setWorkerStatus.mutateAsync({
+                              workerId: selected.user_id,
+                              action: 'archive',
+                              reason: reason.trim(),
+                            })
+                            toast.success(
+                              result.unassignedCount > 0
+                                ? `Removed and locked login. Unassigned from ${result.unassignedCount} project${result.unassignedCount === 1 ? '' : 's'}.`
+                                : 'Removed. Login is locked until an admin restores this person.',
+                            )
+                            setSelected(null)
+                            setReason('')
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : 'Remove failed')
+                          }
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
+                  </div>
+                  {profile?.role === 'admin' ? (
+                    <p className="text-xs text-muted-foreground">
+                      Remove means they are off duty. They cannot sign in again until you restore
+                      them from Employees or Admin.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </DialogContent>
