@@ -86,25 +86,25 @@ export function AdminPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <h1 className="font-display text-3xl font-semibold">Admin panel</h1>
           <p className="text-sm text-muted-foreground">
             Approve registrations, assign roles, remove people when Tamay is done with them, and
             unassign projects when a worker is finished or replaced.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap lg:shrink-0">
+          <Button asChild variant="outline" size="sm" className="shrink-0">
             <Link to="/employees">Employees</Link>
           </Button>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="shrink-0">
             <Link to="/subcontractors">Subcontractors</Link>
           </Button>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="shrink-0">
             <Link to="/projects">Projects</Link>
           </Button>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="shrink-0">
             <Link to="/notifications">Notifications</Link>
           </Button>
         </div>
