@@ -271,7 +271,7 @@ function CompanyComposer({
             setPickUser('')
           }}
         >
-          <SelectTrigger className="w-[10rem]">
+          <SelectTrigger className="w-full min-w-0 sm:w-[10rem]">
             <SelectValue placeholder="Mention @" />
           </SelectTrigger>
           <SelectContent>
@@ -293,7 +293,7 @@ function CompanyComposer({
             setPickProject('')
           }}
         >
-          <SelectTrigger className="w-[11rem]">
+          <SelectTrigger className="w-full min-w-0 sm:w-[11rem]">
             <SelectValue placeholder="Reference #" />
           </SelectTrigger>
           <SelectContent>

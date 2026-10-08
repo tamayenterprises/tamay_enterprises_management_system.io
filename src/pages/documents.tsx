@@ -235,7 +235,7 @@ export function DocumentsPage() {
             }}
           >
             <DialogTrigger asChild>
-              <Button>Upload document</Button>
+              <Button className="w-full sm:w-auto">Upload document</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -263,10 +263,10 @@ export function DocumentsPage() {
         <SummaryCard label="Uploaded by you" value={counts.mine} />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Input className="w-64" placeholder="Search documents..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+        <Input className="w-full min-w-0 sm:w-64" placeholder="Search documents..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <Select value={category} onValueChange={(value) => setCategory(value as 'all' | DocumentCategory)}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
@@ -279,7 +279,7 @@ export function DocumentsPage() {
           </SelectContent>
         </Select>
         <Select value={projectFilter} onValueChange={setProjectFilter}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Project" />
           </SelectTrigger>
           <SelectContent>
@@ -293,7 +293,7 @@ export function DocumentsPage() {
           </SelectContent>
         </Select>
         <Select value={scope} onValueChange={setScope}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Scope" />
           </SelectTrigger>
           <SelectContent>

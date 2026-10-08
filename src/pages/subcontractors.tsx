@@ -51,7 +51,7 @@ export function SubcontractorsPage() {
           placeholder="Search subcontractors..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-72"
+          className="w-full min-w-0 sm:w-72"
         />
       </div>
 
@@ -145,7 +145,7 @@ function SubcontractorCard({
           />
           <div className="min-w-0">
             <CardTitle className="text-xl">{person.company_name || fullName(person.first_name, person.last_name)}</CardTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="truncate text-sm text-muted-foreground">
               {fullName(person.first_name, person.last_name)} · {person.email}
             </p>
           </div>
@@ -168,7 +168,7 @@ function SubcontractorCard({
                 <DialogTitle>Edit subcontractor</DialogTitle>
               </DialogHeader>
               <form className="space-y-3" onSubmit={form.handleSubmit(onSave)}>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>First name</Label>
                     <Input {...form.register('first_name')} />

@@ -308,7 +308,7 @@ export function PaymentsPage() {
                         {formatDate(isManual ? payment.paid_at ?? payment.created_at : payment.created_at)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-3">
                       <span className="text-lg font-semibold">{money(payment.amount_cents, payment.currency)}</span>
                       {payment.payment_link_url && payment.status === 'pending' ? (
                         <>

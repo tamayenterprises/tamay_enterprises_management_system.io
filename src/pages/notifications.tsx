@@ -105,12 +105,12 @@ export function NotificationsPage() {
             project.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+          <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link to="/activity">Recent activity</Link>
           </Button>
           <Select value={status} onValueChange={(value) => setStatus(value as typeof status)}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -121,6 +121,7 @@ export function NotificationsPage() {
           </Select>
           <Button
             variant="outline"
+            className="w-full sm:w-auto"
             disabled={counts.unread === 0 || markAllRead.isPending}
             onClick={async () => {
               try {
@@ -136,7 +137,7 @@ export function NotificationsPage() {
           {canManage ? (
             <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
               <DialogTrigger asChild>
-                <Button>Send notification</Button>
+                <Button className="w-full sm:w-auto">Send notification</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>

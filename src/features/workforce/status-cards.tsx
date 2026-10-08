@@ -225,7 +225,7 @@ export function WorkforceStatusPanel() {
             </CardDescription>
           </div>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-52">
+            <SelectTrigger className="w-full min-w-0 sm:w-52">
               <SelectValue placeholder="Filter by project" />
             </SelectTrigger>
             <SelectContent>
@@ -256,7 +256,7 @@ export function WorkforceStatusPanel() {
             <button
               key={worker.user_id}
               type="button"
-              className="flex w-full items-center justify-between rounded-xl border border-border px-3 py-2 text-left transition hover:bg-muted/50"
+              className="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-left transition hover:bg-muted/50"
               onClick={() => setSelected(worker)}
             >
               <div className="flex min-w-0 items-center gap-3">
@@ -267,14 +267,14 @@ export function WorkforceStatusPanel() {
                   fallbackClassName="bg-muted text-xs"
                 />
                 <div className="min-w-0">
-                  <p className="font-medium">{fullName(worker.first_name, worker.last_name)}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="truncate font-medium">{fullName(worker.first_name, worker.last_name)}</p>
+                  <p className="truncate text-xs text-muted-foreground">
                     {roleLabel(worker.role)}
                     {worker.project_name ? ` · ${worker.project_name}` : ''}
                   </p>
                 </div>
               </div>
-              <Badge variant="secondary">
+              <Badge variant="secondary" className="shrink-0">
                 {workforceStatusEmoji(worker.status)} {workforceStatusLabel(worker.status)}
               </Badge>
             </button>

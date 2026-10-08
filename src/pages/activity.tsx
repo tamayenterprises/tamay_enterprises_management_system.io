@@ -136,10 +136,15 @@ export function RecentActivityPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
           <CardTitle>Activity timeline</CardTitle>
           {data.length > ACTIVITY_PREVIEW ? (
-            <Button size="sm" variant="outline" onClick={() => setShowAll((open) => !open)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setShowAll((open) => !open)}
+            >
               {showAll ? 'Show less' : 'View all'}
             </Button>
           ) : null}
@@ -172,8 +177,8 @@ export function RecentActivityPage() {
                   : 'assigned_project'
             return (
               <div key={item.id} className="rounded-xl border border-border px-3 py-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1">
                     <p className="font-medium">{item.title}</p>
                     <p className="text-sm text-muted-foreground">{item.preview_text}</p>
                     <div className="flex flex-wrap gap-1">
@@ -188,6 +193,7 @@ export function RecentActivityPage() {
                   <Button
                     size="sm"
                     variant="outline"
+                    className="w-full shrink-0 sm:w-auto"
                     onClick={() => {
                       if (!item.destination_route) {
                         toast.message('This activity is no longer available.')

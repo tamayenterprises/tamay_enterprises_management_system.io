@@ -260,7 +260,9 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main className="animate-fade-in px-3 py-3 sm:px-5 sm:py-5 lg:px-6">{children}</main>
+        <main className="animate-fade-in max-w-full min-w-0 overflow-x-clip px-3 py-3 sm:px-5 sm:py-5 lg:px-6">
+          {children}
+        </main>
       </div>
     </div>
   )

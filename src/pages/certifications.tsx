@@ -94,9 +94,9 @@ export function CertificationsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Input className="w-56" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input className="w-full min-w-0 sm:w-56" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <Select value={status} onValueChange={(value) => setStatus(value as 'all' | CertificationStatus)}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -108,7 +108,7 @@ export function CertificationsPage() {
             </SelectContent>
           </Select>
           <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-full sm:w-44">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -128,7 +128,7 @@ export function CertificationsPage() {
             }}
           >
             <DialogTrigger asChild>
-              <Button>Add certification</Button>
+              <Button className="w-full sm:w-auto">Add certification</Button>
             </DialogTrigger>
             <DialogContent className="max-h-[85vh] overflow-y-auto">
               <DialogHeader>
@@ -208,7 +208,7 @@ export function CertificationsPage() {
                     </Select>
                   </div>
                 ) : null}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>Issue date</Label>
                     <Input type="date" {...form.register('issue_date')} />
@@ -464,7 +464,7 @@ function CertificationCard({
                     </Select>
                   </div>
                 ) : null}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>Issue date</Label>
                     <Input type="date" {...form.register('issue_date')} />

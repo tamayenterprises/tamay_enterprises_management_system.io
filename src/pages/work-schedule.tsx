@@ -67,7 +67,7 @@ export function WorkSchedulePage() {
           <h1 className="font-display text-2xl font-semibold">Work Schedule</h1>
           <p className="text-sm text-muted-foreground">Plan who works where. Employees see their jobs in the app.</p>
         </div>
-        <Button className="h-11" onClick={openNew}>
+        <Button className="h-11 w-full sm:w-auto" onClick={openNew}>
           <Plus className="h-4 w-4" />
           Schedule Work
         </Button>

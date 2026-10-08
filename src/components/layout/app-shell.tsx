@@ -11,6 +11,7 @@ import {
   FileText,
   HardHat,
   LayoutDashboard,
+  Lock,
   LogOut,
   Menu,
   MessageSquareText,
@@ -216,11 +217,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 border-b border-border/80 bg-white/95 backdrop-blur-md">
-          <div className="flex items-center gap-2 px-3 py-2 sm:px-4">
+          <div className="flex min-w-0 items-center gap-1.5 px-3 py-2 sm:gap-2 sm:px-4">
             <Button
               variant="ghost"
               size="icon"
-              className="h-9 w-9 lg:hidden"
+              className="h-9 w-9 shrink-0 lg:hidden"
               aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={open}
               aria-controls="app-sidebar"
@@ -228,22 +229,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <form onSubmit={onSearch} className="relative flex-1">
+            <form onSubmit={onSearch} className="relative min-w-0 flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search employees, projects, documents..."
+                placeholder="Search..."
+                aria-label="Search employees, projects, documents"
                 className="h-9 border-border bg-[#fbfcff] pl-9"
               />
             </form>
             <NotificationBell />
-            <Button variant="outline" size="sm" className="h-9" onClick={() => navigate('/change-password')}>
-              Password
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 shrink-0 px-0 sm:w-auto sm:px-3"
+              aria-label="Change password"
+              onClick={() => navigate('/change-password')}
+            >
+              <Lock className="h-4 w-4 sm:hidden" />
+              <span className="hidden sm:inline">Password</span>
             </Button>
           </div>
         </header>
-        <main className="animate-fade-in px-3 py-3 sm:px-4 sm:py-4 lg:px-5">{children}</main>
+        <main className="animate-fade-in max-w-full min-w-0 overflow-x-clip px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
+          {children}
+        </main>
       </div>
     </div>
   )

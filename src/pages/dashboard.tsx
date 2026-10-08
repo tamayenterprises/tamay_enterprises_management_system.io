@@ -80,7 +80,7 @@ export function DashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-wide">
+          <h1 className="font-display text-2xl font-semibold tracking-wide sm:text-3xl">
             Welcome back{profile ? `, ${profile.first_name}` : ''}
           </h1>
           <p className="mt-1 text-muted-foreground">
@@ -93,18 +93,18 @@ export function DashboardPage() {
           ) : null}
         </div>
         {isManagement ? (
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+            <Button asChild className="w-full sm:w-auto">
               <Link to="/projects">Manage projects</Link>
             </Button>
             {profile?.role === 'admin' ? (
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="w-full sm:w-auto">
                 <Link to="/admin">Review approvals</Link>
               </Button>
             ) : null}
           </div>
         ) : (
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link to="/projects">View my projects</Link>
           </Button>
         )}
@@ -170,7 +170,7 @@ export function DashboardPage() {
 
       {isManagement && profile?.role === 'admin' && pendingCount > 0 ? (
         <Card className="border-accent/40 bg-accent/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
             <div>
               <CardTitle className="text-xl">Pending registrations</CardTitle>
               <CardDescription>{pendingCount} user{pendingCount === 1 ? '' : 's'} waiting for approval.</CardDescription>
@@ -197,14 +197,14 @@ export function DashboardPage() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
             <div>
               <CardTitle>{isManagement ? 'Projects' : 'Assigned projects'}</CardTitle>
               <CardDescription>
                 {isManagement ? 'All active company projects.' : 'Projects currently connected to your account.'}
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
               <Link to="/projects">View all</Link>
             </Button>
           </CardHeader>
@@ -244,12 +244,12 @@ export function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
             <div>
               <CardTitle>Upcoming deadlines</CardTitle>
               <CardDescription>Nearest project due dates.</CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
               <Link to="/projects">View all</Link>
             </Button>
           </CardHeader>
@@ -275,14 +275,14 @@ export function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
             <div>
               <CardTitle>Certification alerts</CardTitle>
               <CardDescription>
                 {isManagement ? 'Expiring or expired credentials across the workforce.' : 'Your credentials that need attention.'}
               </CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
               <Link to="/certifications">View all</Link>
             </Button>
           </CardHeader>
@@ -313,12 +313,12 @@ export function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
             <div>
               <CardTitle>Recent activity</CardTitle>
               <CardDescription>Latest notifications for your account.</CardDescription>
             </div>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
               <Link to="/notifications">View all</Link>
             </Button>
           </CardHeader>

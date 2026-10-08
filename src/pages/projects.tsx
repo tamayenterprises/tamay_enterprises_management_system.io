@@ -163,7 +163,7 @@ function ManagementProjectsPage() {
               : 'Projects assigned to you.'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
           <Input
             placeholder={
               archivedView === 'archived'
@@ -172,12 +172,12 @@ function ManagementProjectsPage() {
             }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
+            className="w-full min-w-0 sm:w-64"
           />
           {canManage ? (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
-                <Button>New project</Button>
+                <Button className="w-full sm:w-auto">New project</Button>
               </DialogTrigger>
               <DialogContent className="max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
@@ -249,7 +249,7 @@ function ManagementProjectsPage() {
                     <Label>Description</Label>
                     <Textarea {...form.register('description')} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label>Status</Label>
                       <Select
@@ -285,7 +285,7 @@ function ManagementProjectsPage() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
                       <Label>Start date</Label>
                       <Input type="date" {...form.register('start_date')} />
@@ -351,7 +351,7 @@ function ManagementProjectsPage() {
               }}
             >
               <SelectTrigger
-                className="h-8 w-[10.5rem] rounded-md"
+                className="h-8 w-full rounded-md sm:w-[10.5rem]"
                 aria-label="Show active or archived projects"
               >
                 <SelectValue />
@@ -407,8 +407,8 @@ function ManagementProjectsPage() {
             const warrantyActive = isWarrantyActive(project.warranty_ends_on)
             return (
             <Card key={project.id}>
-              <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                <div>
+              <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-start">
+                <div className="min-w-0">
                   <CardTitle className="text-xl">
                     <Link className="hover:underline" to={`/projects/${project.id}`}>
                       {project.name}

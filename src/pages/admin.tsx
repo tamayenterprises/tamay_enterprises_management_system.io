@@ -313,12 +313,13 @@ export function AdminPage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-col items-stretch justify-between gap-2 space-y-0 sm:flex-row sm:items-center">
           <CardTitle>Recent admin activity</CardTitle>
           {activityRows.length > 5 ? (
             <Button
               size="sm"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => setShowAllActivity((open) => !open)}
             >
               {showAllActivity ? 'Show less' : 'View all'}

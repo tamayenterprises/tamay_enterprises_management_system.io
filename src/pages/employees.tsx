@@ -58,14 +58,18 @@ export function EmployeesPage() {
             projects without removing the person. Attendance eligibility follows Active worker status.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row">
           <Input
             placeholder="Search employees..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
+            className="w-full min-w-0 sm:w-64"
           />
-          <Button variant={activeOnly ? 'default' : 'outline'} onClick={() => setActiveOnly((v) => !v)}>
+          <Button
+            className="w-full sm:w-auto"
+            variant={activeOnly ? 'default' : 'outline'}
+            onClick={() => setActiveOnly((v) => !v)}
+          >
             {activeOnly ? 'Active only' : 'All statuses'}
           </Button>
         </div>
@@ -159,7 +163,7 @@ function EmployeeCard({
           />
           <div className="min-w-0">
             <CardTitle className="text-xl">{fullName(employee.first_name, employee.last_name)}</CardTitle>
-            <p className="text-sm text-muted-foreground">{employee.email}</p>
+            <p className="truncate text-sm text-muted-foreground">{employee.email}</p>
           </div>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -203,7 +207,7 @@ function EmployeeCard({
                 <DialogTitle>Edit employee</DialogTitle>
               </DialogHeader>
               <form className="space-y-3" onSubmit={form.handleSubmit(onSave)}>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>First name</Label>
                     <Input {...form.register('first_name')} />
