@@ -15,7 +15,8 @@ import {
 import type { DocumentRecord, MyProjectContact } from '@/types/database'
 
 const VISIT_WINDOW_DAYS = 60
-const PHOTO_COLUMNS = 'id, project_id, category, mime_type, storage_path, owner_id, uploaded_by, team_visible, created_at'
+const PHOTO_COLUMNS =
+  'id, project_id, name, category, kind_label, mime_type, storage_path, owner_id, uploaded_by, team_visible, created_at'
 
 export type ProjectNoteSnippet = {
   id: string
@@ -26,7 +27,10 @@ export type ProjectNoteSnippet = {
   author: { first_name: string | null; last_name: string | null } | null
 }
 
-/** Project photos (never documents) for the worker's projects. RLS already limits the rows. */
+/**
+ * Project photo metadata (never documents, never image files) for the worker's projects.
+ * RLS already limits the rows; the list only signs one cover URL per card.
+ */
 function useMyProjectPhotos(projectIds: string[]) {
   const { profile } = useAuth()
   const idsKey = projectIds.slice().sort().join(',')
@@ -42,7 +46,7 @@ function useMyProjectPhotos(projectIds: string[]) {
         .order('created_at', { ascending: false })
       if (error) throw error
       const rows = (data ?? []) as unknown as Array<ProjectPhoto & Pick<DocumentRecord, 'owner_id' | 'uploaded_by' | 'team_visible'>>
-      return summarizeProjectPhotos(rows.filter((row) => canViewerSeeDocument(row, profile)))
+      return rows.filter((row) => canViewerSeeDocument(row, profile)) as ProjectPhoto[]
     },
   })
 }
@@ -115,6 +119,14 @@ export function useMyProjectsData() {
 
   const photosQuery = useMyProjectPhotos(projectIds)
   const notesQuery = useLatestProjectNotes(projectIds)
+  const photos = useMemo(
+    () =>
+      summarizeProjectPhotos(
+        photosQuery.data ?? [],
+        new Map(projects.map((project) => [project.id, project.cover_photo_document_id])),
+      ),
+    [photosQuery.data, projects],
+  )
 
   const views = useMemo(
     () =>
@@ -122,10 +134,10 @@ export function useMyProjectsData() {
         projects,
         schedule: schedule.data ?? [],
         contacts,
-        photos: photosQuery.data ?? new Map(),
+        photos,
         now: new Date(),
       }),
-    [projects, schedule.data, contacts, photosQuery.data],
+    [projects, schedule.data, contacts, photos],
   )
 
   return {

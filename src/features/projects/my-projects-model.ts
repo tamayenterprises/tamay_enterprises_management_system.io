@@ -1,6 +1,6 @@
 import { addDays, format } from 'date-fns'
 import { canonicalProjectAddress, parseDateKey, toDateKey } from '@/features/schedule/schedule-links'
-import { isProjectPhotoDocument } from '@/lib/document-visibility'
+import { isProjectCoverEligible, isProjectPhotoDocument } from '@/lib/document-visibility'
 import type { DocumentRecord, MyWorkScheduleItem, Project, ProjectStatus } from '@/types/database'
 
 /** Employee-facing groups. Presentation only: "Open" is the not_started status. */
@@ -52,9 +52,15 @@ const STATUS_ORDER: Record<ProjectStatus, number> = {
   completed: 3,
 }
 
-export type ProjectPhoto = Pick<DocumentRecord, 'id' | 'project_id' | 'category' | 'mime_type' | 'storage_path' | 'created_at'>
+export type ProjectPhoto = Pick<
+  DocumentRecord,
+  'id' | 'project_id' | 'category' | 'mime_type' | 'storage_path' | 'created_at' | 'kind_label' | 'name'
+>
 
-export type ProjectPhotoSummary = { count: number; cover: ProjectPhoto | null }
+/** explicit = chosen by management; work_photo / reference = automatic. */
+export type CoverSource = 'explicit' | 'work_photo' | 'reference'
+
+export type ProjectPhotoSummary = { count: number; cover: ProjectPhoto | null; coverSource: CoverSource | null }
 
 export type MyProjectView = {
   project: Project
@@ -88,22 +94,59 @@ export function upcomingVisitsByProject(items: MyWorkScheduleItem[], now: Date) 
   return byProject
 }
 
+/** File names that read like paperwork, not job-site photos (automatic cover only). */
+const PAPERWORK_NAME =
+  /(?:^|[^a-z])(receipts?|invoices?|recibos?|facturas?|estimates?|quotes?|breakdown|contracts?|agreements?|licen[cs]es?|insurance)(?:[^a-z]|$)/i
+/** Photo labels that are rarely a good identifier (issues, misc. snapshots like paperwork). */
+const WEAK_PHOTO_KINDS = new Set(['issue', 'other'])
+
+/** Lower is better; null = never an automatic cover. */
+function automaticCoverRank(photo: ProjectPhoto): number | null {
+  if (!isProjectCoverEligible(photo) || PAPERWORK_NAME.test(photo.name ?? '')) return null
+  if (photo.category !== 'work_photo') return 2
+  return WEAK_PHOTO_KINDS.has((photo.kind_label ?? '').trim().toLowerCase()) ? 1 : 0
+}
+
+/**
+ * Cover for one project: the management-chosen photo when it is still present and eligible,
+ * else the newest eligible work photo (labelled Issue / Other last), else the newest eligible
+ * reference / mockup image (project file). Null = branded fallback.
+ */
+export function selectProjectCover(
+  photos: ProjectPhoto[],
+  explicitId?: string | null,
+): Pick<ProjectPhotoSummary, 'cover' | 'coverSource'> {
+  if (explicitId) {
+    const chosen = photos.find((photo) => photo.id === explicitId)
+    if (chosen && isProjectCoverEligible(chosen)) return { cover: chosen, coverSource: 'explicit' }
+  }
+  let best: { photo: ProjectPhoto; rank: number } | null = null
+  for (const photo of photos) {
+    const rank = automaticCoverRank(photo)
+    if (rank == null) continue
+    if (!best || rank < best.rank || (rank === best.rank && photo.created_at > best.photo.created_at)) {
+      best = { photo, rank }
+    }
+  }
+  if (!best) return { cover: null, coverSource: null }
+  return { cover: best.photo, coverSource: best.rank === 2 ? 'reference' : 'work_photo' }
+}
+
 /**
  * Photo count and cover per project, from rows the API returned. Only project photos count
- * (never documents, even image scans filed as contracts / IDs). Cover: the newest work photo,
- * else the newest other project image (mockup / reference).
+ * (never documents, even image scans filed as contracts / IDs).
  */
-export function summarizeProjectPhotos(rows: ProjectPhoto[]) {
-  const byProject = new Map<string, ProjectPhotoSummary>()
-  const newestFirst = [...rows].sort((a, b) => b.created_at.localeCompare(a.created_at))
-  for (const row of newestFirst) {
+export function summarizeProjectPhotos(rows: ProjectPhoto[], coverIds?: Map<string, string | null | undefined>) {
+  const photosByProject = new Map<string, ProjectPhoto[]>()
+  for (const row of rows) {
     if (!row.project_id || !isProjectPhotoDocument(row)) continue
-    const entry = byProject.get(row.project_id) ?? { count: 0, cover: null }
-    entry.count += 1
-    if (!entry.cover || (entry.cover.category !== 'work_photo' && row.category === 'work_photo')) {
-      entry.cover = row
-    }
-    byProject.set(row.project_id, entry)
+    const list = photosByProject.get(row.project_id) ?? []
+    list.push(row)
+    photosByProject.set(row.project_id, list)
+  }
+  const byProject = new Map<string, ProjectPhotoSummary>()
+  for (const [projectId, photos] of photosByProject) {
+    byProject.set(projectId, { count: photos.length, ...selectProjectCover(photos, coverIds?.get(projectId)) })
   }
   return byProject
 }
@@ -185,7 +228,7 @@ export function buildProjectViews({
       address: canonicalProjectAddress(project),
       visits: projectVisits,
       client,
-      photos: photos.get(project.id) ?? { count: 0, cover: null },
+      photos: photos.get(project.id) ?? { count: 0, cover: null, coverSource: null },
     }
   })
 }

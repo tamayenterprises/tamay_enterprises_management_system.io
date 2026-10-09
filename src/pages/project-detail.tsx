@@ -49,6 +49,8 @@ import {
 } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
 import { ProjectFilesList } from '@/features/projects/project-files-list'
+import { ProjectCoverPhoto } from '@/features/projects/project-cover-photo'
+import { canManageProjectCover } from '@/lib/document-visibility'
 import { projectSchema, type ProjectFormValues } from '@/lib/validations'
 import type { ProjectStatus } from '@/types/database'
 import { ProjectContentUploadDialog } from '@/features/projects/project-content-upload'
@@ -447,6 +449,7 @@ export function ProjectDetailPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              {canManageProjectCover(profile) ? <ProjectCoverPhoto project={project} documents={documents} /> : null}
               <ProjectFilesList documents={documents} viewer={profile} focusDocId={focusDocId} />
             </CardContent>
           </Card>
