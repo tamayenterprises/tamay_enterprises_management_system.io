@@ -108,6 +108,8 @@ export interface Project {
   current_project_total?: number | string | null
   project_total_updated_at?: string | null
   project_total_updated_by?: string | null
+  /** Management-chosen cover image (documents.id on this project). Null / missing = automatic. */
+  cover_photo_document_id?: string | null
   created_by: string | null
   archived_at: string | null
   created_at: string

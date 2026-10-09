@@ -21,6 +21,34 @@ export function isProjectPhotoDocument(doc: Pick<DocumentRecord, 'category' | 'm
   return Boolean(doc.mime_type?.toLowerCase().startsWith('image/')) && !PRIVATE_IMAGE_CATEGORIES.includes(doc.category)
 }
 
+/** Mirrors public.is_project_cover_eligible: formal-document labels never become a cover. */
+const NON_COVER_KIND_LABELS = new Set([
+  'agreement',
+  'project breakdown',
+  'change order / additional work',
+  'work order',
+  'completion document',
+  'warranty',
+  'warranty void',
+  'receipt',
+  'invoice',
+  'estimate',
+  'contract',
+])
+
+export function isProjectCoverEligible(doc: Pick<DocumentRecord, 'category' | 'mime_type' | 'kind_label'>) {
+  return (
+    Boolean(doc.mime_type?.toLowerCase().startsWith('image/')) &&
+    (doc.category === 'work_photo' || doc.category === 'project_file') &&
+    !NON_COVER_KIND_LABELS.has((doc.kind_label ?? '').trim().toLowerCase())
+  )
+}
+
+/** Mirrors public.enforce_project_cover_photo: only management sets or clears the cover. */
+export function canManageProjectCover(viewer: Viewer) {
+  return isManagementRole(viewer?.role)
+}
+
 function isOwnDocument(doc: Pick<DocumentRecord, 'owner_id' | 'uploaded_by'>, viewer: NonNullable<Viewer>) {
   return doc.owner_id === viewer.id || doc.uploaded_by === viewer.id
 }

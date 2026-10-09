@@ -55,28 +55,32 @@ function seed() {
       address: '12 Oak St, Stamford CT',
       visits: [visit({}), visit({ entry_id: 'v2', work_date: '2099-10-09', start_time: '13:00:00', end_time: '16:00:00' })],
       client: { name: 'Ana Kim', phone: '(203) 555-1234' },
-      photos: { count: 5, cover: { id: 'ph1', project_id: 'p1', category: 'work_photo', mime_type: 'image/jpeg', storage_path: 'a.jpg', created_at: '2026-10-01' } },
+      photos: {
+        count: 5,
+        cover: { id: 'ph1', project_id: 'p1', category: 'work_photo', mime_type: 'image/jpeg', storage_path: 'a.jpg', created_at: '2026-10-01', name: 'kitchen.jpg' },
+        coverSource: 'explicit',
+      },
     },
     {
       project: project({ id: 'p2', name: 'Lopez Deck', status: 'waiting', job_site_address: '4 Elm Ave, Norwalk' }),
       address: '4 Elm Ave, Norwalk',
       visits: [],
       client: null,
-      photos: { count: 0, cover: null },
+      photos: { count: 0, cover: null, coverSource: null },
     },
     {
       project: project({ id: 'p3', name: 'Shore Kitchen', status: 'completed', job_site_address: null }),
       address: null,
       visits: [],
       client: { name: 'Sam Shore', phone: null },
-      photos: { count: 0, cover: null },
+      photos: { count: 0, cover: null, coverSource: null },
     },
     {
       project: project({ id: 'p4', name: 'Patel Basement', status: 'not_started', job_site_address: '8 Pine Rd, Darien' }),
       address: '8 Pine Rd, Darien',
       visits: [],
       client: null,
-      photos: { count: 0, cover: null },
+      photos: { count: 0, cover: null, coverSource: null },
     },
   ]
   notes = new Map([

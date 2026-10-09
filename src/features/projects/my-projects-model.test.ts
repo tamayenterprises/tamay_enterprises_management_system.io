@@ -6,6 +6,7 @@ import {
   employeeStatus,
   hasProjectDetails,
   matchesStatus,
+  selectProjectCover,
   matchesSearch,
   projectInitials,
   sortProjects,
@@ -72,7 +73,7 @@ const view = (over: Partial<MyProjectView> = {}): MyProjectView => ({
   address: '12 Oak St, Stamford CT',
   visits: [],
   client: null,
-  photos: { count: 0, cover: null },
+  photos: { count: 0, cover: null, coverSource: null },
   ...over,
 })
 
@@ -114,6 +115,62 @@ describe('summarizeProjectPhotos', () => {
     const newestMockup = photo({ category: 'project_file', mime_type: 'image/png', created_at: '2026-10-03T00:00:00Z' })
     expect(summarizeProjectPhotos([oldWork, newestMockup, newWork]).get('p1')?.cover?.id).toBe(newWork.id)
     expect(summarizeProjectPhotos([newestMockup]).get('p1')?.cover?.id).toBe(newestMockup.id)
+  })
+})
+
+describe('selectProjectCover (project cover photo)', () => {
+  const site = photo({ name: 'IMG_2041.jpg', kind_label: 'Progress', created_at: '2026-10-01T00:00:00Z' })
+  const chosen = photo({ name: 'front-elevation.jpg', created_at: '2026-09-01T00:00:00Z' })
+  const mockup = photo({ category: 'project_file', mime_type: 'image/png', name: 'design.png', created_at: '2026-10-05T00:00:00Z' })
+
+  it('CASE 1: no explicit cover → the latest eligible work photo', () => {
+    expect(selectProjectCover([chosen, site, mockup])).toEqual({ cover: site, coverSource: 'work_photo' })
+  })
+
+  it('CASE 2: an explicit cover wins over newer work photos', () => {
+    expect(selectProjectCover([chosen, site, mockup], chosen.id)).toEqual({ cover: chosen, coverSource: 'explicit' })
+  })
+
+  it('CASE 3: a newer work photo uploaded afterwards does not replace the explicit cover', () => {
+    const newer = photo({ name: 'IMG_9999.jpg', created_at: '2026-10-07T09:00:00Z' })
+    expect(selectProjectCover([newer, chosen, site], chosen.id).cover?.id).toBe(chosen.id)
+    const map = summarizeProjectPhotos([newer, chosen, site], new Map([['p1', chosen.id]]))
+    expect(map.get('p1')).toMatchObject({ count: 3, coverSource: 'explicit', cover: { id: chosen.id } })
+  })
+
+  it('CASE 4: explicit cover cleared (or its photo removed) → automatic selection resumes', () => {
+    expect(selectProjectCover([chosen, site], null).cover?.id).toBe(site.id)
+    expect(selectProjectCover([site], chosen.id)).toEqual({ cover: site, coverSource: 'work_photo' })
+  })
+
+  it('CASE 5: receipts / formal documents never become a cover (explicit or automatic)', () => {
+    const receiptPhoto = photo({ name: 'receipt_home_depot.jpg', created_at: '2026-10-06T00:00:00Z' })
+    const breakdown = photo({ category: 'project_file', mime_type: 'image/jpeg', kind_label: 'Project Breakdown', created_at: '2026-10-06T00:00:00Z' })
+    const contractScan = photo({ category: 'contract', mime_type: 'image/jpeg', created_at: '2026-10-06T00:00:00Z' })
+    const miscImage = photo({ category: 'miscellaneous', mime_type: 'image/jpeg', created_at: '2026-10-06T00:00:00Z' })
+    const all = [receiptPhoto, breakdown, contractScan, miscImage, site]
+    expect(selectProjectCover(all).cover?.id).toBe(site.id)
+    expect(selectProjectCover(all, breakdown.id).cover?.id).toBe(site.id)
+    expect(selectProjectCover(all, contractScan.id).cover?.id).toBe(site.id)
+    expect(selectProjectCover([receiptPhoto, breakdown])).toEqual({ cover: null, coverSource: null })
+  })
+
+  it('photos labelled Issue / Other only cover when nothing better exists; then reference images', () => {
+    const other = photo({ kind_label: 'Other', name: 'IMG_5.jpg', created_at: '2026-10-06T00:00:00Z' })
+    expect(selectProjectCover([other, chosen]).cover?.id).toBe(chosen.id)
+    expect(selectProjectCover([other, mockup]).cover?.id).toBe(other.id)
+    expect(selectProjectCover([mockup])).toEqual({ cover: mockup, coverSource: 'reference' })
+  })
+
+  it('CASE 6: an explicit id from another project is ignored', () => {
+    const foreign = photo({ project_id: 'p2', name: 'other-house.jpg' })
+    const map = summarizeProjectPhotos([site, foreign], new Map([['p1', foreign.id]]))
+    expect(map.get('p1')).toMatchObject({ cover: { id: site.id }, coverSource: 'work_photo' })
+  })
+
+  it('CASE 9: no photos → no cover (branded Tamay fallback)', () => {
+    expect(selectProjectCover([], 'anything')).toEqual({ cover: null, coverSource: null })
+    expect(summarizeProjectPhotos([]).get('p1')).toBeUndefined()
   })
 })
 
