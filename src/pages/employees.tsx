@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
 import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { PersonRecordsPanel } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import {
   useProfiles,
@@ -210,6 +211,13 @@ function EmployeeCard({
         <p>Position: {employee.position || '—'}</p>
         <p>Hire date: {formatDate(employee.hire_date)}</p>
         <p>Phone: {employee.phone || '—'}</p>
+        <p>
+          Emergency contact:{' '}
+          {employee.emergency_contact_name || employee.emergency_contact_phone
+            ? [employee.emergency_contact_name, employee.emergency_contact_phone].filter(Boolean).join(' · ')
+            : '—'}
+        </p>
+        {employee.internal_notes ? <p>Notes: {employee.internal_notes}</p> : null}
         <div className="flex flex-wrap gap-2 pt-2">
           <Dialog>
             <DialogTrigger asChild>
@@ -378,6 +386,10 @@ function EmployeeCard({
             personLabel={fullName(employee.first_name, employee.last_name)}
           />
         </div>
+        <PersonRecordsPanel
+          profileId={employee.id}
+          personLabel={fullName(employee.first_name, employee.last_name)}
+        />
       </CardContent>
     </Card>
   )

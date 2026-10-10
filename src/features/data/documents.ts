@@ -37,6 +37,8 @@ export function useDocuments(filters?: {
   category?: DocumentCategory
   projectId?: string
   ownerId?: string
+  /** Files this person owns or uploaded. */
+  personId?: string
   mineOnly?: boolean
 }) {
   const { profile } = useAuth()
@@ -60,7 +62,11 @@ export function useDocuments(filters?: {
         if (safe) query = query.ilike('name', `%${safe}%`)
       }
       if (filters?.projectId) query = query.eq('project_id', filters.projectId)
-      if (filters?.ownerId) query = query.eq('owner_id', filters.ownerId)
+      if (filters?.personId) {
+        query = query.or(`owner_id.eq.${filters.personId},uploaded_by.eq.${filters.personId}`)
+      } else if (filters?.ownerId) {
+        query = query.eq('owner_id', filters.ownerId)
+      }
       if (filters?.mineOnly && profile?.id) {
         query = query.or(`owner_id.eq.${profile.id},uploaded_by.eq.${profile.id}`)
       }

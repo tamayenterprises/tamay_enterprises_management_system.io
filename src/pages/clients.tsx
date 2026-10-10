@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
 import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { PersonRecordsPanel } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
@@ -192,6 +193,7 @@ function ClientCard({
         <p>Phone: {client.phone || '—'}</p>
         <p>Company: {client.company_name || '—'}</p>
         <p>Approval: {approvalStatusLabel(client.approval_status)}</p>
+        {client.internal_notes ? <p>Notes: {client.internal_notes}</p> : null}
         <div className="flex flex-wrap gap-2 pt-2">
           <Dialog>
             <DialogTrigger asChild>
@@ -240,6 +242,7 @@ function ClientCard({
         <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
           <ProfileAssignmentsPanel profileId={client.id} personLabel={displayName} />
         </div>
+        <PersonRecordsPanel profileId={client.id} personLabel={displayName} />
       </CardContent>
     </Card>
   )

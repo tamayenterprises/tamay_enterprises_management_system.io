@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
 import { SeeMoreButton } from '@/components/ui/see-more-button'
+import { PersonRecordsPanel } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
@@ -194,9 +195,11 @@ function SubcontractorCard({
         )}
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
+        <p>Phone: {person.phone || '—'}</p>
         <p>Trade: {person.trade_specialization || '—'}</p>
         <p>Insurance: {person.insurance_info || '—'}</p>
         <p>License: {person.license_info || '—'}</p>
+        {person.internal_notes ? <p>Notes: {person.internal_notes}</p> : null}
         <div className="flex flex-wrap gap-2 pt-2">
           <Dialog>
             <DialogTrigger asChild>
@@ -252,6 +255,10 @@ function SubcontractorCard({
             personLabel={person.company_name || fullName(person.first_name, person.last_name)}
           />
         </div>
+        <PersonRecordsPanel
+          profileId={person.id}
+          personLabel={person.company_name || fullName(person.first_name, person.last_name)}
+        />
       </CardContent>
     </Card>
   )
