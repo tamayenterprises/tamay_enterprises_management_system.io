@@ -66,13 +66,12 @@ export function canViewerSeeDocument(doc: DocumentAccessFields, viewer: Viewer) 
   return doc.team_visible === true
 }
 
-/** Mirrors public.can_modify_document_row: workers never remove project documents. */
+/** Mirrors public.can_modify_document_row: employees and subcontractors cannot delete files. */
 export function canRemoveDocument(doc: DocumentAccessFields, viewer: Viewer) {
   if (!viewer) return false
   if (isManagementRole(viewer.role)) return true
-  if (!isOwnDocument(doc, viewer)) return false
-  if (!doc.project_id || isProjectPhotoDocument(doc)) return true
-  return isClientRole(viewer.role)
+  if (!isClientRole(viewer.role) || !isOwnDocument(doc, viewer)) return false
+  return true
 }
 
 /** Formal project documents come from management; clients keep their portal uploads. */

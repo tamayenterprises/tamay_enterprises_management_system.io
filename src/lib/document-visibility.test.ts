@@ -79,12 +79,16 @@ describe('canViewerSeeDocument', () => {
 })
 
 describe('canRemoveDocument', () => {
-  it('workers never remove project documents, shared or not, own or not', () => {
+  it('workers never remove documents — project, photo, or personal', () => {
     for (const role of ['employee', 'subcontractor'] as const) {
       const own = { owner_id: `${role}-1`, uploaded_by: `${role}-1` }
       expect(canRemoveDocument(projectDoc(own), as(role))).toBe(false)
       expect(canRemoveDocument(projectDoc({ ...own, team_visible: true }), as(role))).toBe(false)
       expect(canRemoveDocument(projectDoc({ team_visible: true }), as(role))).toBe(false)
+      expect(canRemoveDocument(projectDoc({ ...own, category: 'work_photo', mime_type: 'image/jpeg' }), as(role))).toBe(
+        false,
+      )
+      expect(canRemoveDocument(projectDoc({ ...own, project_id: null }), as(role))).toBe(false)
     }
   })
 
@@ -93,13 +97,6 @@ describe('canRemoveDocument', () => {
     expect(canRemoveDocument(projectDoc(), as('project_manager'))).toBe(true)
     expect(canRemoveDocument(projectDoc(), as('client'))).toBe(false)
     expect(canRemoveDocument(projectDoc({ owner_id: 'client-1', uploaded_by: 'client-1' }), as('client'))).toBe(true)
-  })
-
-  it('owners keep removing their own photos and personal files', () => {
-    const own = { owner_id: 'employee-1', uploaded_by: 'employee-1' }
-    expect(canRemoveDocument(projectDoc({ ...own, category: 'work_photo', mime_type: 'image/jpeg' }), as('employee'))).toBe(true)
-    expect(canRemoveDocument(projectDoc({ ...own, project_id: null }), as('employee'))).toBe(true)
-    expect(canRemoveDocument(projectDoc({ category: 'work_photo', mime_type: 'image/jpeg' }), as('employee'))).toBe(false)
   })
 })
 
