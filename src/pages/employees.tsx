@@ -288,12 +288,13 @@ function EmployeeCard({
                     disabled={setStatus.isPending || statusReason.trim().length < 3}
                     onClick={async () => {
                       try {
-                        await setStatus.mutateAsync({
+                        const result = await setStatus.mutateAsync({
                           workerId: employee.id,
                           action: 'activate',
                           reason: statusReason.trim(),
                         })
-                        toast.success('Worker activated')
+                        if (result.loginWarning) toast.message(result.loginWarning)
+                        else toast.success('Worker activated')
                         setStatusOpen(false)
                         setStatusReason('')
                       } catch (error) {
@@ -331,12 +332,13 @@ function EmployeeCard({
                     disabled={setStatus.isPending || statusReason.trim().length < 3}
                     onClick={async () => {
                       try {
-                        await setStatus.mutateAsync({
+                        const result = await setStatus.mutateAsync({
                           workerId: employee.id,
                           action: 'restore',
                           reason: statusReason.trim(),
                         })
-                        toast.success('Worker restored from archive')
+                        if (result.loginWarning) toast.message(result.loginWarning)
+                        else toast.success('Worker restored and reactivated')
                         setStatusOpen(false)
                         setStatusReason('')
                       } catch (error) {

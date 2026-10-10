@@ -6,12 +6,26 @@ import { softUnassignAllForProfile } from '@/features/data/assignments'
 import type { ProfileFormValues } from '@/lib/validations'
 import type { Profile, RoleOption, UserRole } from '@/types/database'
 
-async function setWorkerLoginAccess(workerId: string, action: 'lock' | 'unlock') {
-  const { data, error } = await supabase.functions.invoke('manage-auth-access', {
-    body: { workerId, action },
-  })
-  if (data?.error) throw new Error(String(data.error))
-  if (error) throw new Error(error.message || 'Unable to update login access')
+function loginAccessWarning(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  if (message.toLowerCase().includes('failed to send a request to the edge function')) {
+    return 'The person was updated in Tamay, but sign-in could not be unlocked yet. Try Restore again in a few minutes.'
+  }
+  return message || 'The person was updated, but login access could not be changed.'
+}
+
+/** Lock or unlock Auth login. Returns a warning if the Edge Function is down; never blocks restore/activate. */
+async function setWorkerLoginAccess(workerId: string, action: 'lock' | 'unlock'): Promise<string | undefined> {
+  try {
+    const { data, error } = await supabase.functions.invoke('manage-auth-access', {
+      body: { workerId, action },
+    })
+    if (data?.error) return loginAccessWarning(new Error(String(data.error)))
+    if (error) return loginAccessWarning(error)
+    return undefined
+  } catch (error) {
+    return loginAccessWarning(error)
+  }
 }
 
 export function useRoles() {
@@ -192,7 +206,7 @@ export function useAdminSetUserAccess() {
       if (typeof isActive === 'boolean') payload.is_active = isActive
       if (typeof archived === 'boolean') {
         payload.archived_at = archived ? new Date().toISOString() : null
-        if (archived) payload.is_active = false
+        payload.is_active = !archived
       }
       if (approvalStatus) {
         payload.approval_status = approvalStatus
@@ -204,16 +218,17 @@ export function useAdminSetUserAccess() {
 
       // Removing someone from Tamay also pulls them off active jobs (replace / done).
       let unassignedCount = 0
+      let loginWarning: string | undefined
       if (archived === true && profile?.id) {
         unassignedCount = await softUnassignAllForProfile(
           id,
           profile.id,
           profile.organization_id,
         )
-        await setWorkerLoginAccess(id, 'lock')
+        loginWarning = await setWorkerLoginAccess(id, 'lock')
       }
       if (archived === false) {
-        await setWorkerLoginAccess(id, 'unlock')
+        loginWarning = await setWorkerLoginAccess(id, 'unlock')
       }
 
       if (profile?.organization_id) {
@@ -227,7 +242,7 @@ export function useAdminSetUserAccess() {
         })
       }
 
-      return { profile: data as Profile, unassignedCount }
+      return { profile: data as Profile, unassignedCount, loginWarning }
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
@@ -268,34 +283,48 @@ export function useSetWorkerStatus() {
       action: 'activate' | 'deactivate' | 'archive' | 'restore' | 'approve'
       reason: string
     }) => {
-      const { data, error } = await supabase.rpc('set_worker_status', {
-        p_worker_id: workerId,
-        p_action: action,
-        p_reason: reason,
-      })
-      if (error) throw error
+      const runStatus = async (nextAction: typeof action) => {
+        const { data, error } = await supabase.rpc('set_worker_status', {
+          p_worker_id: workerId,
+          p_action: nextAction,
+          p_reason: reason,
+        })
+        if (error) throw error
+        return data as {
+          ok: boolean
+          message?: string
+          eligibility?: import('@/lib/worker-eligibility').WorkerEligibility
+          profile?: Profile
+        }
+      }
+
+      let data = await runStatus(action)
+      if (action === 'restore') {
+        try {
+          data = await runStatus('activate')
+        } catch {
+          // Restore already unarchived; activate can fail if they are not approved yet.
+        }
+      }
 
       let unassignedCount = 0
+      let loginWarning: string | undefined
       if (action === 'archive' && profile?.id) {
         unassignedCount = await softUnassignAllForProfile(
           workerId,
           profile.id,
           profile.organization_id,
         )
-        await setWorkerLoginAccess(workerId, 'lock')
+        loginWarning = await setWorkerLoginAccess(workerId, 'lock')
       }
       if (action === 'restore' || action === 'activate') {
-        await setWorkerLoginAccess(workerId, 'unlock')
+        loginWarning = await setWorkerLoginAccess(workerId, 'unlock')
       }
 
       return {
-        ...(data as {
-          ok: boolean
-          message?: string
-          eligibility?: import('@/lib/worker-eligibility').WorkerEligibility
-          profile?: Profile
-        }),
+        ...data,
         unassignedCount,
+        loginWarning,
       }
     },
     onSuccess: (_data, vars) => {

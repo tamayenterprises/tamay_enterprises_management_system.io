@@ -286,8 +286,9 @@ export function AdminPage() {
                       return
                     }
                     try {
-                      await setAccess.mutateAsync({ id: user.id, archived: false })
-                      toast.success('User restored')
+                      const result = await setAccess.mutateAsync({ id: user.id, archived: false })
+                      if (result.loginWarning) toast.message(result.loginWarning)
+                      else toast.success('User restored')
                     } catch (error) {
                       toast.error(error instanceof Error ? error.message : 'Restore failed')
                     }

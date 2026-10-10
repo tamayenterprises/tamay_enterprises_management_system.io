@@ -100,8 +100,9 @@ export function ClientsPage() {
                     return
                   }
                   try {
-                    await setAccess.mutateAsync({ id: client.id, archived: false })
-                    toast.success('Client restored')
+                    const result = await setAccess.mutateAsync({ id: client.id, archived: false })
+                    if (result.loginWarning) toast.message(result.loginWarning)
+                    else toast.success('Client restored')
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : 'Restore failed')
                   }

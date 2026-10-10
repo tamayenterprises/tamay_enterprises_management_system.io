@@ -386,12 +386,13 @@ export function WorkforceStatusPanel() {
                         disabled={busy}
                         onClick={async () => {
                           try {
-                            await setWorkerStatus.mutateAsync({
+                            const result = await setWorkerStatus.mutateAsync({
                               workerId: selected.user_id,
                               action: 'activate',
                               reason: accountChangeReason(reason, 'Activated from Workforce status'),
                             })
-                            toast.success('Worker activated')
+                            if (result.loginWarning) toast.message(result.loginWarning)
+                            else toast.success('Worker activated')
                             setSelected(null)
                             setReason('')
                           } catch (error) {

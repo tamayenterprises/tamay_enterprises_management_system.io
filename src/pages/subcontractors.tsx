@@ -106,8 +106,9 @@ export function SubcontractorsPage() {
                     return
                   }
                   try {
-                    await setAccess.mutateAsync({ id: person.id, archived: false })
-                    toast.success('Subcontractor restored')
+                    const result = await setAccess.mutateAsync({ id: person.id, archived: false })
+                    if (result.loginWarning) toast.message(result.loginWarning)
+                    else toast.success('Subcontractor restored')
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : 'Restore failed')
                   }
