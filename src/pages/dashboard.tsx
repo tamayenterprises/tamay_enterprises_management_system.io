@@ -227,8 +227,8 @@ export function DashboardPage() {
               />
             ) : (
               <>
-                <div className="hidden space-y-3 lg:block">
-                  {projectList.slice(0, 6).map((project) => (
+                <div className="space-y-3">
+                  {projectList.slice(0, 2).map((project) => (
                     <Link
                       key={project.id}
                       to={`/projects/${project.id}`}
