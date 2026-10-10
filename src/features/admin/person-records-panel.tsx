@@ -7,14 +7,18 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import {
   createCertificationProofUrl,
   useCertifications,
+  useDeleteCertification,
+  useDeleteDocument,
   useDocuments,
   viewDocumentFile,
 } from '@/features/data/hooks'
-import { canViewerSeeDocument } from '@/lib/document-visibility'
+import { canRemoveDocument, canViewerSeeDocument } from '@/lib/document-visibility'
+import { confirmAction } from '@/lib/uploads'
 import {
   certificationStatusLabel,
   documentCategoryLabel,
   formatDate,
+  isManagementRole,
 } from '@/lib/utils'
 
 export function PersonRecordsPanel({
@@ -42,6 +46,9 @@ export function PersonRecordsPanel({
 
 function PersonRecordsLists({ profileId }: { profileId: string }) {
   const { profile } = useAuth()
+  const canManage = isManagementRole(profile?.role)
+  const deleteDocument = useDeleteDocument()
+  const deleteCertification = useDeleteCertification()
   const { data: certs = [], isLoading: certsLoading, isError: certsError } = useCertifications({
     profileId,
   })
@@ -90,26 +97,46 @@ function PersonRecordsLists({ profileId }: { profileId: string }) {
                     {certificationStatusLabel(cert.status)}
                   </Badge>
                 </div>
-                {cert.document_url ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="mt-2"
-                    onClick={async () => {
-                      try {
-                        const url = await createCertificationProofUrl(cert.document_url)
-                        window.open(url, '_blank', 'noopener,noreferrer')
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : 'Unable to open proof file')
-                      }
-                    }}
-                  >
-                    View proof
-                  </Button>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">No proof file</p>
-                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {cert.document_url ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const url = await createCertificationProofUrl(cert.document_url)
+                          window.open(url, '_blank', 'noopener,noreferrer')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Unable to open proof file')
+                        }
+                      }}
+                    >
+                      View proof
+                    </Button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No proof file</p>
+                  )}
+                  {canManage ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={deleteCertification.isPending}
+                      onClick={async () => {
+                        if (!confirmAction(`Remove certification "${cert.name}"? This cannot be undone.`)) return
+                        try {
+                          await deleteCertification.mutateAsync(cert)
+                          toast.success('Certification removed')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Remove failed')
+                        }
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -135,21 +162,41 @@ function PersonRecordsLists({ profileId }: { profileId: string }) {
                     </p>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="mt-2"
-                  onClick={async () => {
-                    try {
-                      await viewDocumentFile(doc)
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : 'Open failed')
-                    }
-                  }}
-                >
-                  Open
-                </Button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        await viewDocumentFile(doc)
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : 'Open failed')
+                      }
+                    }}
+                  >
+                    Open
+                  </Button>
+                  {canRemoveDocument(doc, profile) ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={deleteDocument.isPending}
+                      onClick={async () => {
+                        if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`)) return
+                        try {
+                          await deleteDocument.mutateAsync(doc)
+                          toast.success('Document removed')
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : 'Remove failed')
+                        }
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
