@@ -29,7 +29,7 @@ import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
 import type { Certification, CertificationStatus } from '@/types/database'
 
-const CERT_TYPES = ['OSHA', 'Equipment', 'Trade', 'CPR', 'First Aid', 'Company-specific']
+const CERT_TYPES = ['OSHA', 'Equipment', 'Trade', 'CPR', 'First Aid', 'Company-specific', 'Other']
 
 export function CertificationsPage() {
   const { profile } = useAuth()
