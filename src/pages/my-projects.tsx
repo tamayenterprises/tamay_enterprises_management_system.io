@@ -125,11 +125,11 @@ export function MyProjectsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <div
             role="group"
             aria-label="Filter by status"
-            className="-mx-3 flex min-w-0 flex-1 snap-x scroll-px-3 gap-1.5 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:gap-2 md:px-0"
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 md:gap-2"
           >
             {STATUS_FILTERS.map((filter) => {
               const active = status === filter.value
@@ -141,7 +141,7 @@ export function MyProjectsPage() {
                   aria-label={`${filter.label} (${counts[filter.value]})`}
                   onClick={() => setStatus(filter.value)}
                   className={cn(
-                    'inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:rounded-lg md:px-3.5',
+                    'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3 sm:text-[13px] md:rounded-lg md:px-3.5',
                     active
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border bg-white text-primary hover:border-primary/30 hover:bg-[#f3f8fc]',
