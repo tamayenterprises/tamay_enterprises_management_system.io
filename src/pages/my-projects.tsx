@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ArrowUpDown, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,8 +20,11 @@ import {
   type StatusFilter,
 } from '@/features/projects/my-projects-model'
 import { STATUS_DOT } from '@/features/projects/my-projects-styles'
-import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import { useListPreview } from '@/lib/list-preview'
 import { cn } from '@/lib/utils'
+
+const EMPLOYEE_PROJECTS_PREVIEW = 2
+const EMPLOYEE_PROJECTS_STEP = 3
 
 const SEARCH_PLACEHOLDER = 'Search projects, clients, or addresses…'
 const ICON_BUTTON = 'flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-primary shadow-sm'
@@ -79,7 +82,12 @@ export function MyProjectsPage() {
     () => sortProjects(searched.filter((view) => matchesStatus(view, status)), sort),
     [searched, status, sort],
   )
-  const list = useListPreview(visible, `${search}:${status}:${sort}`)
+  const list = useListPreview(
+    visible,
+    `${search}:${status}:${sort}`,
+    EMPLOYEE_PROJECTS_STEP,
+    EMPLOYEE_PROJECTS_PREVIEW,
+  )
   const filtered = Boolean(search.trim()) || status !== 'all'
   const showMobileSearch = mobileSearchOpen || Boolean(search)
 
@@ -215,7 +223,6 @@ export function MyProjectsPage() {
           }
         />
       ) : (
-        <MobileListGate>
         <div data-testid="my-projects-list" className="flex flex-col gap-3 lg:gap-4">
           {list.visible.map((view) => (
             <MyProjectCard
@@ -225,9 +232,13 @@ export function MyProjectsPage() {
               showClient={showClient}
             />
           ))}
-          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+          <SeeMoreButton
+            shown={list.shown}
+            total={list.total}
+            step={EMPLOYEE_PROJECTS_STEP}
+            onMore={list.showMore}
+          />
         </div>
-        </MobileListGate>
       )}
     </div>
   )

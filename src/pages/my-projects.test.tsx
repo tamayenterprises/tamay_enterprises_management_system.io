@@ -164,7 +164,34 @@ describe('My Projects (employee)', () => {
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'zzz' } })
     expect(screen.getByText('No projects match')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Clear filters/ }))
+    expect(screen.getAllByTestId('my-project-card')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: /See 2 more/i }))
     expect(screen.getAllByTestId('my-project-card')).toHaveLength(4)
+  })
+
+  it('shows two projects, then three more at a time', () => {
+    views.push(
+      {
+        project: project({ id: 'p5', name: 'River Loft', status: 'waiting', job_site_address: '1 River Rd' }),
+        address: '1 River Rd',
+        visits: [],
+        client: null,
+        photos: { count: 0, cover: null, coverSource: null },
+      },
+      {
+        project: project({ id: 'p6', name: 'York Patio', status: 'completed', job_site_address: '9 York St' }),
+        address: '9 York St',
+        visits: [],
+        client: null,
+        photos: { count: 0, cover: null, coverSource: null },
+      },
+    )
+    renderPage()
+    expect(screen.getAllByTestId('my-project-card')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: /See 3 more/i }))
+    expect(screen.getAllByTestId('my-project-card')).toHaveLength(5)
+    fireEvent.click(screen.getByRole('button', { name: /See 1 more/i }))
+    expect(screen.getAllByTestId('my-project-card')).toHaveLength(6)
   })
 
   it('mobile header: search is an icon that expands; sort is a compact control', () => {
@@ -279,6 +306,7 @@ describe('My Projects (employee)', () => {
 
   it('no photo: branded fallback, no count; missing address / phone disable those actions', () => {
     renderPage()
+    fireEvent.click(screen.getByRole('button', { name: /See 2 more/i }))
     const card = (name: string) =>
       within(screen.getAllByTestId('my-project-card').find((el) => el.textContent?.includes(name))!)
     const deck = card('Lopez Deck')
