@@ -3,12 +3,12 @@ import { LIST_PREVIEW, growPreview } from '@/features/admin/assignment-preview'
 
 export { LIST_PREVIEW }
 
-export function useListPreview<T>(items: T[], resetKey: unknown, step = LIST_PREVIEW) {
-  const [shown, setShown] = useState(step)
+export function useListPreview<T>(items: T[], resetKey: unknown, step = LIST_PREVIEW, initial = step) {
+  const [shown, setShown] = useState(initial)
 
   useEffect(() => {
-    setShown(step)
-  }, [resetKey, step])
+    setShown(initial)
+  }, [resetKey, initial])
 
   const showMore = useCallback(
     () => setShown((current) => growPreview(current, items.length, step)),

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { Textarea } from '@/components/ui/textarea'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import {
@@ -11,6 +12,7 @@ import {
   useCreateProjectUpdate,
   useProjectNotes,
 } from '@/features/data/hooks'
+import { useListPreview } from '@/lib/list-preview'
 import { cn, formatRelative, fullName, roleLabel } from '@/lib/utils'
 import { resolvedImageUploadAccept } from '@/lib/uploads'
 import { RichUpdateText } from '@/features/updates/rich-update-text'
@@ -325,7 +327,6 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
-  const [showAll, setShowAll] = useState(false)
 
   const { roots, repliesByParent } = useMemo(() => {
     const rootsList = notes.filter((note) => !note.parent_id)
@@ -340,6 +341,7 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
   }, [notes])
 
   const ordered = useMemo(() => [...roots].reverse(), [roots])
+  const list = useListPreview(ordered, projectId, 3, 1)
 
   return (
     <section className="rounded-2xl border border-border/80 bg-white p-4 shadow-[0_1px_2px_rgba(9,46,76,0.04),0_8px_24px_rgba(9,46,76,0.04)] sm:p-5">
@@ -433,8 +435,8 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
           />
         ) : (
           <>
-            <div id="client-project-updates-list" className={showAll ? 'space-y-3' : 'hidden space-y-3 lg:block'}>
-              {ordered.map((update) => (
+            <div id="client-project-updates-list" className="space-y-3">
+              {list.visible.map((update) => (
                 <div key={update.id}>
                   <ClientUpdateCard
                     update={update}
@@ -444,16 +446,12 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
                 </div>
               ))}
             </div>
-            <Button
-              type="button"
-              variant={showAll ? 'ghost' : 'outline'}
-              className="mt-2 h-11 w-full rounded-xl lg:hidden"
-              aria-expanded={showAll}
-              aria-controls="client-project-updates-list"
-              onClick={() => setShowAll((open) => !open)}
-            >
-              {showAll ? 'Show less' : 'See more'}
-            </Button>
+            <SeeMoreButton
+              shown={list.shown}
+              total={list.total}
+              step={3}
+              onMore={list.showMore}
+            />
           </>
         )}
       </div>
