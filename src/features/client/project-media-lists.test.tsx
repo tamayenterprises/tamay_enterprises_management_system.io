@@ -2,19 +2,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { DocumentRecord } from '@/types/database'
-import { ClientProjectMediaLists } from './client-project-detail'
+import { ClientProjectMediaLists } from './project-media-lists'
 
 vi.mock('@/features/data/hooks', () => ({
   createDocumentSignedUrl: vi.fn().mockResolvedValue('https://example.test/file'),
-  useDocuments: () => ({ data: [] }),
-  usePostProjectDocumentsToThread: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  usePostProjectPhotosToThread: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useProject: () => ({ data: undefined, isLoading: false, isError: false }),
-  useProjectNotes: () => ({ data: [] }),
-  useUploadDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
-}))
-vi.mock('@/features/projects/finance-hooks', () => ({
-  useProjectPayments: () => ({ data: [] }),
 }))
 vi.mock('@/lib/uploads', async () => {
   const actual = await vi.importActual<typeof import('@/lib/uploads')>('@/lib/uploads')
