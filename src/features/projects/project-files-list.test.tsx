@@ -121,11 +121,21 @@ describe('ProjectFilesList — assigned employee', () => {
     expect(screen.queryByText('Signed contract.jpg')).not.toBeInTheDocument()
   })
 
-  it('an employee can still remove a photo they took themselves', async () => {
-    const own = file({ id: 'p9', name: 'My photo.jpg', category: 'work_photo', mime_type: 'image/jpeg', owner_id: EMPLOYEE.id, uploaded_by: EMPLOYEE.id })
-    render(<ProjectFilesList documents={[own]} viewer={EMPLOYEE} />)
-    await userEvent.click(screen.getByRole('button', { name: 'View Photos ▼' }))
-    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+  it('employees and subcontractors can open a photo they took themselves but cannot remove it', async () => {
+    for (const viewer of [EMPLOYEE, { id: 'sub-1', role: 'subcontractor' } as const]) {
+      const own = file({ id: 'p9', name: 'My photo.jpg', category: 'work_photo', mime_type: 'image/jpeg', owner_id: viewer.id, uploaded_by: viewer.id })
+      const { unmount } = render(<ProjectFilesList documents={[own]} viewer={viewer} />)
+      await userEvent.click(screen.getByRole('button', { name: 'View Photos ▼' }))
+      const row = document.getElementById('doc-p9') as HTMLElement
+      expect(within(row).getByText('My photo.jpg')).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: 'Open' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Visibility:/)).not.toBeInTheDocument()
+      await userEvent.click(within(row).getByRole('button', { name: 'Open' }))
+      expect(viewFile).toHaveBeenCalledWith(own)
+      unmount()
+    }
   })
 })
 
