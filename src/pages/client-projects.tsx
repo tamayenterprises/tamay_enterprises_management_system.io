@@ -2,15 +2,17 @@ import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useProjects } from '@/features/data/hooks'
-import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import { useListPreview } from '@/lib/list-preview'
 import { formatRelative, projectStatusLabel } from '@/lib/utils'
+
+const CLIENT_PROJECTS_PREVIEW = 2
 
 export function ClientProjectsPage() {
   const { data: projects = [], isLoading, isError } = useProjects({ assignedOnly: true })
-  const list = useListPreview(projects, projects.length)
+  const list = useListPreview(projects, projects.length, CLIENT_PROJECTS_PREVIEW)
 
   if (isLoading) return <LoadingState label="Loading projects..." />
   if (isError) return <EmptyState title="Unable to load projects" />
@@ -30,7 +32,6 @@ export function ClientProjectsPage() {
           description="Submit a project request first. After Tamay approves it, your project will show here."
         />
       ) : (
-        <MobileListGate>
         <div className="space-y-3">
         <div className="grid gap-3 md:grid-cols-2">
           {list.visible.map((project) => (
@@ -50,9 +51,13 @@ export function ClientProjectsPage() {
             </Link>
           ))}
         </div>
-        <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+        <SeeMoreButton
+          shown={list.shown}
+          total={list.total}
+          step={Math.max(list.total - list.shown, 1)}
+          onMore={list.revealAll}
+        />
         </div>
-        </MobileListGate>
       )}
     </div>
   )
