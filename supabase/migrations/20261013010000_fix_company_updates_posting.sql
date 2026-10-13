@@ -1,3 +1,7 @@
+-- APPLY THIS ENTIRE FILE in the Supabase SQL Editor (Dashboard → SQL).
+-- Vercel deploys do not run it. Until this succeeds, posting returns 403 and
+-- list_company_updates returns 404.
+--
 -- Company updates: admins must be able to load and post even when a mention is
 -- outside the chosen audience or notification fan-out hits an error.
 
@@ -286,5 +290,115 @@ as $$
 $$;
 
 grant execute on function public.list_company_updates(int) to authenticated;
+
+drop policy if exists "Management create company updates" on public.company_updates;
+create policy "Management create company updates"
+  on public.company_updates for insert
+  to authenticated
+  with check (
+    public.is_approved_user()
+    and author_id = (select auth.uid())
+    and public.same_organization(organization_id)
+    and (
+      (
+        parent_id is null
+        and public.has_management_role()
+      )
+      or (
+        parent_id is not null
+        and public.is_in_company_update_audience(parent_id)
+      )
+    )
+  );
+
+create or replace function public.post_company_update(
+  p_content text default null,
+  p_photo_path text default null,
+  p_parent_id uuid default null,
+  p_audience_type public.company_update_audience default 'all_internal',
+  p_replies_enabled boolean default true,
+  p_requires_attention boolean default false,
+  p_notify_project_team boolean default false,
+  p_mentioned_user_ids uuid[] default '{}',
+  p_project_ids uuid[] default '{}',
+  p_audience_user_ids uuid[] default '{}'
+)
+returns public.company_updates
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_profile public.profiles%rowtype;
+  v_row public.company_updates%rowtype;
+begin
+  if v_uid is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select * into v_profile
+  from public.profiles
+  where id = v_uid
+    and approval_status = 'approved'
+    and is_active = true
+    and archived_at is null;
+  if not found then
+    raise exception 'Not allowed';
+  end if;
+
+  if p_parent_id is null then
+    if v_profile.role not in ('admin', 'project_manager') then
+      raise exception 'Not allowed';
+    end if;
+  elsif not public.is_in_company_update_audience(p_parent_id, v_uid) then
+    raise exception 'Not allowed';
+  end if;
+
+  if coalesce(trim(p_content), '') = '' and p_photo_path is null then
+    raise exception 'Write an update or add a photo';
+  end if;
+
+  insert into public.company_updates (
+    organization_id,
+    author_id,
+    content,
+    photo_path,
+    parent_id,
+    audience_type,
+    replies_enabled,
+    requires_attention,
+    notify_project_team
+  )
+  values (
+    v_profile.organization_id,
+    v_uid,
+    nullif(trim(p_content), ''),
+    p_photo_path,
+    p_parent_id,
+    case when p_parent_id is null then coalesce(p_audience_type, 'all_internal') else 'all_internal' end,
+    case when p_parent_id is null then coalesce(p_replies_enabled, true) else true end,
+    case when p_parent_id is null then coalesce(p_requires_attention, false) else false end,
+    case when p_parent_id is null then coalesce(p_notify_project_team, false) else false end
+  )
+  returning * into v_row;
+
+  perform public.register_company_update_extras(
+    v_row.id,
+    coalesce(p_mentioned_user_ids, '{}'::uuid[]),
+    coalesce(p_project_ids, '{}'::uuid[]),
+    coalesce(p_audience_user_ids, '{}'::uuid[])
+  );
+
+  return v_row;
+end;
+$$;
+
+revoke all on function public.post_company_update(
+  text, text, uuid, public.company_update_audience, boolean, boolean, boolean, uuid[], uuid[], uuid[]
+) from public;
+grant execute on function public.post_company_update(
+  text, text, uuid, public.company_update_audience, boolean, boolean, boolean, uuid[], uuid[], uuid[]
+) to authenticated;
 
 notify pgrst, 'reload schema';

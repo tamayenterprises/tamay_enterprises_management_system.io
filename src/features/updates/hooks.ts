@@ -10,6 +10,30 @@ export type CompanyUpdateWithMeta = CompanyUpdate & {
   refs?: Array<{ project_id: string; project?: Project | null }>
 }
 
+function companyUpdateError(error: { message?: string; details?: string; hint?: string; code?: string } | null, fallback: string) {
+  const message = error?.message || fallback
+  const extra = [error?.details, error?.hint].filter(Boolean).join(' ')
+  if (
+    error?.code === 'PGRST202' ||
+    /could not find the function/i.test(message) ||
+    /schema cache/i.test(message)
+  ) {
+    return new Error(
+      'Company updates are not set up in the database yet. In Supabase, run supabase/migrations/20261013010000_fix_company_updates_posting.sql, then try again.',
+    )
+  }
+  if (
+    error?.code === '42501' ||
+    /row-level security/i.test(message) ||
+    /permission denied/i.test(message)
+  ) {
+    return new Error(
+      'The database is blocking this company update. Run supabase/migrations/20261013010000_fix_company_updates_posting.sql in the Supabase SQL editor, then try again.',
+    )
+  }
+  return new Error(extra ? `${message} ${extra}` : message)
+}
+
 async function loadCompanyUpdateRows(limit: number): Promise<CompanyUpdate[]> {
   const rpc = await supabase.rpc('list_company_updates', { p_limit: limit })
   if (!rpc.error) return (rpc.data ?? []) as CompanyUpdate[]
@@ -19,7 +43,7 @@ async function loadCompanyUpdateRows(limit: number): Promise<CompanyUpdate[]> {
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit)
-  if (table.error) throw rpc.error
+  if (table.error) throw companyUpdateError(table.error, rpc.error.message)
   return (table.data ?? []) as CompanyUpdate[]
 }
 
@@ -144,15 +168,27 @@ export function useCreateCompanyUpdate() {
         payload.notify_project_team = Boolean(notifyProjectTeam)
       }
 
-      const { data, error } = await supabase
-        .from('company_updates')
-        .insert(payload)
-        .select('*')
-        .single()
+      const posted = await supabase.rpc('post_company_update', {
+        p_content: trimmed || null,
+        p_photo_path: photoPath,
+        p_parent_id: parentId ?? null,
+        p_audience_type: audienceType ?? 'all_internal',
+        p_replies_enabled: repliesEnabled ?? true,
+        p_requires_attention: Boolean(requiresAttention),
+        p_notify_project_team: Boolean(notifyProjectTeam),
+        p_mentioned_user_ids: mentionedUserIds ?? [],
+        p_project_ids: projectIds ?? [],
+        p_audience_user_ids: audienceUserIds ?? [],
+      })
 
+      if (!posted.error) {
+        return posted.data as CompanyUpdate
+      }
+
+      const { data, error } = await supabase.from('company_updates').insert(payload).select('*').single()
       if (error) {
         if (photoPath) await supabase.storage.from('project-files').remove([photoPath])
-        throw error
+        throw companyUpdateError(error.code === 'PGRST202' ? posted.error : error, posted.error.message)
       }
 
       const update = data as CompanyUpdate

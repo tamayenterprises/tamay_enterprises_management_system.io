@@ -962,6 +962,21 @@ export interface Database {
       register_project_note_project_refs: Rpc
       register_company_update_extras: Rpc
       list_company_updates: Rpc<{ p_limit?: number }, CompanyUpdate[]>
+      post_company_update: Rpc<
+        {
+          p_content?: string | null
+          p_photo_path?: string | null
+          p_parent_id?: string | null
+          p_audience_type?: CompanyUpdateAudience
+          p_replies_enabled?: boolean
+          p_requires_attention?: boolean
+          p_notify_project_team?: boolean
+          p_mentioned_user_ids?: string[]
+          p_project_ids?: string[]
+          p_audience_user_ids?: string[]
+        },
+        CompanyUpdate
+      >
       get_form_draft: Rpc
       upsert_form_draft: Rpc
       discard_form_draft: Rpc
