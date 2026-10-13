@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { isStaleChunkError, reloadOnceForStaleChunk } from '@/lib/chunk-errors'
 import { isBrowserDomConflictError } from '@/lib/dom-errors'
 
 interface Props {
@@ -27,6 +28,7 @@ export class AppErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Unhandled UI error', error, info)
+    if (isStaleChunkError(error) && reloadOnceForStaleChunk()) return
     // Password managers / translate often cause removeChild crashes during auth transitions.
     // Hard-reload to a safe page instead of stranding the user on an error card.
     if (isBrowserDomConflictError(error)) {
@@ -39,10 +41,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   private handleReload = () => {
-    const onAuthFlow = /sign-up|sign-in|client\/sign-up|forgot-password|reset-password/i.test(
-      window.location.pathname,
-    )
-    window.location.assign(onAuthFlow ? '/sign-in' : '/dashboard')
+    window.location.reload()
   }
 
   render() {
@@ -75,14 +74,16 @@ export class AppErrorBoundary extends Component<Props, State> {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              The app hit an unexpected problem. You can return to the dashboard and try again.
+              {isStaleChunkError(this.state.message)
+                ? 'A new version of the app just deployed. Reload to load the latest dashboard.'
+                : 'The app hit an unexpected problem. Reload this page and try again.'}
             </p>
             {this.state.message ? (
               <p className="rounded-xl border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 {this.state.message}
               </p>
             ) : null}
-            <Button onClick={this.handleReload}>Back to dashboard</Button>
+            <Button onClick={this.handleReload}>Reload page</Button>
           </CardContent>
         </Card>
       </div>

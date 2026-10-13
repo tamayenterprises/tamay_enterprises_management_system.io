@@ -12,6 +12,7 @@ import {
   StaffRoute,
 } from '@/features/auth/route-guards'
 import { AppErrorBoundary } from '@/components/app-error-boundary'
+import { isStaleChunkError, reloadOnceForStaleChunk } from '@/lib/chunk-errors'
 import { AppShell } from '@/components/layout/app-shell'
 import { ClientPortalShell } from '@/components/layout/client-portal-shell'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -26,8 +27,15 @@ function lazyNamed<M extends Record<string, ComponentType>>(
   exportName: keyof M & string,
 ) {
   return lazy(async () => {
-    const mod = await importer()
-    return { default: mod[exportName] }
+    try {
+      const mod = await importer()
+      return { default: mod[exportName] }
+    } catch (error) {
+      if (isStaleChunkError(error) && reloadOnceForStaleChunk()) {
+        return { default: (() => null) as ComponentType }
+      }
+      throw error
+    }
   })
 }
 
