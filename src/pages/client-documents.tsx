@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -18,7 +18,7 @@ import {
   useProjects,
   useUploadDocument,
 } from '@/features/data/hooks'
-import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import { useListPreview } from '@/lib/list-preview'
 import { documentCategoryLabel, formatFileSize, formatRelative } from '@/lib/utils'
 import {
   categoryForUploadFile,
@@ -28,6 +28,9 @@ import {
   resolvedImageUploadAccept,
   uploadFolderHint,
 } from '@/lib/uploads'
+
+const DOCUMENTS_PREVIEW = 2
+const DOCUMENTS_STEP = 3
 
 export function ClientDocumentsPage() {
   const { profile } = useAuth()
@@ -52,7 +55,7 @@ export function ClientDocumentsPage() {
         (doc.project_id != null && assignedIds.has(doc.project_id)),
     )
   }, [documents, profile?.id, projects])
-  const list = useListPreview(clientDocs, clientDocs.length)
+  const list = useListPreview(clientDocs, clientDocs.length, DOCUMENTS_STEP, DOCUMENTS_PREVIEW)
 
   if (isLoading) return <LoadingState label="Loading documents..." />
   if (isError) return <EmptyState title="Unable to load documents" />
@@ -257,7 +260,6 @@ export function ClientDocumentsPage() {
       {clientDocs.length === 0 ? (
         <EmptyState title="No documents yet" description="Upload a photo or file to get started." />
       ) : (
-        <MobileListGate>
         <div className="space-y-2">
           {list.visible.map((doc) => {
             const projectName = projects.find((p) => p.id === doc.project_id)?.name
@@ -288,9 +290,13 @@ export function ClientDocumentsPage() {
               </button>
             )
           })}
-          <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+          <SeeMoreButton
+            shown={list.shown}
+            total={list.total}
+            step={DOCUMENTS_STEP}
+            onMore={list.showMore}
+          />
         </div>
-        </MobileListGate>
       )}
 
       {projects.length > 0 ? (

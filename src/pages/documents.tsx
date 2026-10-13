@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList, isNativeFilePickerOpen } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,7 +22,7 @@ import {
   viewDocumentFile,
 } from '@/features/data/hooks'
 import { canRemoveDocument, canViewerSeeDocument } from '@/lib/document-visibility'
-import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import { useListPreview } from '@/lib/list-preview'
 import {
   documentCategoryLabel,
   formatDate,
@@ -41,6 +41,9 @@ import {
   uploadFolderHint,
 } from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
+
+const DOCUMENTS_PREVIEW = 2
+const DOCUMENTS_STEP = 3
 
 const CATEGORIES: DocumentCategory[] = [
   'certification',
@@ -84,7 +87,12 @@ export function DocumentsPage() {
     if (projectFilter === 'none') return authorizedRows.filter((doc) => !doc.project_id)
     return authorizedRows
   }, [authorizedRows, projectFilter])
-  const list = useListPreview(documents, `${search}:${category}:${projectFilter}:${scope}`)
+  const list = useListPreview(
+    documents,
+    `${search}:${category}:${projectFilter}:${scope}`,
+    DOCUMENTS_STEP,
+    DOCUMENTS_PREVIEW,
+  )
 
   const counts = useMemo(() => {
     const rows = authorizedRows
@@ -312,7 +320,6 @@ export function DocumentsPage() {
           description="Upload certifications, contracts, insurance, or project files to get started."
         />
       ) : (
-        <MobileListGate>
         <div className="space-y-3">
         <div
           className={`grid gap-4 lg:grid-cols-2 ${isFetching ? 'opacity-70 transition-opacity' : ''}`}
@@ -348,9 +355,13 @@ export function DocumentsPage() {
             />
           ))}
         </div>
-        <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
+        <SeeMoreButton
+          shown={list.shown}
+          total={list.total}
+          step={DOCUMENTS_STEP}
+          onMore={list.showMore}
+        />
         </div>
-        </MobileListGate>
       )}
     </div>
   )
