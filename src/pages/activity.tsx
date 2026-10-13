@@ -6,15 +6,18 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { useProjects } from '@/features/data/hooks'
 import { useProjectActivityFeed, relevanceLabel } from '@/features/notifications/hooks'
-import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import { useListPreview } from '@/lib/list-preview'
 import { canAccessAdmin, isManagementRole } from '@/lib/utils'
 import type { ProjectActivityType } from '@/types/database'
+
+const ACTIVITY_PREVIEW = 2
+const ACTIVITY_STEP = 3
 
 const ATTENDANCE_TYPES: ProjectActivityType[] = [
   'ATTENDANCE_EXCEPTION_SUBMITTED',
@@ -74,7 +77,7 @@ export function RecentActivityPage() {
     limit: 50,
   })
 
-  const list = useListPreview(data, `${filter}:${projectId}`)
+  const list = useListPreview(data, `${filter}:${projectId}`, ACTIVITY_STEP, ACTIVITY_PREVIEW)
 
   if (!canManage && profile?.role !== 'employee' && profile?.role !== 'subcontractor') {
     return <EmptyState title="Activity feed unavailable" />
@@ -151,7 +154,7 @@ export function RecentActivityPage() {
             <EmptyState title="No activity matches the selected filters." />
           ) : null}
           {!isLoading && !isError && list.total > 0 ? (
-            <MobileListGate>
+            <>
               {list.visible.map((item) => {
                 const actorName = item.actor
                   ? `${item.actor.first_name} ${item.actor.last_name}`.trim()
@@ -195,8 +198,13 @@ export function RecentActivityPage() {
                   </div>
                 )
               })}
-              <SeeMoreButton shown={list.shown} total={list.total} step={LIST_PREVIEW} onMore={list.showMore} />
-            </MobileListGate>
+              <SeeMoreButton
+                shown={list.shown}
+                total={list.total}
+                step={ACTIVITY_STEP}
+                onMore={list.showMore}
+              />
+            </>
           ) : null}
         </CardContent>
       </Card>
