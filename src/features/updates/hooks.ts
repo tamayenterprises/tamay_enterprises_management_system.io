@@ -10,40 +10,55 @@ export type CompanyUpdateWithMeta = CompanyUpdate & {
   refs?: Array<{ project_id: string; project?: Project | null }>
 }
 
+async function loadCompanyUpdateRows(limit: number): Promise<CompanyUpdate[]> {
+  const rpc = await supabase.rpc('list_company_updates', { p_limit: limit })
+  if (!rpc.error) return (rpc.data ?? []) as CompanyUpdate[]
+
+  const table = await supabase
+    .from('company_updates')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (table.error) throw rpc.error
+  return (table.data ?? []) as CompanyUpdate[]
+}
+
 export function useCompanyUpdates(limit = 40) {
   return useQuery({
     queryKey: ['company-updates', limit],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('company_updates')
-        .select('*, author:profiles(*)')
-        .order('created_at', { ascending: false })
-        .limit(limit)
-      if (error) throw error
+      const data = await loadCompanyUpdateRows(limit)
+      const rows = data as CompanyUpdateWithMeta[]
+      const authorIds = [...new Set(rows.map((row) => row.author_id).filter((id): id is string => Boolean(id)))]
+      const authors = new Map<string, Profile>()
+      if (authorIds.length > 0) {
+        const { data: profiles } = await supabase.from('profiles').select('*').in('id', authorIds)
+        for (const profile of profiles ?? []) authors.set(profile.id, profile as Profile)
+      }
 
-      const rows = (data ?? []) as CompanyUpdateWithMeta[]
       const rootIds = rows.filter((r) => !r.parent_id).map((r) => r.id)
-      if (rootIds.length === 0) return rows
-
-      const { data: refs } = await supabase
-        .from('company_update_project_refs')
-        .select('update_id, project_id, project:projects(*)')
-        .in('update_id', rootIds)
-
       const byUpdate = new Map<string, CompanyUpdateWithMeta['refs']>()
-      for (const ref of refs ?? []) {
-        const list = byUpdate.get(ref.update_id) ?? []
-        const projectValue = (ref as { project?: Project | Project[] | null }).project
-        const project = Array.isArray(projectValue) ? (projectValue[0] ?? null) : (projectValue ?? null)
-        list.push({
-          project_id: ref.project_id,
-          project,
-        })
-        byUpdate.set(ref.update_id, list)
+      if (rootIds.length > 0) {
+        const { data: refs } = await supabase
+          .from('company_update_project_refs')
+          .select('update_id, project_id, project:projects(*)')
+          .in('update_id', rootIds)
+
+        for (const ref of refs ?? []) {
+          const list = byUpdate.get(ref.update_id) ?? []
+          const projectValue = (ref as { project?: Project | Project[] | null }).project
+          const project = Array.isArray(projectValue) ? (projectValue[0] ?? null) : (projectValue ?? null)
+          list.push({
+            project_id: ref.project_id,
+            project,
+          })
+          byUpdate.set(ref.update_id, list)
+        }
       }
 
       return rows.map((row) => ({
         ...row,
+        author: row.author_id ? authors.get(row.author_id) ?? null : null,
         refs: byUpdate.get(row.parent_id ?? row.id) ?? [],
       }))
     },
@@ -132,7 +147,7 @@ export function useCreateCompanyUpdate() {
       const { data, error } = await supabase
         .from('company_updates')
         .insert(payload)
-        .select('*, author:profiles(*)')
+        .select('*')
         .single()
 
       if (error) {
@@ -147,7 +162,9 @@ export function useCreateCompanyUpdate() {
         p_project_ids: projectIds ?? [],
         p_audience_user_ids: audienceUserIds ?? [],
       })
-      if (extrasError) console.warn(extrasError.message)
+      if (extrasError) {
+        console.warn(extrasError.message)
+      }
 
       return update
     },

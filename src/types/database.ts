@@ -961,6 +961,7 @@ export interface Database {
       register_project_note_mentions: Rpc
       register_project_note_project_refs: Rpc
       register_company_update_extras: Rpc
+      list_company_updates: Rpc<{ p_limit?: number }, CompanyUpdate[]>
       get_form_draft: Rpc
       upsert_form_draft: Rpc
       discard_form_draft: Rpc

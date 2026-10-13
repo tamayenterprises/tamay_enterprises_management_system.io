@@ -112,6 +112,8 @@ create or replace function public.company_update_root_id(p_update_id uuid)
 returns uuid
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select coalesce(parent_id, id) from public.company_updates where id = p_update_id;
 $$;
