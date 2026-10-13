@@ -35,6 +35,9 @@ import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedImageUploadAccept } from '@/lib/uploads'
 import type { CompanyUpdateAudience, Profile, Project } from '@/types/database'
 
+const COMPANY_UPDATES_PREVIEW = 2
+const COMPANY_UPDATES_STEP = 3
+
 function UpdatePhoto({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
@@ -554,7 +557,7 @@ export function UpdatesPage() {
     return { roots: rootsList, repliesByParent: map }
   }, [companyRows])
 
-  const companyList = useListPreview(roots, 'company')
+  const companyList = useListPreview(roots, 'company', COMPANY_UPDATES_STEP, COMPANY_UPDATES_PREVIEW)
   const projectList = useListPreview(projectRows, tab)
 
   useEffect(() => {
@@ -635,7 +638,6 @@ export function UpdatesPage() {
             {!companyLoading && !companyError && roots.length === 0 ? (
               <EmptyState title="No company updates yet" description="Management can post the first update." />
             ) : null}
-            <MobileListGate>
             {companyList.visible.map((update) => (
               <CompanyUpdateCard
                 key={update.id}
@@ -652,10 +654,9 @@ export function UpdatesPage() {
             <SeeMoreButton
               shown={companyList.shown}
               total={companyList.total}
-              step={LIST_PREVIEW}
+              step={COMPANY_UPDATES_STEP}
               onMore={companyList.showMore}
             />
-            </MobileListGate>
           </CardContent>
         </Card>
       ) : (
