@@ -12,6 +12,7 @@ import {
   StaffRoute,
 } from '@/features/auth/route-guards'
 import { AppErrorBoundary } from '@/components/app-error-boundary'
+import { RouteScrollMemory } from '@/components/route-scroll-memory'
 import { isStaleChunkError, reloadOnceForStaleChunk } from '@/lib/chunk-errors'
 import { AppShell } from '@/components/layout/app-shell'
 import { ClientPortalShell } from '@/components/layout/client-portal-shell'
@@ -98,6 +99,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BrowserRouter>
+            <RouteScrollMemory />
             <Suspense fallback={<LoadingState label="Loading..." />}>
               <Routes>
                 <Route element={<GuestRoute />}>
