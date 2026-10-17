@@ -35,4 +35,16 @@ describe('route scroll memory', () => {
     expect(recalledRouteScroll('/dashboard')).toBe(640)
     expect(recalledRouteScroll('/projects')).toBe(0)
   })
+
+  it('keeps the last visible position if a hidden tab reports scroll 0', () => {
+    clearRouteScroll()
+    rememberRouteScroll('/employees', 900)
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+    try {
+      rememberRouteScroll('/employees', 0)
+      expect(recalledRouteScroll('/employees')).toBe(900)
+    } finally {
+      Reflect.deleteProperty(document, 'hidden')
+    }
+  })
 })

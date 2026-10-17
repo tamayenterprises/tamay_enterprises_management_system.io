@@ -12,7 +12,7 @@ function currentScrollY() {
   return readLockedScrollY(document.body, window.scrollY)
 }
 
-/** Keep each page's scroll position when switching nav items or going back. */
+/** Keep each page's scroll position when switching screens, opening a file tab, or coming back. */
 export function RouteScrollMemory() {
   const location = useLocation()
   const key = routeScrollKey(location.pathname, location.search)
@@ -21,7 +21,6 @@ export function RouteScrollMemory() {
   useLayoutEffect(() => {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 
-    const restoreY = recalledRouteScroll(key)
     const restore = () => {
       if (location.hash) {
         const target = document.getElementById(location.hash.slice(1))
@@ -30,20 +29,29 @@ export function RouteScrollMemory() {
           return
         }
       }
-      if (focused) return
-      window.scrollTo(0, restoreY)
+      if (focused || document.hidden) return
+      window.scrollTo(0, recalledRouteScroll(key))
+    }
+
+    const save = () => {
+      if (!focused && !document.hidden) rememberRouteScroll(key, currentScrollY())
     }
 
     restore()
     const timers = [0, 50, 150, 400].map((ms) => window.setTimeout(restore, ms))
-    const onScroll = () => {
-      if (!focused) rememberRouteScroll(key, currentScrollY())
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('scroll', save, { passive: true })
+    window.addEventListener('pointerdown', save, true)
+    window.addEventListener('pageshow', restore)
+    window.addEventListener('focus', restore)
+    document.addEventListener('visibilitychange', restore)
 
     return () => {
-      if (!focused) rememberRouteScroll(key, currentScrollY())
-      window.removeEventListener('scroll', onScroll)
+      save()
+      window.removeEventListener('scroll', save)
+      window.removeEventListener('pointerdown', save, true)
+      window.removeEventListener('pageshow', restore)
+      window.removeEventListener('focus', restore)
+      document.removeEventListener('visibilitychange', restore)
       timers.forEach((id) => window.clearTimeout(id))
     }
   }, [key, focused, location.hash])

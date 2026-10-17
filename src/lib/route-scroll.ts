@@ -1,4 +1,5 @@
 const positions = new Map<string, number>()
+const STORAGE_KEY = 'tamay.route-scroll.v1'
 
 const FOCUS_PARAMS = ['update', 'reply', 'parent', 'doc'] as const
 
@@ -23,14 +24,48 @@ export function readLockedScrollY(body: { style: { position: string; top: string
   return windowScrollY
 }
 
+function isDocumentHidden() {
+  return typeof document !== 'undefined' && document.hidden
+}
+
+function persistPositions() {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(positions)))
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+function hydratePositions() {
+  if (positions.size > 0) return
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'number' && Number.isFinite(value)) positions.set(key, value)
+    }
+  } catch {
+    /* ignore bad storage */
+  }
+}
+
 export function rememberRouteScroll(key: string, y: number) {
-  positions.set(key, Math.max(0, y))
+  if (isDocumentHidden()) return
+  positions.set(key, Math.max(0, Math.round(y)))
+  persistPositions()
 }
 
 export function recalledRouteScroll(key: string) {
+  hydratePositions()
   return positions.get(key) ?? 0
 }
 
 export function clearRouteScroll() {
   positions.clear()
+  try {
+    sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
 }
