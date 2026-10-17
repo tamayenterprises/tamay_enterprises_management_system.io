@@ -8,9 +8,9 @@ import {
 } from './route-scroll'
 
 describe('route scroll memory', () => {
-  it('keys pages by path, search, and hash', () => {
-    expect(routeScrollKey('/dashboard', '', '')).toBe('/dashboard')
-    expect(routeScrollKey('/updates', '?tab=company', '')).toBe('/updates?tab=company')
+  it('keys pages by path and search, not hash', () => {
+    expect(routeScrollKey('/dashboard', '')).toBe('/dashboard')
+    expect(routeScrollKey('/updates', '?tab=company')).toBe('/updates?tab=company')
     expect(routeScrollKey('/projects/1')).toBe('/projects/1')
   })
 
