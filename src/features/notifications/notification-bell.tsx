@@ -13,6 +13,7 @@ import {
   useUnreadNotifications,
   relevanceLabel,
 } from '@/features/notifications/hooks'
+import { notificationDestination } from '@/lib/notification-destination'
 import { cn, isClientRole } from '@/lib/utils'
 
 export function NotificationBell() {
@@ -88,10 +89,9 @@ export function NotificationBell() {
                 </p>
               ) : null}
               {items.map((item) => {
-                let destination = item.destination_route || item.link
-                if (isClientRole(profile?.role) && destination?.startsWith('/projects/')) {
-                  destination = destination.replace('/projects/', '/portal/projects/')
-                }
+                const destination = notificationDestination(item, {
+                  client: isClientRole(profile?.role),
+                })
                 return (
                   <button
                     key={item.id}

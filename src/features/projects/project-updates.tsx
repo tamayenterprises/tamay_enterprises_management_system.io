@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
+import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -29,6 +29,7 @@ import {
   resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
 import { RichUpdateText } from '@/features/updates/rich-update-text'
+import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { confirmAction, resolvedImageUploadAccept } from '@/lib/uploads'
@@ -469,15 +470,18 @@ function UpdateCard({
   projectId,
   mentionCandidates,
   projects,
-  highlighted,
+  focusId,
 }: {
   update: ProjectNote
   replies: ProjectNote[]
   projectId: string
   mentionCandidates: Profile[]
   projects: Project[]
-  highlighted?: boolean
+  focusId?: string | null
 }) {
+  const highlighted = Boolean(
+    focusId && (focusId === update.id || replies.some((reply) => reply.id === focusId)),
+  )
   const [replyOpen, setReplyOpen] = useState(false)
   const authorName = update.author
     ? fullName(update.author.first_name, update.author.last_name)
@@ -512,7 +516,7 @@ function UpdateCard({
               key={reply.id}
               id={`update-${reply.id}`}
               className={`space-y-2 rounded-md px-3 py-2 ${
-                highlighted ? 'bg-accent/10' : 'bg-muted/40'
+                focusId === reply.id ? 'bg-accent/10 ring-2 ring-accent/30' : 'bg-muted/40'
               }`}
             >
               <p className="text-xs text-muted-foreground">Replying to {authorName}</p>
@@ -591,13 +595,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId])
 
-  useEffect(() => {
-    if (!focusId) return
-    const timer = window.setTimeout(() => {
-      document.getElementById(`update-${focusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 250)
-    return () => window.clearTimeout(timer)
-  }, [focusId, notes])
+  useEffect(() => scheduleScrollToId(focusId ? `update-${focusId}` : null), [focusId, notes])
 
   return (
     <Card>
@@ -635,9 +633,24 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
             description="Post the first update so the next person on site knows where things stand."
           />
         ) : (
-          <MobileListGate>
           <div className="space-y-3">
-            {updateList.visible.map((update) => (
+            {(
+              focusId &&
+              !updateList.visible.some(
+                (row) =>
+                  row.id === focusId ||
+                  (repliesByParent.get(row.id) ?? []).some((reply) => reply.id === focusId),
+              )
+                ? [
+                    ...orderedRoots.filter(
+                      (row) =>
+                        row.id === focusId ||
+                        (repliesByParent.get(row.id) ?? []).some((reply) => reply.id === focusId),
+                    ),
+                    ...updateList.visible,
+                  ]
+                : updateList.visible
+            ).map((update) => (
               <UpdateCard
                 key={update.id}
                 update={update}
@@ -645,10 +658,7 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
                 projectId={projectId}
                 mentionCandidates={mentionCandidates}
                 projects={projects}
-                highlighted={
-                  focusId === update.id ||
-                  (repliesByParent.get(update.id) ?? []).some((reply) => reply.id === focusId)
-                }
+                focusId={focusId}
               />
             ))}
             <SeeMoreButton
@@ -658,7 +668,6 @@ export function ProjectUpdates({ projectId }: { projectId: string }) {
               onMore={updateList.showMore}
             />
           </div>
-          </MobileListGate>
         )}
       </CardContent>
     </Card>

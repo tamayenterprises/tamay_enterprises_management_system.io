@@ -48,6 +48,7 @@ import {
   warrantyStatusLabel,
 } from '@/lib/utils'
 import { confirmAction } from '@/lib/uploads'
+import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { ProjectFilesList } from '@/features/projects/project-files-list'
 import { ProjectCoverPhoto } from '@/features/projects/project-cover-photo'
 import { canManageProjectCover } from '@/lib/document-visibility'
@@ -86,16 +87,10 @@ export function ProjectDetailPage() {
   const focusDocId = params.get('doc')
   const focusTab = params.get('tab')
 
-  useEffect(() => {
-    if (focusTab !== 'files' && !focusDocId) return
-    const timer = window.setTimeout(() => {
-      document.getElementById('project-files')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      if (focusDocId) {
-        document.getElementById(`doc-${focusDocId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-    }, 250)
-    return () => window.clearTimeout(timer)
-  }, [focusTab, focusDocId, documents])
+  useEffect(
+    () => scheduleScrollToId(focusDocId ? `doc-${focusDocId}` : focusTab === 'files' ? 'project-files' : null),
+    [focusTab, focusDocId, documents],
+  )
 
   const editForm = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),

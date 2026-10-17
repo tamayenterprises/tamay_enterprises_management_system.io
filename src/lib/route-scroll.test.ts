@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   clearRouteScroll,
+  isRouteFocusNavigation,
   readLockedScrollY,
   recalledRouteScroll,
   rememberRouteScroll,
@@ -8,10 +9,19 @@ import {
 } from './route-scroll'
 
 describe('route scroll memory', () => {
-  it('keys pages by path and search, not hash', () => {
+  it('keys pages by path and search, not hash or deep-link params', () => {
     expect(routeScrollKey('/dashboard', '')).toBe('/dashboard')
     expect(routeScrollKey('/updates', '?tab=company')).toBe('/updates?tab=company')
-    expect(routeScrollKey('/projects/1')).toBe('/projects/1')
+    expect(routeScrollKey('/updates', '?tab=company&update=abc&reply=def')).toBe(
+      '/updates?tab=company',
+    )
+    expect(routeScrollKey('/projects/1', '?update=n1')).toBe('/projects/1')
+  })
+
+  it('detects deep links to a specific update or file', () => {
+    expect(isRouteFocusNavigation('?tab=company')).toBe(false)
+    expect(isRouteFocusNavigation('?tab=company&update=abc')).toBe(true)
+    expect(isRouteFocusNavigation('', '#client-ask-question')).toBe(true)
   })
 
   it('reads the real scroll position while the mobile menu locks the body', () => {

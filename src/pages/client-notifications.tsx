@@ -12,6 +12,7 @@ import {
   useNotifications,
 } from '@/features/notifications/hooks'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import { notificationDestination } from '@/lib/notification-destination'
 import { cn, formatRelative } from '@/lib/utils'
 
 export function ClientNotificationsPage() {
@@ -109,13 +110,14 @@ export function ClientNotificationsPage() {
                     } catch {
                       /* still navigate */
                     }
-                    const link = item.destination_route || item.link
+                    const link = notificationDestination(item, { client: true })
                     if (link?.startsWith('/')) {
-                      // Map staff project links into the portal when possible
-                      if (link.startsWith('/projects/')) {
-                        navigate(link.replace('/projects/', '/portal/projects/'))
-                      } else if (link.startsWith('/portal')) {
-                        navigate(link)
+                      if (link.startsWith('/portal') || link.startsWith('/projects/')) {
+                        navigate(
+                          link.startsWith('/projects/')
+                            ? link.replace('/projects/', '/portal/projects/')
+                            : link,
+                        )
                       } else if (link.includes('request') || link.includes('client')) {
                         navigate('/portal/requests')
                       } else {

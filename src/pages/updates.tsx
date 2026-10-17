@@ -30,6 +30,7 @@ import {
   resolveReferencedProjectIds,
 } from '@/features/updates/mention-utils'
 import { RichUpdateText } from '@/features/updates/rich-update-text'
+import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedImageUploadAccept } from '@/lib/uploads'
@@ -437,14 +438,15 @@ function CompanyUpdateCard({
   replies,
   mentionCandidates,
   projects,
-  highlighted,
+  focusId,
 }: {
   update: CompanyUpdateWithMeta
   replies: CompanyUpdateWithMeta[]
   mentionCandidates: Profile[]
   projects: Project[]
-  highlighted?: boolean
+  focusId?: string | null
 }) {
+  const highlighted = Boolean(focusId && (focusId === update.id || replies.some((reply) => reply.id === focusId)))
   const [replyOpen, setReplyOpen] = useState(false)
   const authorName = update.author
     ? fullName(update.author.first_name, update.author.last_name)
@@ -486,7 +488,9 @@ function CompanyUpdateCard({
           <div
             key={reply.id}
             id={`company-update-${reply.id}`}
-            className="space-y-2 rounded-md bg-muted/40 px-3 py-2"
+            className={`space-y-2 rounded-md px-3 py-2 ${
+              focusId === reply.id ? 'bg-accent/10 ring-2 ring-accent/30' : 'bg-muted/40'
+            }`}
           >
             {reply.content ? (
               <RichUpdateText content={reply.content} people={mentionCandidates} projects={projects} />
@@ -527,7 +531,7 @@ export function UpdatesPage() {
   const tab = params.get('tab') === 'projects' || params.get('tab') === 'all-projects'
     ? params.get('tab')!
     : 'company'
-  const focusId = params.get('update') || params.get('reply')
+  const focusId = params.get('reply') || params.get('update')
 
   const { data: companyRows = [], isLoading: companyLoading, isError: companyError } =
     useCompanyUpdates(50)
@@ -569,15 +573,7 @@ export function UpdatesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId])
 
-  useEffect(() => {
-    if (!focusId) return
-    const timer = window.setTimeout(() => {
-      document
-        .getElementById(`company-update-${focusId}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 250)
-    return () => window.clearTimeout(timer)
-  }, [focusId, companyRows])
+  useEffect(() => scheduleScrollToId(focusId ? `company-update-${focusId}` : null), [focusId, companyRows])
 
   function setTab(next: string) {
     const nextParams = new URLSearchParams(params)
@@ -638,17 +634,30 @@ export function UpdatesPage() {
             {!companyLoading && !companyError && roots.length === 0 ? (
               <EmptyState title="No company updates yet" description="Management can post the first update." />
             ) : null}
-            {companyList.visible.map((update) => (
+            {(
+              focusId &&
+              !companyList.visible.some(
+                (row) =>
+                  row.id === focusId ||
+                  (repliesByParent.get(row.id) ?? []).some((reply) => reply.id === focusId),
+              )
+                ? [
+                    ...(roots.filter(
+                      (row) =>
+                        row.id === focusId ||
+                        (repliesByParent.get(row.id) ?? []).some((reply) => reply.id === focusId),
+                    ) ?? []),
+                    ...companyList.visible,
+                  ]
+                : companyList.visible
+            ).map((update) => (
               <CompanyUpdateCard
                 key={update.id}
                 update={update}
                 replies={repliesByParent.get(update.id) ?? []}
                 mentionCandidates={mentionCandidates}
                 projects={projects}
-                highlighted={
-                  focusId === update.id ||
-                  (repliesByParent.get(update.id) ?? []).some((reply) => reply.id === focusId)
-                }
+                focusId={focusId}
               />
             ))}
             <SeeMoreButton

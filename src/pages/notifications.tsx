@@ -26,6 +26,7 @@ import {
   useUpdateNotificationPreferences,
 } from '@/features/notifications/hooks'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
+import { notificationDestination } from '@/lib/notification-destination'
 import { canAccessAdmin, formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import type { Notification, NotificationPreferences } from '@/types/database'
 
@@ -360,7 +361,7 @@ export function NotificationsPage() {
                     // Still allow navigation even if mark-read fails.
                   }
                 }
-                const destination = item.destination_route || item.link
+                const destination = notificationDestination(item)
                 if (!destination) {
                   toast.message('This activity is no longer available.')
                   return
@@ -416,7 +417,7 @@ function NotificationCard({
   onOpen: () => Promise<void>
 }) {
   const actorName = item.actor ? fullName(item.actor.first_name, item.actor.last_name) : null
-  const destination = item.destination_route || item.link
+  const destination = notificationDestination(item)
 
   return (
     <Card className={item.is_read ? 'opacity-90' : 'border-accent/40'}>

@@ -19,6 +19,7 @@ import { ClockInOutCard } from '@/features/attendance/clock-card'
 import { DailyAttendanceSummary } from '@/features/attendance/timesheets'
 import { TodayWorkCard } from '@/features/schedule/today-work-card'
 import { EmployeeDashboard } from '@/features/dashboard/employee-dashboard'
+import { notificationDestination } from '@/lib/notification-destination'
 import {
   formatDate,
   formatRelative,
@@ -356,7 +357,7 @@ export function DashboardPage() {
                 recentNotifications.map((item) => (
                   <Link
                     key={item.id}
-                    to={item.link || '/notifications'}
+                    to={notificationDestination(item) || item.link || '/notifications'}
                     className="block rounded-md border border-border px-3 py-3 transition hover:bg-muted/60"
                   >
                     <p className="font-medium">{item.title}</p>

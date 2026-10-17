@@ -1,6 +1,7 @@
 import { isSameDay } from 'date-fns'
 import { currentOrNextIndex } from '@/features/schedule/schedule-links'
 import { RELEVANCE_PRIORITY } from '@/features/notifications/relevance'
+import { notificationDestination } from '@/lib/notification-destination'
 import type {
   AttendanceRecord,
   Certification,
@@ -93,7 +94,7 @@ export function selectAttentionItems(
       id: n.id,
       title: n.title,
       body: n.preview_text || n.message,
-      link: n.destination_route || n.link || '/notifications',
+      link: notificationDestination(n) || '/notifications',
       createdAt: n.created_at,
       priority: RELEVANCE_PRIORITY[n.relevance!],
       relevance: n.relevance!,

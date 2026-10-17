@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProjectNote } from '@/types/database'
 import { ClientProjectUpdates } from './project-updates'
@@ -44,7 +45,11 @@ beforeEach(() => {
 describe('Client project updates', () => {
   it('shows one update, then three more at a time', async () => {
     const user = userEvent.setup()
-    render(<ClientProjectUpdates projectId="proj" />)
+    render(
+      <MemoryRouter>
+        <ClientProjectUpdates projectId="proj" />
+      </MemoryRouter>,
+    )
 
     expect(screen.getByText('Fifth update')).toBeInTheDocument()
     expect(screen.queryByText('Fourth update')).not.toBeInTheDocument()

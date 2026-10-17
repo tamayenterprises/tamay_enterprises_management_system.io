@@ -13,6 +13,7 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import { useProjects } from '@/features/data/hooks'
 import { useProjectActivityFeed, relevanceLabel } from '@/features/notifications/hooks'
 import { useListPreview } from '@/lib/list-preview'
+import { notificationDestination } from '@/lib/notification-destination'
 import { canAccessAdmin, isManagementRole } from '@/lib/utils'
 import type { ProjectActivityType } from '@/types/database'
 
@@ -185,11 +186,12 @@ export function RecentActivityPage() {
                         variant="outline"
                         className="w-full shrink-0 sm:w-auto"
                         onClick={() => {
-                          if (!item.destination_route) {
+                          const destination = notificationDestination(item)
+                          if (!destination) {
                             toast.message('This activity is no longer available.')
                             return
                           }
-                          navigate(item.destination_route)
+                          navigate(destination)
                         }}
                       >
                         View activity

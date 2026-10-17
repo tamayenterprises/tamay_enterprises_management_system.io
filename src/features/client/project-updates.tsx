@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import {
   useCreateProjectUpdate,
   useProjectNotes,
 } from '@/features/data/hooks'
+import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { useListPreview } from '@/lib/list-preview'
 import { cn, formatRelative, fullName, roleLabel } from '@/lib/utils'
 import { resolvedImageUploadAccept } from '@/lib/uploads'
@@ -196,11 +198,16 @@ function ClientUpdateCard({
   update,
   replies,
   projectId,
+  focusId,
 }: {
   update: ProjectNote
   replies: ProjectNote[]
   projectId: string
+  focusId?: string | null
 }) {
+  const highlighted = Boolean(
+    focusId && (focusId === update.id || replies.some((reply) => reply.id === focusId)),
+  )
   const [replyOpen, setReplyOpen] = useState(false)
   const authorName = update.author
     ? fullName(update.author.first_name, update.author.last_name)
@@ -215,7 +222,12 @@ function ClientUpdateCard({
   const textReplies = replies.filter((reply) => reply.content?.trim() || !reply.photo_path)
 
   return (
-    <article className="border-b border-border/70 py-4 last:border-b-0 last:pb-0 first:pt-0 lg:py-5">
+    <article
+      id={`update-${update.id}`}
+      className={`scroll-mt-24 border-b border-border/70 py-4 last:border-b-0 last:pb-0 first:pt-0 lg:py-5 ${
+        highlighted ? 'rounded-xl bg-accent/5 ring-2 ring-accent/30' : ''
+      }`}
+    >
       <div className="flex gap-3">
         <ProfileAvatar
           firstName={update.author?.first_name || 'T'}
@@ -275,7 +287,13 @@ function ClientUpdateCard({
                   ? fullName(reply.author.first_name, reply.author.last_name)
                   : 'Unknown'
                 return (
-                  <div key={reply.id} className="rounded-xl bg-muted/50 px-3 py-2">
+                  <div
+                    key={reply.id}
+                    id={`update-${reply.id}`}
+                    className={`rounded-xl px-3 py-2 ${
+                      focusId === reply.id ? 'bg-accent/10 ring-2 ring-accent/30' : 'bg-muted/50'
+                    }`}
+                  >
                     {reply.content ? (
                       <div className="text-sm leading-relaxed">
                         <RichUpdateText content={reply.content} />
@@ -323,6 +341,8 @@ function ClientUpdateCard({
 
 /** Client-facing project conversation — only client-visible updates, no internal tools. */
 export function ClientProjectUpdates({ projectId }: { projectId: string }) {
+  const [params] = useSearchParams()
+  const focusId = params.get('update') || params.get('parent')
   const { data: notes = [], isLoading } = useProjectNotes(projectId)
   const createUpdate = useCreateProjectUpdate()
   const [content, setContent] = useState('')
@@ -342,6 +362,13 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
 
   const ordered = useMemo(() => [...roots].reverse(), [roots])
   const list = useListPreview(ordered, projectId, 3, 1)
+
+  useEffect(() => {
+    if (focusId) list.revealAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId])
+
+  useEffect(() => scheduleScrollToId(focusId ? `update-${focusId}` : null), [focusId, notes])
 
   return (
     <section className="rounded-2xl border border-border/80 bg-white p-4 shadow-[0_1px_2px_rgba(9,46,76,0.04),0_8px_24px_rgba(9,46,76,0.04)] sm:p-5">
@@ -436,12 +463,29 @@ export function ClientProjectUpdates({ projectId }: { projectId: string }) {
         ) : (
           <>
             <div id="client-project-updates-list" className="space-y-3">
-              {list.visible.map((update) => (
+              {(
+                focusId &&
+                !list.visible.some(
+                  (row) =>
+                    row.id === focusId ||
+                    (repliesByParent.get(row.id) ?? []).some((reply) => reply.id === focusId),
+                )
+                  ? [
+                      ...ordered.filter(
+                        (row) =>
+                          row.id === focusId ||
+                          (repliesByParent.get(row.id) ?? []).some((reply) => reply.id === focusId),
+                      ),
+                      ...list.visible,
+                    ]
+                  : list.visible
+              ).map((update) => (
                 <div key={update.id}>
                   <ClientUpdateCard
                     update={update}
                     replies={repliesByParent.get(update.id) ?? []}
                     projectId={projectId}
+                    focusId={focusId}
                   />
                 </div>
               ))}
