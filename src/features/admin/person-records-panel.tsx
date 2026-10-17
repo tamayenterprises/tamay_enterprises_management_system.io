@@ -57,7 +57,10 @@ function PersonRecordsLists({ profileId }: { profileId: string }) {
   })
 
   const visibleDocs = useMemo(
-    () => docs.filter((doc) => canViewerSeeDocument(doc, profile)),
+    () =>
+      docs.filter(
+        (doc) => doc.category !== 'certification' && canViewerSeeDocument(doc, profile),
+      ),
     [docs, profile],
   )
 
