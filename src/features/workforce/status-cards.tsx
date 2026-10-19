@@ -35,6 +35,7 @@ import { format } from 'date-fns'
 
 const WORKFORCE_NAMES_PREVIEW = 2
 const WORKFORCE_NAMES_STEP = 3
+const WORKFORCE_DESKTOP_PREVIEW = 5
 
 /** `inline` renders a single row (Employee Dashboard "More options") with the same update dialog. */
 export function MyWorkStatusCard({ inline = false }: { inline?: boolean } = {}) {
@@ -190,7 +191,6 @@ export function WorkforceStatusPanel() {
   const { data = [], isLoading, isError } = useCurrentWorkforceStatuses(
     projectFilter === 'all' ? undefined : projectFilter,
   )
-  const list = useListPreview(data, projectFilter, WORKFORCE_NAMES_STEP, WORKFORCE_NAMES_PREVIEW)
   const clockOut = useAdminClockOutWorker()
   const setWorkerStatus = useSetWorkerStatus()
   const selectedActions = selected
@@ -228,80 +228,39 @@ export function WorkforceStatusPanel() {
       </CardHeader>
       <CardContent className="space-y-3">
         {!boardOpen ? (
-          <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => setBoardOpen(true)}>
+          <Button type="button" size="sm" variant="outline" className="w-full lg:hidden" onClick={() => setBoardOpen(true)}>
             See more
           </Button>
         ) : (
-          <>
-            <Select value={projectFilter} onValueChange={setProjectFilter}>
-              <SelectTrigger className="w-full min-w-0 sm:w-52">
-                <SelectValue placeholder="Filter by project" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All projects</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <CountPill label="On Site" value={counts.on_site} />
-              <CountPill label="Traveling" value={counts.traveling_to_site} />
-              <CountPill label="On Break" value={counts.on_break} />
-              <CountPill label="Completed" value={counts.completed_for_day} />
-              <CountPill label="Active" value={counts.active} />
-              <CountPill label="Off Site" value={counts.off_site} />
-              <CountPill label="Inactive" value={counts.inactive} />
-            </div>
-            {isLoading ? <LoadingState label="Loading workforce status..." /> : null}
-            {isError ? <EmptyState title="Unable to load workforce status" /> : null}
-            {!isLoading && !isError && data.length === 0 ? (
-              <EmptyState
-                title="No workforce status yet"
-                description="Workers will appear here after their first update."
-              />
-            ) : null}
-            {!isLoading && !isError && data.length > 0 ? (
-              <div className="space-y-2">
-                {list.visible.map((worker) => (
-                  <button
-                    key={worker.user_id}
-                    type="button"
-                    className="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-left transition hover:bg-muted/50"
-                    onClick={() => setSelected(worker)}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <ProfileAvatar
-                        firstName={worker.first_name}
-                        lastName={worker.last_name}
-                        avatarUrl={worker.avatar_url}
-                        fallbackClassName="bg-muted text-xs"
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{fullName(worker.first_name, worker.last_name)}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {roleLabel(worker.role)}
-                          {worker.project_name ? ` · ${worker.project_name}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0">
-                      {workforceStatusEmoji(worker.status)} {workforceStatusLabel(worker.status)}
-                    </Badge>
-                  </button>
-                ))}
-                <SeeMoreButton
-                  shown={list.shown}
-                  total={list.total}
-                  step={WORKFORCE_NAMES_STEP}
-                  onMore={list.showMore}
-                />
-              </div>
-            ) : null}
-          </>
+          <div data-testid="workforce-status-mobile" className="space-y-3 lg:hidden">
+            <WorkforceStatusBoard
+              workers={data}
+              isLoading={isLoading}
+              isError={isError}
+              projects={projects}
+              projectFilter={projectFilter}
+              onProjectFilter={setProjectFilter}
+              counts={counts}
+              onSelect={setSelected}
+              preview={WORKFORCE_NAMES_PREVIEW}
+              step={WORKFORCE_NAMES_STEP}
+            />
+          </div>
         )}
+        <div data-testid="workforce-status-desktop" className="hidden space-y-3 lg:block">
+          <WorkforceStatusBoard
+            workers={data}
+            isLoading={isLoading}
+            isError={isError}
+            projects={projects}
+            projectFilter={projectFilter}
+            onProjectFilter={setProjectFilter}
+            counts={counts}
+            onSelect={setSelected}
+            preview={WORKFORCE_DESKTOP_PREVIEW}
+            step={WORKFORCE_DESKTOP_PREVIEW}
+          />
+        </div>
       </CardContent>
 
       <Dialog
@@ -468,6 +427,99 @@ export function WorkforceStatusPanel() {
         </DialogContent>
       </Dialog>
     </Card>
+  )
+}
+
+function WorkforceStatusBoard({
+  workers,
+  isLoading,
+  isError,
+  projects,
+  projectFilter,
+  onProjectFilter,
+  counts,
+  onSelect,
+  preview,
+  step,
+}: {
+  workers: CurrentWorkerStatus[]
+  isLoading: boolean
+  isError: boolean
+  projects: { id: string; name: string }[]
+  projectFilter: string
+  onProjectFilter: (value: string) => void
+  counts: Record<WorkforceStatus, number>
+  onSelect: (worker: CurrentWorkerStatus) => void
+  preview: number
+  step: number
+}) {
+  const list = useListPreview(workers, projectFilter, step, preview)
+
+  return (
+    <>
+      <Select value={projectFilter} onValueChange={onProjectFilter}>
+        <SelectTrigger className="w-full min-w-0 sm:w-52">
+          <SelectValue placeholder="Filter by project" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All projects</SelectItem>
+          {projects.map((project) => (
+            <SelectItem key={project.id} value={project.id}>
+              {project.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <CountPill label="On Site" value={counts.on_site} />
+        <CountPill label="Traveling" value={counts.traveling_to_site} />
+        <CountPill label="On Break" value={counts.on_break} />
+        <CountPill label="Completed" value={counts.completed_for_day} />
+        <CountPill label="Active" value={counts.active} />
+        <CountPill label="Off Site" value={counts.off_site} />
+        <CountPill label="Inactive" value={counts.inactive} />
+      </div>
+      {isLoading ? <LoadingState label="Loading workforce status..." /> : null}
+      {isError ? <EmptyState title="Unable to load workforce status" /> : null}
+      {!isLoading && !isError && workers.length === 0 ? (
+        <EmptyState
+          title="No workforce status yet"
+          description="Workers will appear here after their first update."
+        />
+      ) : null}
+      {!isLoading && !isError && workers.length > 0 ? (
+        <div className="space-y-2">
+          {list.visible.map((worker) => (
+            <button
+              key={worker.user_id}
+              type="button"
+              className="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 text-left transition hover:bg-muted/50"
+              onClick={() => onSelect(worker)}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <ProfileAvatar
+                  firstName={worker.first_name}
+                  lastName={worker.last_name}
+                  avatarUrl={worker.avatar_url}
+                  fallbackClassName="bg-muted text-xs"
+                />
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{fullName(worker.first_name, worker.last_name)}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {roleLabel(worker.role)}
+                    {worker.project_name ? ` · ${worker.project_name}` : ''}
+                  </p>
+                </div>
+              </div>
+              <Badge variant="secondary" className="shrink-0">
+                {workforceStatusEmoji(worker.status)} {workforceStatusLabel(worker.status)}
+              </Badge>
+            </button>
+          ))}
+          <SeeMoreButton shown={list.shown} total={list.total} step={step} onMore={list.showMore} />
+        </div>
+      ) : null}
+    </>
   )
 }
 
