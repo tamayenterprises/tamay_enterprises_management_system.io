@@ -57,6 +57,7 @@ import type { ProjectStatus } from '@/types/database'
 import { ProjectContentUploadDialog } from '@/features/projects/project-content-upload'
 import { ProjectClientsSection } from '@/features/projects/project-clients-section'
 import { ProjectContactSection } from '@/features/projects/project-contact-section'
+import { FindNearbyLink } from '@/features/nearby/find-nearby-link'
 import { splitWorkerAssignments } from '@/features/projects/project-people'
 
 export function ProjectDetailPage() {
@@ -176,6 +177,7 @@ export function ProjectDetailPage() {
             <Badge>{projectStatusLabel(project.status)}</Badge>
             <Badge variant="secondary">{project.priority}</Badge>
           </div>
+          <FindNearbyLink project={project} role={profile?.role} />
           {canManage && !project.archived_at ? (
             <Button
               size="sm"
