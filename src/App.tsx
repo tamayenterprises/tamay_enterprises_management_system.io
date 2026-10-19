@@ -57,6 +57,7 @@ const SearchPage = lazyNamed(() => import('@/pages/search'), 'SearchPage')
 const TimesheetsPage = lazyNamed(() => import('@/pages/timesheets'), 'TimesheetsPage')
 const DraftsPage = lazyNamed(() => import('@/pages/drafts'), 'DraftsPage')
 const MySchedulePage = lazyNamed(() => import('@/pages/my-schedule'), 'MySchedulePage')
+const NearbyFinderPage = lazyNamed(() => import('@/pages/nearby-finder'), 'NearbyFinderPage')
 const WorkSchedulePage = lazyNamed(() => import('@/pages/work-schedule'), 'WorkSchedulePage')
 const ClientPortalHomePage = lazyNamed(() => import('@/pages/client-portal-home'), 'ClientPortalHomePage')
 const ClientRequestsPage = lazyNamed(() => import('@/pages/client-requests'), 'ClientRequestsPage')
@@ -140,6 +141,7 @@ export default function App() {
                       <Route path="/drafts" element={<DraftsPage />} />
                       <Route path="/search" element={<SearchPage />} />
                       <Route path="/schedule" element={<MySchedulePage />} />
+                      <Route path="/nearby" element={<NearbyFinderPage />} />
 
                       <Route element={<ManagementRoute />}>
                         <Route path="/employees" element={<EmployeesPage />} />

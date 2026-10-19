@@ -695,6 +695,27 @@ export interface ProjectNoteMention {
   created_at: string
 }
 
+/** Nearby Finder: a supplier or food spot Tamay management saved (typed in by staff). */
+export interface NearbySavedPlace {
+  id: string
+  organization_id: string
+  place_type: 'supplier' | 'food'
+  category: string
+  business_name: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+  phone: string | null
+  website: string | null
+  note: string | null
+  is_preferred: boolean
+  archived_at: string | null
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface WorkScheduleEntry {
   id: string
   organization_id: string
@@ -927,6 +948,7 @@ export interface Database {
       attendance_attempts: Table<AttendanceAttempt>
       attendance_exception_requests: Table<AttendanceExceptionRequest>
       attendance_corrections: Table<AttendanceCorrection>
+      nearby_saved_places: Table<NearbySavedPlace>
       work_schedule_entries: Table<
         WorkScheduleEntry,
         [

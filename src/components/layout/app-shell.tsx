@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Lock,
   LogOut,
+  MapPin,
   Menu,
   MessageSquareText,
   NotebookPen,
@@ -32,11 +33,13 @@ import { NotificationBell } from '@/features/notifications/notification-bell'
 import { cn, isManagementRole } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
 import { canHaveWorkSchedule } from '@/features/schedule/hooks'
+import { canUseNearbyFinder } from '@/features/nearby/nearby-access'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: Briefcase },
   { to: '/schedule', label: 'My Schedule', icon: CalendarDays, schedule: true },
+  { to: '/nearby', label: 'Nearby Finder', icon: MapPin, nearby: true },
   { to: '/client-requests', label: 'Client requests', icon: ClipboardList, management: true },
   { to: '/updates', label: 'Updates', icon: MessageSquareText },
   { to: '/employees', label: 'Employees', icon: Users, management: true },
@@ -73,6 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (item.admin) return profile?.role === 'admin'
     if (item.management) return isManagementRole(profile?.role)
     if (item.schedule) return canHaveWorkSchedule(profile?.role)
+    if (item.nearby) return canUseNearbyFinder(profile?.role)
     return true
   })
 
