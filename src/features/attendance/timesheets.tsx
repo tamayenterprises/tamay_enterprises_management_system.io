@@ -38,8 +38,13 @@ import {
 import { actionButtonLabel, formatBreakDuration, formatDistance, newIdempotencyKey } from '@/lib/geo'
 import { confirmAction } from '@/lib/uploads'
 import { supabase } from '@/lib/supabase'
-import { formatHoursDuration, fullName, roleLabel } from '@/lib/utils'
+import { formatHoursDuration, fullName, roleLabel, sumPaidHours } from '@/lib/utils'
 import type { AttendanceExceptionRequest, AttendanceRecord, UserRole } from '@/types/database'
+
+function parseFilterDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, (month || 1) - 1, day || 1)
+}
 
 export function DailyAttendanceSummary() {
   const today = format(startOfDay(new Date()), 'yyyy-MM-dd')
@@ -98,6 +103,11 @@ export function TimesheetsPanel() {
   })
   const { data = [], isLoading, isError } = useAttendanceRecords(filters)
   const historyRows = data.slice(0, historyShown)
+  const totalPaidHours = useMemo(() => sumPaidHours(data), [data])
+  const completedShiftCount = useMemo(
+    () => data.filter((row) => Boolean(row.clock_out_time)).length,
+    [data],
+  )
   const correct = useCorrectAttendance()
 
   const [clockIn, setClockIn] = useState('')
@@ -361,6 +371,20 @@ export function TimesheetsPanel() {
         <CardContent className="space-y-2">
           {isLoading ? <LoadingState label="Loading timesheets..." /> : null}
           {isError ? <EmptyState title="Unable to load timesheets" /> : null}
+          {!isLoading && !isError ? (
+            <div className="rounded-xl border border-border bg-[#fbfcff] px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">Total paid hours for selected dates</p>
+              <p className="font-display text-2xl font-semibold">{formatHoursDuration(totalPaidHours)}</p>
+              <p className="text-xs text-muted-foreground">
+                {filters.fromDate || filters.toDate
+                  ? `${filters.fromDate ? format(parseFilterDate(filters.fromDate), 'MMM d, yyyy') : 'Start'} – ${filters.toDate ? format(parseFilterDate(filters.toDate), 'MMM d, yyyy') : 'Today'}`
+                  : 'All dates'}
+                {completedShiftCount > 0
+                  ? ` · ${completedShiftCount} completed shift${completedShiftCount === 1 ? '' : 's'}`
+                  : ''}
+              </p>
+            </div>
+          ) : null}
           {!isLoading && !isError && data.length === 0 ? (
             <EmptyState title="No attendance records" description="Try adjusting filters or wait for workers to clock in." />
           ) : null}

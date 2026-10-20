@@ -8,7 +8,9 @@ import {
   documentCategoryLabel,
   documentStorageBucket,
   formatFileSize,
+  formatHoursDuration,
   fullName,
+  sumPaidHours,
   getInitials,
   isManagementRole,
   projectStatusLabel,
@@ -53,6 +55,18 @@ describe('utils', () => {
   it('derives certification status from expiration dates', () => {
     expect(deriveCertificationStatus(null)).toBe('missing')
     expect(deriveCertificationStatus('2000-01-01')).toBe('expired')
+  })
+
+  it('sums paid hours across completed shifts in a date range', () => {
+    expect(
+      formatHoursDuration(
+        sumPaidHours([
+          { clock_out_time: '2026-10-19T22:14:00Z', paid_hours: 9 + 14 / 60 },
+          { clock_out_time: '2026-10-16T21:36:00Z', paid_hours: 8 + 10 / 60 },
+          { clock_out_time: null, paid_hours: 3 },
+        ]),
+      ),
+    ).toBe('17h 24m')
   })
 
   it('sanitizes search terms for PostgREST filters', () => {

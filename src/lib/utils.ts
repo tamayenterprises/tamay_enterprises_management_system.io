@@ -55,6 +55,12 @@ export function formatRelative(value?: string | null) {
   return formatDistanceToNow(new Date(value), { addSuffix: true })
 }
 
+function toHoursNumber(value?: number | string | null) {
+  if (value == null || value === '') return 0
+  const hoursValue = typeof value === 'string' ? Number(value) : value
+  return Number.isFinite(hoursValue) && hoursValue > 0 ? hoursValue : 0
+}
+
 /** Format decimal hours (e.g. 8.72) as "8h 43m". */
 export function formatHoursDuration(totalHours?: number | string | null) {
   if (totalHours == null || totalHours === '') return '—'
@@ -64,6 +70,20 @@ export function formatHoursDuration(totalHours?: number | string | null) {
   const minutes = Math.round((hoursValue - wholeHours) * 60)
   if (minutes === 60) return `${wholeHours + 1}h 0m`
   return `${wholeHours}h ${minutes}m`
+}
+
+/** Closed shifts only: paid hours when set, otherwise total hours. */
+export function sumPaidHours(
+  records: Array<{
+    clock_out_time?: string | null
+    paid_hours?: number | string | null
+    total_hours?: number | string | null
+  }>,
+) {
+  return records.reduce((total, record) => {
+    if (!record.clock_out_time) return total
+    return total + toHoursNumber(record.paid_hours ?? record.total_hours)
+  }, 0)
 }
 
 export function roleLabel(role: UserRole) {
