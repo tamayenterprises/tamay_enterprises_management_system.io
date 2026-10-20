@@ -7,25 +7,25 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AuthBrowserTip } from '@/components/auth-browser-tip'
 import { supabase } from '@/lib/supabase'
 import { formatAuthError } from '@/lib/auth-errors'
 import { signUpSchema, type SignUpValues } from '@/lib/validations'
 
-export function SignUpPage() {
+export function SubcontractorSignUpPage() {
+  return <SignUpPage role="subcontractor" />
+}
+
+export function SignUpPage({ role = 'employee' }: { role?: SignUpValues['role'] }) {
+  const isSubcontractor = role === 'subcontractor'
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { role: 'employee' },
+    defaultValues: { role },
   })
-
-  const role = watch('role')
 
   const onSubmit = handleSubmit(async (values) => {
     const { error } = await supabase.auth.signUp({
@@ -36,9 +36,9 @@ export function SignUpPage() {
           first_name: values.firstName,
           last_name: values.lastName,
           phone: values.phone,
-          role: values.role,
-          company_name: values.companyName,
-          trade_specialization: values.tradeSpecialization,
+          role,
+          company_name: isSubcontractor ? values.companyName : undefined,
+          trade_specialization: isSubcontractor ? values.tradeSpecialization : undefined,
         },
       },
     })
@@ -61,7 +61,11 @@ export function SignUpPage() {
       <Card className="w-full max-w-md border-border/80 shadow-md">
         <CardHeader>
           <CardTitle>Create account</CardTitle>
-          <CardDescription>Register as an employee or subcontractor. Approval is required.</CardDescription>
+          <CardDescription>
+            {isSubcontractor
+              ? 'Register as a subcontractor. Approval is required.'
+              : 'Register as an employee. Approval is required.'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
@@ -87,19 +91,7 @@ export function SignUpPage() {
               <Input id="phone" autoComplete="tel" {...register('phone')} />
               {errors.phone ? <p className="text-xs text-destructive">{errors.phone.message}</p> : null}
             </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select value={role} onValueChange={(value) => setValue('role', value as SignUpValues['role'])}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="subcontractor">Subcontractor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {role === 'subcontractor' ? (
+            {isSubcontractor ? (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="companyName">Company name</Label>
@@ -142,10 +134,21 @@ export function SignUpPage() {
               </Link>
             </p>
             <p className="text-center text-sm text-muted-foreground">
-              Looking for the client portal?{' '}
-              <Link className="text-primary hover:underline" to="/client/sign-up">
-                Client sign up
-              </Link>
+              {isSubcontractor ? (
+                <>
+                  Registering as staff?{' '}
+                  <Link className="text-primary hover:underline" to="/sign-up">
+                    Employee sign up
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Registering as a subcontractor?{' '}
+                  <Link className="text-primary hover:underline" to="/sign-up/subcontractor">
+                    Subcontractor sign up
+                  </Link>
+                </>
+              )}
             </p>
           </div>
         </CardContent>

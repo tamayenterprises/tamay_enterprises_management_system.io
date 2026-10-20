@@ -103,6 +103,12 @@ export function SignInPage() {
                   Staff / employee
                 </Link>
               </div>
+              <Link
+                className="mt-1.5 inline-block text-muted-foreground hover:underline"
+                to="/sign-up/subcontractor"
+              >
+                Subcontractors
+              </Link>
             </div>
           </div>
         </CardContent>

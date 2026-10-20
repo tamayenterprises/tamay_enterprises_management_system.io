@@ -18,7 +18,7 @@ import { AppShell } from '@/components/layout/app-shell'
 import { ClientPortalShell } from '@/components/layout/client-portal-shell'
 import { LoadingState } from '@/components/ui/loading-state'
 import { SignInPage } from '@/pages/sign-in'
-import { SignUpPage } from '@/pages/sign-up'
+import { SignUpPage, SubcontractorSignUpPage } from '@/pages/sign-up'
 import { ClientSignUpPage } from '@/pages/client-sign-up'
 import { ForgotPasswordPage, PendingApprovalPage, ResetPasswordPage } from '@/pages/auth-misc'
 import { NotFoundPage } from '@/pages/not-found'
@@ -106,6 +106,7 @@ export default function App() {
                 <Route element={<GuestRoute />}>
                   <Route path="/sign-in" element={<SignInPage />} />
                   <Route path="/sign-up" element={<SignUpPage />} />
+                  <Route path="/sign-up/subcontractor" element={<SubcontractorSignUpPage />} />
                   <Route path="/client/sign-up" element={<ClientSignUpPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
