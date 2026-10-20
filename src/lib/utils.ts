@@ -86,6 +86,32 @@ export function sumPaidHours(
   }, 0)
 }
 
+export function paidHoursByWorker(
+  records: Array<{
+    user_id: string
+    clock_out_time?: string | null
+    paid_hours?: number | string | null
+    total_hours?: number | string | null
+    profile?: { first_name?: string | null; last_name?: string | null } | null
+  }>,
+) {
+  const groups = new Map<string, { userId: string; name: string; hours: number }>()
+  for (const record of records) {
+    const current = groups.get(record.user_id) ?? {
+      userId: record.user_id,
+      name: record.profile
+        ? fullName(record.profile.first_name ?? '', record.profile.last_name ?? '')
+        : 'Worker',
+      hours: 0,
+    }
+    if (record.clock_out_time) {
+      current.hours += toHoursNumber(record.paid_hours ?? record.total_hours)
+    }
+    groups.set(record.user_id, current)
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export function roleLabel(role: UserRole) {
   const labels: Record<UserRole, string> = {
     admin: 'Admin',

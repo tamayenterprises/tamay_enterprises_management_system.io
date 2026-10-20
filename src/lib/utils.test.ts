@@ -10,6 +10,7 @@ import {
   formatFileSize,
   formatHoursDuration,
   fullName,
+  paidHoursByWorker,
   sumPaidHours,
   getInitials,
   isManagementRole,
@@ -67,6 +68,33 @@ describe('utils', () => {
         ]),
       ),
     ).toBe('17h 24m')
+  })
+
+  it('totals paid hours per worker', () => {
+    const groups = paidHoursByWorker([
+      {
+        user_id: 'santiago',
+        clock_out_time: '2026-10-19T22:14:00Z',
+        paid_hours: 9 + 14 / 60,
+        profile: { first_name: 'Santiago', last_name: 'Salinas Martinez' },
+      },
+      {
+        user_id: 'santiago',
+        clock_out_time: '2026-10-16T21:36:00Z',
+        paid_hours: 8 + 10 / 60,
+        profile: { first_name: 'Santiago', last_name: 'Salinas Martinez' },
+      },
+      {
+        user_id: 'other',
+        clock_out_time: '2026-10-16T21:00:00Z',
+        paid_hours: 4,
+        profile: { first_name: 'Other', last_name: 'Worker' },
+      },
+    ])
+    expect(groups.map((group) => ({ ...group, hours: formatHoursDuration(group.hours) }))).toEqual([
+      { userId: 'other', name: 'Other Worker', hours: '4h 0m' },
+      { userId: 'santiago', name: 'Santiago Salinas Martinez', hours: '17h 24m' },
+    ])
   })
 
   it('sanitizes search terms for PostgREST filters', () => {

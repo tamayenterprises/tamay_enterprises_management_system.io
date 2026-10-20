@@ -38,7 +38,7 @@ import {
 import { actionButtonLabel, formatBreakDuration, formatDistance, newIdempotencyKey } from '@/lib/geo'
 import { confirmAction } from '@/lib/uploads'
 import { supabase } from '@/lib/supabase'
-import { formatHoursDuration, fullName, roleLabel, sumPaidHours } from '@/lib/utils'
+import { formatHoursDuration, fullName, paidHoursByWorker, roleLabel, sumPaidHours } from '@/lib/utils'
 import type { AttendanceExceptionRequest, AttendanceRecord, UserRole } from '@/types/database'
 
 function parseFilterDate(value: string) {
@@ -104,10 +104,15 @@ export function TimesheetsPanel() {
   const { data = [], isLoading, isError } = useAttendanceRecords(filters)
   const historyRows = data.slice(0, historyShown)
   const totalPaidHours = useMemo(() => sumPaidHours(data), [data])
+  const workerPaidHours = useMemo(() => paidHoursByWorker(data), [data])
   const completedShiftCount = useMemo(
     () => data.filter((row) => Boolean(row.clock_out_time)).length,
     [data],
   )
+  const rangeLabel =
+    filters.fromDate || filters.toDate
+      ? `${filters.fromDate ? format(parseFilterDate(filters.fromDate), 'MMM d, yyyy') : 'Start'} – ${filters.toDate ? format(parseFilterDate(filters.toDate), 'MMM d, yyyy') : 'Today'}`
+      : 'All dates'
   const correct = useCorrectAttendance()
 
   const [clockIn, setClockIn] = useState('')
@@ -365,31 +370,53 @@ export function TimesheetsPanel() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Paid hours by worker</CardTitle>
+          <CardDescription>
+            Total paid time for {rangeLabel}
+            {completedShiftCount > 0
+              ? ` · ${completedShiftCount} completed shift${completedShiftCount === 1 ? '' : 's'}`
+              : ''}
+            {workerPaidHours.length > 1 ? ` · all workers ${formatHoursDuration(totalPaidHours)}` : ''}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoading ? <LoadingState label="Loading paid hours..." /> : null}
+          {isError ? <EmptyState title="Unable to load timesheets" /> : null}
+          {!isLoading && !isError && workerPaidHours.length === 0 ? (
+            <EmptyState
+              title="No paid hours in this range"
+              description="Clocked-out shifts for the selected worker and dates will total here."
+            />
+          ) : null}
+          {!isLoading && !isError
+            ? workerPaidHours.map((worker) => (
+                <div
+                  key={worker.userId}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-[#fbfcff] px-3 py-3"
+                >
+                  <p className="min-w-0 font-medium">{worker.name}</p>
+                  <p className="shrink-0 font-display text-xl font-semibold">
+                    {formatHoursDuration(worker.hours)}
+                  </p>
+                </div>
+              ))
+            : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Attendance history</CardTitle>
           <CardDescription>Clock in/out times and calculated hours. Click a row to correct a record.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           {isLoading ? <LoadingState label="Loading timesheets..." /> : null}
           {isError ? <EmptyState title="Unable to load timesheets" /> : null}
-          {!isLoading && !isError ? (
-            <div className="rounded-xl border border-border bg-[#fbfcff] px-3 py-2.5">
-              <p className="text-xs text-muted-foreground">Total paid hours for selected dates</p>
-              <p className="font-display text-2xl font-semibold">{formatHoursDuration(totalPaidHours)}</p>
-              <p className="text-xs text-muted-foreground">
-                {filters.fromDate || filters.toDate
-                  ? `${filters.fromDate ? format(parseFilterDate(filters.fromDate), 'MMM d, yyyy') : 'Start'} – ${filters.toDate ? format(parseFilterDate(filters.toDate), 'MMM d, yyyy') : 'Today'}`
-                  : 'All dates'}
-                {completedShiftCount > 0
-                  ? ` · ${completedShiftCount} completed shift${completedShiftCount === 1 ? '' : 's'}`
-                  : ''}
-              </p>
-            </div>
-          ) : null}
           {!isLoading && !isError && data.length === 0 ? (
             <EmptyState title="No attendance records" description="Try adjusting filters or wait for workers to clock in." />
           ) : null}
           {!isLoading && !isError && data.length > 0 ? (
-            <MobileListGate>
+            <div className="space-y-2">
               {historyRows.map((row) => (
                 <button
                   key={row.id}
@@ -397,7 +424,12 @@ export function TimesheetsPanel() {
                   className="w-full text-left"
                   onClick={() => openCorrection(row)}
                 >
-                  <AttendanceRow record={row} />
+                  <AttendanceRow
+                    record={row}
+                    rangeTotalHours={
+                      workerPaidHours.find((worker) => worker.userId === row.user_id)?.hours
+                    }
+                  />
                 </button>
               ))}
               <ShowMoreButton
@@ -405,7 +437,7 @@ export function TimesheetsPanel() {
                 total={data.length}
                 onMore={() => setHistoryShown((n) => growPreview(n, data.length))}
               />
-            </MobileListGate>
+            </div>
           ) : null}
         </CardContent>
       </Card>
@@ -1088,7 +1120,15 @@ function ShowMoreButton({
   )
 }
 
-function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?: boolean }) {
+function AttendanceRow({
+  record,
+  compact,
+  rangeTotalHours,
+}: {
+  record: AttendanceRecord
+  compact?: boolean
+  rangeTotalHours?: number
+}) {
   const name = record.profile
     ? fullName(record.profile.first_name, record.profile.last_name)
     : 'Worker'
@@ -1120,6 +1160,7 @@ function AttendanceRow({ record, compact }: { record: AttendanceRecord; compact?
           <p className="text-xs text-muted-foreground">
             Paid {formatHoursDuration(record.paid_hours ?? record.total_hours)}
             {record.break_seconds ? ` · break ${formatBreakDuration(record.break_seconds)}` : ''}
+            {rangeTotalHours != null ? ` · selected dates ${formatHoursDuration(rangeTotalHours)}` : ''}
           </p>
         ) : (
           <Badge variant="secondary">
