@@ -14,6 +14,7 @@ let saved: NearbySavedPlace[] = []
 let savedError: Error | null = null
 const locate = vi.fn()
 const savePlace = vi.fn()
+const searchPlaces = vi.fn()
 
 vi.mock('@/features/auth/auth-hooks', () => ({
   useAuth: () => ({ profile: { id: 'u1', role, organization_id: 'org' }, loading: false }),
@@ -28,12 +29,18 @@ vi.mock('@/features/nearby/nearby-hooks', async (importOriginal) => ({
   useSavedPlaces: () => ({ data: savedError ? undefined : saved, isLoading: false, isError: Boolean(savedError), error: savedError }),
   useSaveNearbyPlace: () => ({ mutateAsync: savePlace, isPending: false }),
   useArchiveNearbyPlace: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  usePlacesSearch: () => ({ mutateAsync: searchPlaces, isPending: false }),
+  PlacesNotConfiguredError: class PlacesNotConfiguredError extends Error {
+    constructor() {
+      super('Google Places is not set up yet.')
+      this.name = 'PlacesNotConfiguredError'
+    }
+  },
 }))
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), message: vi.fn() } }))
 
 const JOB = { latitude: 41.0534, longitude: -73.5387 }
 const PHONE = { latitude: 41.3083, longitude: -72.9279, accuracyMeters: 30 }
-const AT_JOB = 'near 41.05340,-73.53870'
 
 function near(origin: { latitude: number; longitude: number }, miles: number) {
   return { latitude: origin.latitude + miles / 69, longitude: origin.longitude }
@@ -72,15 +79,26 @@ function renderPage(path = '/nearby') {
 
 const cardNames = () => screen.queryAllByTestId('saved-place').map((card) => within(card).getByRole('heading').textContent)
 const card = (name: string) => within(screen.getByRole('article', { name }))
-const queryOf = (link: HTMLElement) => new URL(link.getAttribute('href')!).searchParams.get('query')
+const categoryLabels = () =>
+  [...document.querySelectorAll('#nearby-categories > button')]
+    .map((button) => button.textContent)
+    .filter((label): label is string => Boolean(label) && label !== 'Search Something Specific')
 
 async function categories() {
   const toggle = screen.getByRole('button', { name: 'Search by Category' })
   if (toggle.getAttribute('aria-expanded') === 'false') await userEvent.click(toggle)
   return within(screen.getByRole('region', { name: 'Search by category' }))
 }
-async function categoryLink(label: string) {
-  return (await categories()).getByRole('link', { name: label })
+async function categoryButton(label: string) {
+  return (await categories()).getByRole('button', { name: label })
+}
+function lastPlacesSearch() {
+  expect(searchPlaces).toHaveBeenCalled()
+  return searchPlaces.mock.calls.at(-1)![0] as {
+    query: string
+    origin: { latitude: number | null; longitude: number | null; address: string | null }
+    radiusMiles: number
+  }
 }
 async function specificInput() {
   const menu = await categories()
@@ -95,6 +113,21 @@ beforeEach(() => {
   sessionStorage.clear()
   locate.mockReset().mockResolvedValue(PHONE)
   savePlace.mockReset().mockResolvedValue({})
+  searchPlaces.mockReset().mockResolvedValue([
+    {
+      id: 'g1',
+      name: 'Home Depot Stamford',
+      address: '1 Depot Rd',
+      latitude: 41.05,
+      longitude: -73.54,
+      rating: 4.4,
+      ratingCount: 200,
+      mapsUrl: 'https://maps.google.com/?cid=1',
+      phone: '+1 203-555-0100',
+      openNow: true,
+      distanceMiles: 1.1,
+    },
+  ])
   projects = [
     {
       id: 'p1',
@@ -147,17 +180,17 @@ describe('screen order: where → category (with specific search inside) → sav
     expect(screen.queryByRole('link', { name: 'Plumbing Supply' })).not.toBeInTheDocument()
     const menu = await categories()
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(menu.getAllByRole('link').map((link) => link.textContent)).toEqual([
+    expect(categoryLabels()).toEqual([
       'All Suppliers', 'Plumbing Supply', 'Electrical Supply', 'HVAC Supply', 'Gas / CSST Supply', 'Building Materials', 'Lumber',
       'Roofing Supply', 'Tile Supply', 'Paint', 'Hardware', 'Tools', 'Equipment Rental', 'Home Depot', "Lowe's",
     ])
-    const options = [...screen.getByRole('region', { name: 'Search by category' }).querySelectorAll('#nearby-categories > a, #nearby-categories > button')]
+    const options = [...document.querySelectorAll('#nearby-categories > button')]
     expect(options.at(-1)?.textContent).toBe('Search Something Specific')
     expect(menu.queryByRole('searchbox')).not.toBeInTheDocument()
   })
 })
 
-describe('Search by Category: one tap opens Google Maps', () => {
+describe('Search by Category: one tap searches Google Places around the project', () => {
   it.each([
     ['Plumbing Supply', 'plumbing supply'],
     ['Electrical Supply', 'electrical supply'],
@@ -167,11 +200,13 @@ describe('Search by Category: one tap opens Google Maps', () => {
     ["Lowe's", "Lowe's"],
   ])('%s is itself the search, around the current project', async (label, term) => {
     renderPage()
-    const link = await categoryLink(label)
-    expect(link.tagName).toBe('A')
-    expect(queryOf(link)).toBe(`${term} ${AT_JOB}`)
-    expect(link).toHaveAttribute('target', '_blank')
-    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    await userEvent.click(await categoryButton(label))
+    expect(lastPlacesSearch()).toEqual({
+      query: term,
+      origin: expect.objectContaining({ latitude: JOB.latitude, longitude: JOB.longitude }),
+      radiusMiles: 10,
+    })
+    expect(await screen.findByRole('heading', { name: 'Home Depot Stamford' })).toBeInTheDocument()
   })
 
   it.each([
@@ -179,17 +214,32 @@ describe('Search by Category: one tap opens Google Maps', () => {
     ['Deli', 'deli'],
     ['Latin Food', 'Latin restaurant'],
     ['Quick Lunch', 'quick lunch'],
-  ])('Food: %s opens Google Maps around the project', async (label, term) => {
+  ])('Food: %s searches Places around the project', async (label, term) => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Food' }))
-    expect(queryOf(await categoryLink(label))).toBe(`${term} ${AT_JOB}`)
+    await userEvent.click(await categoryButton(label))
+    expect(lastPlacesSearch().query).toBe(term)
+    expect(lastPlacesSearch().origin).toEqual(expect.objectContaining({ latitude: JOB.latitude, longitude: JOB.longitude }))
+  })
+
+  it('opens Google Maps when Places is not configured', async () => {
+    const { PlacesNotConfiguredError } = await import('@/features/nearby/nearby-hooks')
+    searchPlaces.mockRejectedValue(new PlacesNotConfiguredError())
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    renderPage()
+    await userEvent.click(await categoryButton('Home Depot'))
+    await waitFor(() => expect(open).toHaveBeenCalledWith(expect.stringContaining('maps/search'), '_blank', 'noopener,noreferrer'))
+    expect(new URL(open.mock.calls[0][0] as string).searchParams.get('query')).toBe('Home Depot near 41.05340,-73.53870')
+    expect(screen.getByRole('heading', { name: /No Google places for Home Depot/ })).toBeInTheDocument()
+    open.mockRestore()
   })
 
   it('Food lists Ecuadorian / Latin / Hispanic first', async () => {
     renderPage('/nearby?mode=food')
-    const links = (await categories()).getAllByRole('link').map((link) => link.textContent)
-    expect(links.slice(0, 3)).toEqual(['Ecuadorian', 'Latin Food', 'Hispanic Food'])
-    expect(links).toEqual(['Ecuadorian', 'Latin Food', 'Hispanic Food', 'Deli', 'Quick Lunch', 'Bakery', 'Breakfast', 'Coffee', 'Tacos', 'Restaurants'])
+    await categories()
+    const labels = categoryLabels()
+    expect(labels.slice(0, 3)).toEqual(['Ecuadorian', 'Latin Food', 'Hispanic Food'])
+    expect(labels).toEqual(['Ecuadorian', 'Latin Food', 'Hispanic Food', 'Deli', 'Quick Lunch', 'Bakery', 'Breakfast', 'Coffee', 'Tacos', 'Restaurants'])
   })
 })
 
@@ -210,15 +260,13 @@ describe('Search Something Specific (inside Search by Category)', () => {
     open.mockRestore()
   })
 
-  it('opens Google Maps with the typed term around the selected location', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+  it('searches Places with the typed term around the selected location', async () => {
     renderPage()
     await userEvent.type(await specificInput(), '3/4 TracPipe fitting{Enter}')
-    expect(open).toHaveBeenCalledWith(expect.any(String), '_blank', 'noopener,noreferrer')
-    expect(new URL(open.mock.calls[0][0] as string).searchParams.get('query')).toBe(`3/4 TracPipe fitting ${AT_JOB}`)
+    expect(lastPlacesSearch().query).toBe('3/4 TracPipe fitting')
+    expect(lastPlacesSearch().origin).toEqual(expect.objectContaining({ latitude: JOB.latitude, longitude: JOB.longitude }))
     expect(screen.getByText('Call to confirm availability.')).toBeInTheDocument()
-    expect(document.body.textContent).not.toMatch(/in stock|open now/i)
-    open.mockRestore()
+    expect(await screen.findByRole('heading', { name: 'Home Depot Stamford' })).toBeInTheDocument()
   })
 
   it('does nothing until something is typed; Food uses a food hint', async () => {
@@ -256,9 +304,9 @@ describe('Search Near', () => {
     renderPage('/nearby?project=p2')
     expect(within(screen.getByRole('group', { name: 'Search near' })).getByRole('button', { name: 'Current Project' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('combobox', { name: 'Project' })).toHaveValue('p2')
-    const link = await categoryLink('Plumbing Supply')
-    expect(queryOf(link)).toBe('plumbing supply near 48 Elm Ave #2, Norwalk, CT')
-    expect(link.getAttribute('href')).toContain('%232')
+    await userEvent.click(await categoryButton('Plumbing Supply'))
+    expect(lastPlacesSearch().query).toBe('plumbing supply')
+    expect(lastPlacesSearch().origin).toEqual(expect.objectContaining({ address: '48 Elm Ave #2, Norwalk, CT', latitude: null, longitude: null }))
     expect(screen.queryByRole('group', { name: 'Distance' })).not.toBeInTheDocument()
     expect(screen.getByText(/Distances need verified project coordinates/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /See 2 more/ }))
@@ -266,14 +314,16 @@ describe('Search Near', () => {
   })
 
   it('Current Location uses the device position for categories, specific search and distances', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
     renderPage()
     await userEvent.click(within(screen.getByRole('group', { name: 'Search near' })).getByRole('button', { name: 'Current Location' }))
-    await waitFor(async () => expect(queryOf(await categoryLink('Plumbing Supply'))).toBe('plumbing supply near 41.30830,-72.92790'))
+    await waitFor(() => expect(locate).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getAllByText(/your current location/i).length).toBeGreaterThan(0))
+    await userEvent.click(await categoryButton('Plumbing Supply'))
+    expect(lastPlacesSearch().origin).toEqual(expect.objectContaining({ latitude: PHONE.latitude, longitude: PHONE.longitude }))
     expect(locate).toHaveBeenCalledTimes(1)
     await userEvent.type(await specificInput(), 'ProPEX{Enter}')
-    expect(new URL(open.mock.calls[0][0] as string).searchParams.get('query')).toBe('ProPEX near 41.30830,-72.92790')
-    open.mockRestore()
+    expect(lastPlacesSearch().query).toBe('ProPEX')
+    expect(lastPlacesSearch().origin).toEqual(expect.objectContaining({ latitude: PHONE.latitude, longitude: PHONE.longitude }))
   })
 
   it('denied location keeps the finder working and offers Project or Enter Location', async () => {
@@ -284,17 +334,21 @@ describe('Search Near', () => {
     expect(alert).toHaveTextContent('Location unavailable. Choose a project or enter an address.')
     expect(within(alert).getByRole('button', { name: 'Enter Location' })).toBeInTheDocument()
     await userEvent.click(within(alert).getByRole('button', { name: 'Use a Project' }))
-    expect(queryOf(await categoryLink('Plumbing Supply'))).toBe(`plumbing supply ${AT_JOB}`)
+    await userEvent.click(await categoryButton('Plumbing Supply'))
+    expect(lastPlacesSearch().origin).toEqual(expect.objectContaining({ latitude: JOB.latitude, longitude: JOB.longitude }))
   })
 
-  it('Enter Location passes the typed address straight to Google Maps (no geocoding)', async () => {
+  it('Enter Location passes the typed address to Places (no geocoding)', async () => {
     renderPage()
     await userEvent.click(within(screen.getByRole('group', { name: 'Search near' })).getByRole('button', { name: 'Enter Location' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'Location' }), "200 O'Neil Rd & Main, Bridgeport")
     await userEvent.click(screen.getByRole('button', { name: 'Use' }))
-    const link = await categoryLink('Lumber')
-    expect(queryOf(link)).toBe("lumber yard near 200 O'Neil Rd & Main, Bridgeport")
-    expect(link.getAttribute('href')).toContain('%26')
+    await userEvent.click(await categoryButton('Lumber'))
+    expect(lastPlacesSearch()).toEqual({
+      query: 'lumber yard',
+      origin: expect.objectContaining({ address: "200 O'Neil Rd & Main, Bridgeport", latitude: null, longitude: null }),
+      radiusMiles: 10,
+    })
     expect(locate).not.toHaveBeenCalled()
   })
 
@@ -376,7 +430,7 @@ describe('management', () => {
   it('after a Plumbing Supply search, Save Place defaults to Supplier / Plumbing Supply', async () => {
     role = 'admin'
     renderPage()
-    await userEvent.click(await categoryLink('Plumbing Supply'))
+    await userEvent.click(await categoryButton('Plumbing Supply'))
     await userEvent.click(screen.getByRole('button', { name: 'Save Place' }))
     const dialog = within(screen.getByRole('dialog'))
     expect(dialog.getByRole('button', { name: 'Supplier' })).toHaveAttribute('aria-pressed', 'true')
@@ -386,7 +440,7 @@ describe('management', () => {
   it('after a Home Depot search, Save Place files it under Home Improvement; the choice survives a return visit', async () => {
     role = 'admin'
     renderPage()
-    await userEvent.click(await categoryLink('Home Depot'))
+    await userEvent.click(await categoryButton('Home Depot'))
     const stored = JSON.parse(sessionStorage.getItem('tamay.nearby-finder') ?? '{}')
     expect(stored.lastSearch).toEqual({ mode: 'suppliers', category: 'home_depot' })
     expect(JSON.stringify(stored)).not.toMatch(/41\.|73\.|Oak St|latitude/)
@@ -396,9 +450,8 @@ describe('management', () => {
 
   it('after a typed search, Save Place keeps Supplier but asks for the category instead of guessing', async () => {
     role = 'admin'
-    const open = vi.spyOn(window, 'open').mockReturnValue(null)
     renderPage()
-    await userEvent.click(await categoryLink('Plumbing Supply'))
+    await userEvent.click(await categoryButton('Plumbing Supply'))
     await userEvent.type(await specificInput(), 'TracPipe{Enter}')
     await userEvent.click(screen.getByRole('button', { name: 'Save Place' }))
     const dialog = within(screen.getByRole('dialog'))
@@ -409,7 +462,6 @@ describe('management', () => {
     await userEvent.click(dialog.getByRole('button', { name: 'Save Place' }))
     expect(dialog.getByText('Choose a category.')).toBeInTheDocument()
     expect(savePlace).not.toHaveBeenCalled()
-    open.mockRestore()
   })
 
   it('saves a place from the quick form: required fields, optional website, preferred flag', async () => {
@@ -465,7 +517,8 @@ describe('management', () => {
     savedError = new SavedPlacesNotInstalledError()
     renderPage()
     expect(screen.getByText('Saved places are not set up in this database yet.')).toBeInTheDocument()
-    expect(queryOf(await categoryLink('Plumbing Supply'))).toContain('plumbing supply near')
+    await userEvent.click(await categoryButton('Plumbing Supply'))
+    expect(lastPlacesSearch().query).toBe('plumbing supply')
   })
 })
 

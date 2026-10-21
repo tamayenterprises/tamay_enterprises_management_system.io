@@ -159,6 +159,77 @@ export function formatMiles(miles: number) {
   return miles < 10 ? `${miles.toFixed(1)} mi` : `${Math.round(miles)} mi`
 }
 
+export type GooglePlaceHit = {
+  id: string
+  name: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+  rating: number | null
+  ratingCount: number | null
+  mapsUrl: string
+  phone: string | null
+  openNow: boolean | null
+  distanceMiles: number | null
+}
+
+export type GooglePlaceRaw = {
+  id?: string
+  displayName?: { text?: string }
+  formattedAddress?: string
+  location?: { latitude?: number; longitude?: number }
+  rating?: number
+  userRatingCount?: number
+  googleMapsUri?: string
+  nationalPhoneNumber?: string
+  currentOpeningHours?: { openNow?: boolean }
+}
+
+/** Map Places API (New) rows and sort nearest-first when the origin has coordinates. */
+export function rankGooglePlaces(places: GooglePlaceRaw[], origin: NearbyOrigin | null): GooglePlaceHit[] {
+  const coords = originCoords(origin)
+  return places
+    .map((place, index) => {
+      const latitude = place.location?.latitude ?? null
+      const longitude = place.location?.longitude ?? null
+      const name = place.displayName?.text?.trim() || 'Place'
+      const address = place.formattedAddress?.trim() || ''
+      const pin =
+        latitude != null && longitude != null ? { latitude, longitude, address } : { latitude: null, longitude: null, address }
+      return {
+        id: place.id || `place-${index}`,
+        name,
+        address,
+        latitude,
+        longitude,
+        rating: typeof place.rating === 'number' ? place.rating : null,
+        ratingCount: typeof place.userRatingCount === 'number' ? place.userRatingCount : null,
+        mapsUrl: place.googleMapsUri || googleMapsSearchUrl(name, origin),
+        phone: place.nationalPhoneNumber?.trim() || null,
+        openNow: typeof place.currentOpeningHours?.openNow === 'boolean' ? place.currentOpeningHours.openNow : null,
+        distanceMiles: coords && latitude != null && longitude != null ? distanceMiles(coords, pin) : null,
+      } satisfies GooglePlaceHit
+    })
+    .filter((place) => place.name)
+    .sort(
+      (a, b) =>
+        (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY) ||
+        (b.rating ?? 0) - (a.rating ?? 0),
+    )
+}
+
+export function placesSearchPayload(query: string, origin: NearbyOrigin | null, radiusMiles: RadiusMiles) {
+  const coords = originCoords(origin)
+  return {
+    query: query.trim(),
+    latitude: coords?.latitude ?? null,
+    longitude: coords?.longitude ?? null,
+    address: origin?.address ?? null,
+    radiusMiles,
+    mapsFallback: googleMapsSearchUrl(query, origin),
+  }
+}
+
 // ---------------------------------------------------------------- save form
 
 /** Only http(s) links leave the app; "ferguson.com" becomes "https://ferguson.com/". */

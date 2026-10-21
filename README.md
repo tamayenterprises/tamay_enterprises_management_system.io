@@ -102,6 +102,16 @@ Deploy the Supabase functions `create-payment-link` and `stripe-webhook`, then c
 
 Create a Stripe webhook endpoint for `checkout.session.completed`, `checkout.session.expired`, and `payment_intent.succeeded`. The frontend only calls the authenticated `create-payment-link` function; payment history is marked paid only by the verified webhook.
 
+### Nearby Finder (Google Places)
+
+The key stays on Supabase — never in Vercel `VITE_` vars. Deploy `places-nearby`, then:
+
+```bash
+supabase secrets set GOOGLE_PLACES_API_KEY=your_key --project-ref efmdnzdzrgfqlzhmzpuz
+```
+
+In Google Cloud, enable **Places API (New)** and restrict the key to that API. Nearby Finder searches through the Edge Function so the key is not exposed in the browser. Without the secret, category taps still open Google Maps.
+
 Before calling the site production, complete [docs/PRODUCTION.md](docs/PRODUCTION.md).
 
 ### GitHub Actions

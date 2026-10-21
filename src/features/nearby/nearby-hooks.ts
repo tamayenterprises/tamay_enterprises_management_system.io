@@ -1,7 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { canonicalProjectAddress } from '@/features/schedule/schedule-links'
-import { CATEGORIES, RADIUS_OPTIONS, type NearbyMode, type RadiusMiles, type validateSavedPlace } from '@/features/nearby/nearby-model'
+import {
+  CATEGORIES,
+  RADIUS_OPTIONS,
+  rankGooglePlaces,
+  type GooglePlaceRaw,
+  type NearbyMode,
+  type NearbyOrigin,
+  type RadiusMiles,
+  type validateSavedPlace,
+} from '@/features/nearby/nearby-model'
 import { supabase } from '@/lib/supabase'
 import { isManagementRole } from '@/lib/utils'
 import type { NearbySavedPlace, Project } from '@/types/database'
@@ -97,6 +106,51 @@ export function useSavedPlaces() {
       return (data ?? []) as NearbySavedPlace[]
     },
   })
+}
+
+export class PlacesNotConfiguredError extends Error {
+  constructor() {
+    super('Google Places is not set up yet.')
+    this.name = 'PlacesNotConfiguredError'
+  }
+}
+
+export function usePlacesSearch() {
+  return useMutation({
+    mutationFn: async (input: {
+      query: string
+      origin: NearbyOrigin | null
+      radiusMiles: RadiusMiles
+    }) => {
+      const { data, error } = await supabase.functions.invoke('places-nearby', {
+        body: {
+          query: input.query,
+          latitude: input.origin?.latitude ?? null,
+          longitude: input.origin?.longitude ?? null,
+          address: input.origin?.address ?? null,
+          radiusMiles: input.radiusMiles,
+        },
+      })
+      const payload = await placesResponse(data, error)
+      if (payload?.code === 'not_configured' || payload?.error === 'Places is not configured') {
+        throw new PlacesNotConfiguredError()
+      }
+      if (payload?.error) throw new Error(String(payload.error))
+      if (error) throw new Error(error.message)
+      return rankGooglePlaces(Array.isArray(payload?.places) ? payload.places : [], input.origin)
+    },
+  })
+}
+
+async function placesResponse(data: unknown, error: { context?: Response } | null) {
+  if (data && typeof data === 'object') return data as { places?: GooglePlaceRaw[]; error?: string; code?: string }
+  const response = error?.context
+  if (!response) return null
+  try {
+    return (await response.clone().json()) as { places?: GooglePlaceRaw[]; error?: string; code?: string }
+  } catch {
+    return null
+  }
 }
 
 function friendlyWriteError(error: { code?: string; message?: string }) {

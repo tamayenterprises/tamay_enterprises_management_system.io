@@ -6,6 +6,7 @@ import {
   googleMapsSearchUrl,
   normalizeWebsite,
   parseGoogleMapsLink,
+  rankGooglePlaces,
   rankSavedPlaces,
   savedCategories,
   searchCategories,
@@ -178,6 +179,42 @@ describe('Save Place form', () => {
     if (!result.ok) expect(Object.keys(result.errors).sort()).toEqual(['note', 'phone', 'website'])
     expect(normalizeWebsite('http://example.com/shop')).toBe('http://example.com/shop')
     expect(normalizeWebsite('not a site')).toBe('invalid')
+  })
+})
+
+describe('Google Places ranking', () => {
+  it('sorts nearest first and keeps rating as a tie-breaker', () => {
+    const ranked = rankGooglePlaces(
+      [
+        {
+          id: 'far',
+          displayName: { text: 'Far Store' },
+          formattedAddress: 'Far',
+          location: { latitude: PROJECT.latitude! + 0.2, longitude: PROJECT.longitude! },
+          rating: 4.9,
+        },
+        {
+          id: 'near',
+          displayName: { text: 'Near Store' },
+          formattedAddress: 'Near',
+          location: { latitude: PROJECT.latitude! + 0.01, longitude: PROJECT.longitude! },
+          rating: 3.2,
+          userRatingCount: 12,
+          googleMapsUri: 'https://maps.google.com/?cid=9',
+          nationalPhoneNumber: '+1 203-555-0100',
+          currentOpeningHours: { openNow: true },
+        },
+      ],
+      PROJECT,
+    )
+    expect(ranked.map((place) => place.name)).toEqual(['Near Store', 'Far Store'])
+    expect(ranked[0]).toMatchObject({
+      id: 'near',
+      openNow: true,
+      phone: '+1 203-555-0100',
+      mapsUrl: 'https://maps.google.com/?cid=9',
+    })
+    expect(ranked[0].distanceMiles).toBeLessThan(ranked[1].distanceMiles!)
   })
 })
 

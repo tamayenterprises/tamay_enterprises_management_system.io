@@ -67,6 +67,7 @@ Finance migrations **390 / finance-proof / 410** and Stripe payments migrations 
 - Migration `00001` (attendance) depends on workforce status (`00000` in the `20260328` series).
 - Migration `00000` (avatars / `20260329`) updates the workforce status view — run after workforce status. **Do not re-run on Production** if avatars are already live.
 - Migration `20260332` (geofencing) adds project coordinates, breaks, location attempts, exceptions, and RPCs. After applying it, deploy Edge Function `geocode-address` (optional Mapbox secret `MAPBOX_ACCESS_TOKEN`; otherwise Nominatim).
+- Nearby Finder: deploy `places-nearby` and set Supabase secret `GOOGLE_PLACES_API_KEY` (Places API New). Never put this key in Vercel `VITE_` variables.
 - Existing projects are marked `needs_verification` until an admin verifies coordinates on the project page.
 - Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
 - Migration `20260334` is split because Postgres cannot use new enum values in the same transaction that adds them. Always run `00000` then `00001` as two separate SQL Editor runs. Historical project notes are not exposed company-wide.
@@ -128,6 +129,8 @@ Confirm you can open `/admin` and approve other users.
 | --- | --- |
 | `VITE_SUPABASE_URL` | Project URL |
 | `VITE_SUPABASE_ANON_KEY` | Anon/public key only (never service role in the frontend) |
+
+Nearby Finder Places (Supabase secret, not Vercel): `GOOGLE_PLACES_API_KEY` for the `places-nearby` function. Enable Places API (New) on that key.
 
 Build: `npm run build` · Output: `dist` · SPA rewrites: see `vercel.json`.
 

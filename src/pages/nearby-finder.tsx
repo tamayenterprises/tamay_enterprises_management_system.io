@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Briefcase, ChevronDown, Crosshair, ExternalLink, MapPin, Phone, Plus, Search, Store, UtensilsCrossed } from 'lucide-react'
+import { Briefcase, ChevronDown, Crosshair, MapPin, Phone, Plus, Search, Store, UtensilsCrossed } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -11,11 +11,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { canManageSavedPlaces } from '@/features/nearby/nearby-access'
 import {
+  PlacesNotConfiguredError,
   SavedPlacesNotInstalledError,
   projectSearchTarget,
   readNearbySession,
   useArchiveNearbyPlace,
   useNearbyProjects,
+  usePlacesSearch,
   useSavedPlaces,
   writeNearbySession,
   type NearbySession,
@@ -27,6 +29,7 @@ import {
   googleMapsSearchUrl,
   originCoords,
   rankSavedPlaces,
+  type GooglePlaceHit,
   saveCategoryForSearch,
   savedCategories,
   searchCategories,
@@ -35,6 +38,7 @@ import {
   type RadiusMiles,
   type RankedSavedPlace,
 } from '@/features/nearby/nearby-model'
+import { GooglePlaceCard } from '@/features/nearby/google-place-card'
 import { SavePlaceDialog } from '@/features/nearby/save-place-dialog'
 import { SavedPlaceCard } from '@/features/nearby/saved-place-card'
 import { requestDeviceLocation } from '@/lib/geo'
@@ -80,7 +84,7 @@ function SavedSkeleton() {
   )
 }
 
-/** Field tool: pick where, tap what you need (opens Google Maps), then Tamay's saved places. */
+/** Field tool: pick where, tap what you need (Places in-app, Maps fallback), then Tamay's saved places. */
 export function NearbyFinderPage() {
   const { profile } = useAuth()
   const canManage = canManageSavedPlaces(profile?.role)
@@ -89,6 +93,7 @@ export function NearbyFinderPage() {
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const savedQuery = useSavedPlaces()
   const archive = useArchiveNearbyPlace()
+  const placesSearch = usePlacesSearch()
 
   const [initial] = useState(() => {
     const session = readNearbySession()
@@ -116,6 +121,9 @@ export function NearbyFinderPage() {
   const [enteredAddress, setEnteredAddress] = useState<string | null>(null)
   const [device, setDevice] = useState<DeviceState>({ status: 'idle' })
   const [dialog, setDialog] = useState<{ open: boolean; place: NearbySavedPlace | null }>({ open: false, place: null })
+  const [googleHits, setGoogleHits] = useState<GooglePlaceHit[] | null>(null)
+  const [googleLabel, setGoogleLabel] = useState<string | null>(null)
+  const [googleQuery, setGoogleQuery] = useState<string | null>(null)
   const locateTicket = useRef(0)
 
   useEffect(() => {
@@ -192,6 +200,9 @@ export function NearbyFinderPage() {
     setCategory('all')
     setSpecific('')
     setSpecificOpen(false)
+    setGoogleHits(null)
+    setGoogleLabel(null)
+    setGoogleQuery(null)
   }
 
   function chooseOrigin(kind: OriginKind) {
@@ -202,9 +213,29 @@ export function NearbyFinderPage() {
   function searchSpecific(event: React.FormEvent) {
     event.preventDefault()
     if (!term) return
-    // A typed search has no category, so Save Place asks for one instead of guessing.
     setLastSearch(null)
-    window.open(googleMapsSearchUrl(term, origin), '_blank', 'noopener,noreferrer')
+    void runPlacesSearch(term, term)
+  }
+
+  async function runPlacesSearch(query: string, label: string) {
+    if (!origin) {
+      toast.error('Choose a project, your location, or an address first.')
+      return
+    }
+    setGoogleLabel(label)
+    setGoogleQuery(query)
+    try {
+      const hits = await placesSearch.mutateAsync({ query, origin, radiusMiles: radius })
+      setGoogleHits(hits)
+    } catch (error) {
+      setGoogleHits([])
+      window.open(googleMapsSearchUrl(query, origin), '_blank', 'noopener,noreferrer')
+      if (error instanceof PlacesNotConfiguredError) {
+        toast.message('Opening Google Maps. Add the Places API key in Supabase secrets to show results here.')
+        return
+      }
+      toast.error(error instanceof Error ? error.message : 'Search failed. Opened Google Maps instead.')
+    }
   }
 
   async function archivePlace(place: RankedSavedPlace) {
@@ -385,22 +416,24 @@ export function NearbyFinderPage() {
             {categoriesOpen ? (
               <div id="nearby-categories" className="grid grid-cols-2 gap-2 border-t border-accent/40 p-3 sm:grid-cols-3 xl:grid-cols-4">
                 {searchCategories(mode).map((item, index) => (
-                  <a
+                  <button
                     key={item.key}
-                    href={googleMapsSearchUrl(item.search!, origin)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setLastSearch({ mode, category: item.key })}
+                    type="button"
+                    disabled={placesSearch.isPending}
+                    onClick={() => {
+                      setLastSearch({ mode, category: item.key })
+                      void runPlacesSearch(item.search!, item.label)
+                    }}
                     className={cn(
-                      'inline-flex h-11 min-w-0 items-center justify-between gap-1.5 rounded-lg border px-3 text-[13px] font-semibold text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'inline-flex h-11 min-w-0 items-center justify-between gap-1.5 rounded-lg border px-3 text-[13px] font-semibold text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60',
                       mode === 'food' && index < 3
                         ? 'border-accent bg-accent/15 hover:bg-accent/25'
                         : 'border-primary/15 bg-white hover:border-primary/40',
                     )}
                   >
                     <span className="truncate">{item.label}</span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-primary/50" aria-hidden />
-                  </a>
+                    <Search className="h-3.5 w-3.5 shrink-0 text-primary/50" aria-hidden />
+                  </button>
                 ))}
                 <button
                   type="button"
@@ -437,6 +470,50 @@ export function NearbyFinderPage() {
               </div>
             ) : null}
           </section>
+
+          {googleLabel ? (
+            <section aria-labelledby="nearby-google" className="space-y-2.5">
+              <div>
+                <h2 id="nearby-google" className={SECTION_TITLE}>
+                  <GoldMark />
+                  Nearby on Google
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {placesSearch.isPending
+                    ? `Finding ${googleLabel} nearby…`
+                    : googleHits && googleHits.length > 0
+                      ? `Nearest ${googleLabel} around your search area.`
+                      : `No Google results for ${googleLabel} yet.`}
+                </p>
+              </div>
+              {placesSearch.isPending ? (
+                <>
+                  <SavedSkeleton />
+                  <SavedSkeleton />
+                </>
+              ) : googleHits && googleHits.length > 0 ? (
+                <div className="grid gap-2.5 xl:grid-cols-2">
+                  {googleHits.map((place) => (
+                    <GooglePlaceCard key={place.id} place={place} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title={`No Google places for ${googleLabel}`}
+                  description="Saved Tamay places are still listed below."
+                  action={
+                    origin ? (
+                      <Button asChild variant="outline" className="h-10">
+                        <a href={googleMapsSearchUrl(googleQuery || googleLabel, origin)} target="_blank" rel="noopener noreferrer">
+                          Open in Google Maps
+                        </a>
+                      </Button>
+                    ) : null
+                  }
+                />
+              )}
+            </section>
+          ) : null}
 
           <section aria-labelledby="nearby-saved" className="space-y-2.5">
             <div className="flex flex-wrap items-end justify-between gap-2">
