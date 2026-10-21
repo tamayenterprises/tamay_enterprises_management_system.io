@@ -14,11 +14,13 @@ import {
   PlacesNotConfiguredError,
   SavedPlacesNotInstalledError,
   projectSearchTarget,
+  readNearbyPlacesSession,
   readNearbySession,
   useArchiveNearbyPlace,
   useNearbyProjects,
   usePlacesSearch,
   useSavedPlaces,
+  writeNearbyPlacesSession,
   writeNearbySession,
   type NearbySession,
   type OriginKind,
@@ -99,12 +101,21 @@ export function NearbyFinderPage() {
     const session = readNearbySession()
     const urlProject = params.get('project')
     const urlMode = params.get('mode')
+    const mode = (urlMode === 'food' || urlMode === 'suppliers' ? urlMode : session.mode ?? 'suppliers') as NearbyMode
+    const places = readNearbyPlacesSession()
+    const restored = places?.mode === mode ? places : null
     return {
-      mode: (urlMode === 'food' || urlMode === 'suppliers' ? urlMode : session.mode ?? 'suppliers') as NearbyMode,
+      mode,
       originKind: (urlProject ? 'project' : session.originKind ?? 'project') as OriginKind,
       projectId: urlProject ?? session.projectId ?? null,
       radius: session.radius ?? DEFAULT_RADIUS,
       lastSearch: session.lastSearch ?? null,
+      categoriesOpen: restored?.categoriesOpen ?? false,
+      specificOpen: restored?.specificOpen ?? false,
+      specific: restored?.specific ?? '',
+      googleHits: restored ? restored.hits : null,
+      googleLabel: restored?.label ?? null,
+      googleQuery: restored?.query ?? null,
     }
   })
 
@@ -113,22 +124,38 @@ export function NearbyFinderPage() {
   const [projectId, setProjectId] = useState<string | null>(initial.projectId)
   const [radius, setRadius] = useState<RadiusMiles>(initial.radius)
   const [lastSearch, setLastSearch] = useState<NearbySession['lastSearch']>(initial.lastSearch)
-  const [categoriesOpen, setCategoriesOpen] = useState(false)
-  const [specificOpen, setSpecificOpen] = useState(false)
+  const [categoriesOpen, setCategoriesOpen] = useState(initial.categoriesOpen)
+  const [specificOpen, setSpecificOpen] = useState(initial.specificOpen)
   const [category, setCategory] = useState('all')
-  const [specific, setSpecific] = useState('')
+  const [specific, setSpecific] = useState(initial.specific)
   const [addressInput, setAddressInput] = useState('')
   const [enteredAddress, setEnteredAddress] = useState<string | null>(null)
   const [device, setDevice] = useState<DeviceState>({ status: 'idle' })
   const [dialog, setDialog] = useState<{ open: boolean; place: NearbySavedPlace | null }>({ open: false, place: null })
-  const [googleHits, setGoogleHits] = useState<GooglePlaceHit[] | null>(null)
-  const [googleLabel, setGoogleLabel] = useState<string | null>(null)
-  const [googleQuery, setGoogleQuery] = useState<string | null>(null)
+  const [googleHits, setGoogleHits] = useState<GooglePlaceHit[] | null>(initial.googleHits)
+  const [googleLabel, setGoogleLabel] = useState<string | null>(initial.googleLabel)
+  const [googleQuery, setGoogleQuery] = useState<string | null>(initial.googleQuery)
   const locateTicket = useRef(0)
 
   useEffect(() => {
     writeNearbySession({ mode, originKind, projectId, radius, lastSearch })
   }, [mode, originKind, projectId, radius, lastSearch])
+
+  useEffect(() => {
+    writeNearbyPlacesSession(
+      googleLabel && googleQuery
+        ? {
+            mode,
+            label: googleLabel,
+            query: googleQuery,
+            hits: googleHits ?? [],
+            categoriesOpen,
+            specificOpen,
+            specific,
+          }
+        : null,
+    )
+  }, [mode, googleLabel, googleQuery, googleHits, categoriesOpen, specificOpen, specific])
 
   useEffect(() => {
     if (originKind !== 'project' || projectId || !projects[0]) return

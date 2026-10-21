@@ -222,6 +222,22 @@ describe('Search by Category: one tap searches Google Places around the project'
     expect(lastPlacesSearch().origin).toEqual(expect.objectContaining({ latitude: JOB.latitude, longitude: JOB.longitude }))
   })
 
+  it('keeps Google results after leaving Nearby Finder and coming back', async () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/nearby']}>
+        <NearbyFinderPage />
+      </MemoryRouter>,
+    )
+    await userEvent.click(await categoryButton('All Suppliers'))
+    expect(await screen.findByRole('heading', { name: 'Home Depot Stamford' })).toBeInTheDocument()
+    unmount()
+    renderPage()
+    expect(screen.getByRole('heading', { name: 'Nearby on Google' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Home Depot Stamford' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Search by Category' })).toHaveAttribute('aria-expanded', 'true')
+    expect(searchPlaces).toHaveBeenCalledTimes(1)
+  })
+
   it('opens Google Maps when Places is not configured', async () => {
     const { PlacesNotConfiguredError } = await import('@/features/nearby/nearby-hooks')
     searchPlaces.mockRejectedValue(new PlacesNotConfiguredError())
@@ -529,6 +545,7 @@ describe('privacy, layout and access', () => {
     const stored = sessionStorage.getItem('tamay.nearby-finder') ?? ''
     expect(JSON.parse(stored)).toEqual({ mode: 'food', originKind: 'project', projectId: 'p1', radius: 10, lastSearch: null })
     expect(stored).not.toMatch(/41\.|73\.|Oak St|latitude/)
+    expect(sessionStorage.getItem('tamay.nearby-finder.places')).toBeNull()
   })
 
   it('compact phone layout: three location buttons with Current Project first, categories folded away', () => {

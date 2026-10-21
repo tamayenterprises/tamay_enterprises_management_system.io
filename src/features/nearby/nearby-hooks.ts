@@ -5,6 +5,7 @@ import {
   CATEGORIES,
   RADIUS_OPTIONS,
   rankGooglePlaces,
+  type GooglePlaceHit,
   type GooglePlaceRaw,
   type NearbyMode,
   type NearbyOrigin,
@@ -211,6 +212,87 @@ export type NearbySession = {
 }
 
 const SESSION_KEY = 'tamay.nearby-finder'
+const PLACES_SESSION_KEY = 'tamay.nearby-finder.places'
+
+export type NearbyPlacesSession = {
+  mode: NearbyMode
+  label: string
+  query: string
+  hits: GooglePlaceHit[]
+  categoriesOpen: boolean
+  specificOpen: boolean
+  specific: string
+}
+
+let placesMemory: NearbyPlacesSession | null = null
+
+function parseCoord(value: unknown): number | null {
+  if (value == null) return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function parseGoogleHit(value: unknown): GooglePlaceHit | null {
+  if (!value || typeof value !== 'object') return null
+  const place = value as Record<string, unknown>
+  if (typeof place.id !== 'string' || typeof place.name !== 'string' || typeof place.mapsUrl !== 'string') return null
+  return {
+    id: place.id.slice(0, 80),
+    name: place.name.slice(0, 120),
+    address: typeof place.address === 'string' ? place.address.slice(0, 200) : '',
+    latitude: parseCoord(place.latitude),
+    longitude: parseCoord(place.longitude),
+    rating: parseCoord(place.rating),
+    ratingCount: parseCoord(place.ratingCount),
+    mapsUrl: place.mapsUrl.slice(0, 500),
+    phone: typeof place.phone === 'string' ? place.phone.slice(0, 40) : null,
+    openNow: typeof place.openNow === 'boolean' ? place.openNow : null,
+    distanceMiles: parseCoord(place.distanceMiles),
+  }
+}
+
+function parsePlacesSession(value: unknown): NearbyPlacesSession | null {
+  if (!value || typeof value !== 'object') return null
+  const parsed = value as Partial<NearbyPlacesSession>
+  if (parsed.mode !== 'suppliers' && parsed.mode !== 'food') return null
+  if (typeof parsed.label !== 'string' || typeof parsed.query !== 'string') return null
+  const hits = Array.isArray(parsed.hits) ? parsed.hits.map(parseGoogleHit).filter((place): place is GooglePlaceHit => Boolean(place)) : []
+  return {
+    mode: parsed.mode,
+    label: parsed.label.slice(0, 80),
+    query: parsed.query.slice(0, 80),
+    hits: hits.slice(0, 10),
+    categoriesOpen: parsed.categoriesOpen === true,
+    specificOpen: parsed.specificOpen === true,
+    specific: typeof parsed.specific === 'string' ? parsed.specific.slice(0, 80) : '',
+  }
+}
+
+/** Last Google Places results for this tab. Survives leaving Nearby Finder and coming back. */
+export function readNearbyPlacesSession(): NearbyPlacesSession | null {
+  try {
+    const raw = sessionStorage.getItem(PLACES_SESSION_KEY)
+    if (raw == null) {
+      placesMemory = null
+      return null
+    }
+    const parsed = parsePlacesSession(JSON.parse(raw))
+    placesMemory = parsed
+    return parsed
+  } catch {
+    return placesMemory
+  }
+}
+
+export function writeNearbyPlacesSession(session: NearbyPlacesSession | null) {
+  placesMemory = session
+  try {
+    if (!session) sessionStorage.removeItem(PLACES_SESSION_KEY)
+    else sessionStorage.setItem(PLACES_SESSION_KEY, JSON.stringify(session))
+  } catch {
+    // Private mode or storage disabled: in-memory copy still survives in-app navigation.
+  }
+}
 
 /** Preferences for this browser tab only. Coordinates and typed addresses are never stored. */
 export function readNearbySession(): Partial<NearbySession> {
