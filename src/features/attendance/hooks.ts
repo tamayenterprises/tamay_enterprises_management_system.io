@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 import {
   deviceInfoPayload,
   newIdempotencyKey,
@@ -75,7 +76,7 @@ export function useAttendanceRecords(filters: AttendanceFilters = {}) {
     queryFn: async () => {
       let query = supabase
         .from('attendance_records')
-        .select('*, project:projects(*), profile:profiles!user_id(*)')
+        .select(`*, project:projects(*), profile:profiles!user_id(${PROFILE_DIRECTORY_COLUMNS})`)
         .order('clock_in_time', { ascending: false })
         .limit(200)
 
@@ -120,7 +121,7 @@ export function useAttendanceAttempts(filters: { userId?: string; onlyRejected?:
     queryFn: async () => {
       let query = supabase
         .from('attendance_attempts')
-        .select('*, profile:profiles!user_id(*), project:projects(*)')
+        .select(`*, profile:profiles!user_id(${PROFILE_DIRECTORY_COLUMNS}), project:projects(*)`)
         .order('server_timestamp', { ascending: false })
         .limit(100)
       if (filters.userId) query = query.eq('user_id', filters.userId)
@@ -139,7 +140,7 @@ export function useAttendanceCorrections(recordId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('attendance_corrections')
-        .select('*, corrector:profiles!corrected_by(*)')
+        .select(`*, corrector:profiles!corrected_by(${PROFILE_DIRECTORY_COLUMNS})`)
         .eq('attendance_record_id', recordId!)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -156,7 +157,7 @@ export function useExceptionRequests(status?: 'pending' | 'all') {
     queryFn: async () => {
       let query = supabase
         .from('attendance_exception_requests')
-        .select('*, profile:profiles!user_id(*), project:projects(*)')
+        .select(`*, profile:profiles!user_id(${PROFILE_DIRECTORY_COLUMNS}), project:projects(*)`)
         .order('created_at', { ascending: false })
         .limit(100)
       if (status === 'pending') {

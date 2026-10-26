@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
+import { listProfiles } from '@/features/data/profile-list'
 import { isManagementRole } from '@/lib/utils'
 import { resolvePrimaryClient } from '@/lib/primary-client'
 import type {
@@ -79,12 +80,23 @@ export function useScheduleProjectContacts(projectIds: string[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_assignments')
-        .select(
-          '*, profile:profiles!profile_id(id, first_name, last_name, company_name, phone, role, archived_at)',
-        )
+        .select('*, profile:profiles!profile_id(id, first_name, last_name, company_name, role, archived_at)')
         .in('project_id', ids)
         .eq('is_active', true)
       if (error) throw error
+
+      const clientIds = Array.from(
+        new Set(
+          ((data ?? []) as Array<{ profile_id: string; profile: { role: string } | { role: string }[] | null }>)
+            .filter((row) => (Array.isArray(row.profile) ? row.profile[0] : row.profile)?.role === 'client')
+            .map((row) => row.profile_id),
+        ),
+      )
+      const phoneById = new Map(
+        clientIds.length > 0
+          ? (await listProfiles({ ids: clientIds, includeArchived: true })).map((item) => [item.id, item.phone])
+          : [],
+      )
 
       type ContactRow = Omit<ProjectAssignment, 'profile' | 'project'> & { profile: ContactProfile | null }
       const rowsByProject = new Map<string, ContactRow[]>()
@@ -93,7 +105,10 @@ export function useScheduleProjectContacts(projectIds: string[]) {
         Omit<ContactRow, 'profile'> & { profile: ContactProfile | ContactProfile[] | null }
       >) {
         const person = Array.isArray(raw.profile) ? raw.profile[0] : raw.profile
-        rowsByProject.get(raw.project_id)?.push({ ...raw, profile: person ?? null })
+        rowsByProject.get(raw.project_id)?.push({
+          ...raw,
+          profile: person ? { ...person, phone: phoneById.get(person.id) ?? null } : null,
+        })
       }
 
       const byProject = new Map<string, ScheduleProjectContact>()

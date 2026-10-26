@@ -40,6 +40,7 @@ import { confirmAction } from '@/lib/uploads'
 import { supabase } from '@/lib/supabase'
 import { formatHoursDuration, fullName, paidHoursByWorker, roleLabel, sumPaidHours } from '@/lib/utils'
 import type { AttendanceExceptionRequest, AttendanceRecord, UserRole } from '@/types/database'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 function parseFilterDate(value: string) {
   const [year, month, day] = value.split('-').map(Number)
@@ -480,7 +481,7 @@ export function TimesheetsPanel() {
                     if (recordId) {
                       const { data: fetched, error } = await supabase
                         .from('attendance_records')
-                        .select('*, project:projects(*), profile:profiles!user_id(*)')
+                        .select(`*, project:projects(*), profile:profiles!user_id(${PROFILE_DIRECTORY_COLUMNS})`)
                         .eq('id', recordId)
                         .maybeSingle()
                       if (!error && fetched) {
@@ -490,7 +491,7 @@ export function TimesheetsPanel() {
                     }
                     const { data: openRows } = await supabase
                       .from('attendance_records')
-                      .select('*, project:projects(*), profile:profiles!user_id(*)')
+                      .select(`*, project:projects(*), profile:profiles!user_id(${PROFILE_DIRECTORY_COLUMNS})`)
                       .eq('user_id', req.user_id)
                       .eq('project_id', req.project_id)
                       .is('clock_out_time', null)
@@ -518,7 +519,7 @@ export function TimesheetsPanel() {
                       }
                       const { data: fetched, error } = await supabase
                         .from('attendance_records')
-                        .select('*, project:projects(*), profile:profiles!user_id(*)')
+                        .select(`*, project:projects(*), profile:profiles!user_id(${PROFILE_DIRECTORY_COLUMNS})`)
                         .eq('id', createdId)
                         .maybeSingle()
                       if (error || !fetched) {

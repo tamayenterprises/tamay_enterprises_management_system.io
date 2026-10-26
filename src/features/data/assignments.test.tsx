@@ -60,6 +60,8 @@ describe('useAssignWorker', () => {
 describe('useProjectAssignments query', () => {
   it('names the profile_id relationship (project_assignments has two foreign keys to profiles)', () => {
     const fn = projectsSource.slice(projectsSource.indexOf('export function useProjectAssignments'))
-    expect(fn.slice(0, fn.indexOf('\n}\n'))).toContain("profile:profiles!profile_id(*)")
+    const body = fn.slice(0, fn.indexOf('\n}\n'))
+    expect(body).toContain('profile:profiles!profile_id(${PROFILE_DIRECTORY_COLUMNS})')
+    expect(body).not.toContain('profiles!profile_id(*)')
   })
 })

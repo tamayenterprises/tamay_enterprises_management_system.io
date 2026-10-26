@@ -1,8 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
-import { buildIlikeOrFilter } from '@/lib/utils'
+import { PROFILE_DIRECTORY_COLUMNS, profileUpdatePayload } from '@/lib/profile-fields'
 import { softUnassignAllForProfile } from '@/features/data/assignments'
+import { fetchProfile, listProfiles } from '@/features/data/profile-list'
 import type { ProfileFormValues } from '@/lib/validations'
 import type { Profile, RoleOption, UserRole } from '@/types/database'
 
@@ -43,44 +44,27 @@ export function useProfiles(filters?: { role?: UserRole | UserRole[]; search?: s
   return useQuery({
     queryKey: ['profiles', filters],
     placeholderData: keepPreviousData,
-    queryFn: async () => {
-      let query = supabase.from('profiles').select('*').order('last_name')
-
-      if (!filters?.includeArchived) {
-        query = query.is('archived_at', null)
-      }
-
-      if (filters?.role) {
-        if (Array.isArray(filters.role)) {
-          query = query.in('role', filters.role)
-        } else {
-          query = query.eq('role', filters.role)
-        }
-      }
-
-      if (filters?.search) {
-        const peopleFilter = buildIlikeOrFilter(
-          ['first_name', 'last_name', 'email', 'company_name'],
-          filters.search,
-        )
-        if (peopleFilter) query = query.or(peopleFilter)
-      }
-
-      const { data, error } = await query
-      if (error) throw error
-      return (data ?? []) as Profile[]
-    },
+    queryFn: () =>
+      listProfiles({
+        roles: filters?.role ? (Array.isArray(filters.role) ? filters.role : [filters.role]) : undefined,
+        search: filters?.search,
+        includeArchived: filters?.includeArchived,
+      }),
   })
 }
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
+  const { profile } = useAuth()
 
   return useMutation({
     mutationFn: async ({ id, values }: { id: string; values: ProfileFormValues }) => {
-      const { data, error } = await supabase.from('profiles').update(values).eq('id', id).select().single()
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileUpdatePayload(values, profile?.role))
+        .eq('id', id)
       if (error) throw error
-      return data as Profile
+      return fetchProfile(id)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profiles'] }),
   })
@@ -90,13 +74,8 @@ export function usePendingApprovals() {
   return useQuery({
     queryKey: ['profiles', 'pending'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('approval_status', 'pending')
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return (data ?? []) as Profile[]
+      const pending = await listProfiles({ approvalStatus: 'pending', includeArchived: true })
+      return pending.sort((a, b) => b.created_at.localeCompare(a.created_at))
     },
   })
 }
@@ -107,17 +86,15 @@ export function useApproveUser() {
 
   return useMutation({
     mutationFn: async ({ id, approve }: { id: string; approve: boolean }) => {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({
           approval_status: approve ? 'approved' : 'rejected',
           is_active: approve,
         })
         .eq('id', id)
-        .select()
-        .single()
       if (error) throw error
-      const approvedProfile = data as Profile
+      const approvedProfile = await fetchProfile(id)
 
       if (approve && approvedProfile.organization_id) {
         await supabase.from('notifications').insert({
@@ -158,12 +135,7 @@ export function useUpdateUserRole() {
 
   return useMutation({
     mutationFn: async ({ id, role }: { id: string; role: UserRole }) => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ role })
-        .eq('id', id)
-        .select()
-        .single()
+      const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
       if (error) throw error
 
       if (profile?.organization_id) {
@@ -177,7 +149,7 @@ export function useUpdateUserRole() {
         })
       }
 
-      return data as Profile
+      return fetchProfile(id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
@@ -213,7 +185,7 @@ export function useAdminSetUserAccess() {
         if (approvalStatus === 'approved') payload.is_active = true
       }
 
-      const { data, error } = await supabase.from('profiles').update(payload).eq('id', id).select().single()
+      const { error } = await supabase.from('profiles').update(payload).eq('id', id)
       if (error) throw error
 
       // Removing someone from Tamay also pulls them off active jobs (replace / done).
@@ -242,7 +214,7 @@ export function useAdminSetUserAccess() {
         })
       }
 
-      return { profile: data as Profile, unassignedCount, loginWarning }
+      return { profile: await fetchProfile(id), unassignedCount, loginWarning }
     },
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] })
@@ -349,7 +321,7 @@ export function useWorkerStatusHistory(workerId?: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('worker_status_history')
-        .select('*, changer:profiles!changed_by(*)')
+        .select(`*, changer:profiles!changed_by(${PROFILE_DIRECTORY_COLUMNS})`)
         .eq('worker_id', workerId!)
         .order('created_at', { ascending: false })
         .limit(20)

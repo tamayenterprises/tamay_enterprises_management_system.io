@@ -23,7 +23,9 @@ import {
   useWorkerEligibility,
   useWorkerStatusHistory,
 } from '@/features/data/hooks'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
+import { canManageProfileField } from '@/lib/profile-fields'
 import { deriveWorkerEligibility } from '@/lib/worker-eligibility'
 import { formatDate, fullName, roleLabel } from '@/lib/utils'
 import { PersonDirectoryFilters } from '@/components/ui/person-directory-filters'
@@ -144,6 +146,8 @@ function EmployeeCard({
   const [statusReason, setStatusReason] = useState('')
   const [statusOpen, setStatusOpen] = useState(false)
 
+  const { profile: viewer } = useAuth()
+  const showHr = canManageProfileField(viewer?.role, 'hire_date')
   const eligibility = eligibilityRpc ?? deriveWorkerEligibility(employee)
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -152,10 +156,14 @@ function EmployeeCard({
       last_name: employee.last_name,
       phone: employee.phone,
       position: employee.position,
-      hire_date: employee.hire_date,
-      emergency_contact_name: employee.emergency_contact_name,
-      emergency_contact_phone: employee.emergency_contact_phone,
-      internal_notes: employee.internal_notes,
+      ...(showHr
+        ? {
+            hire_date: employee.hire_date,
+            emergency_contact_name: employee.emergency_contact_name,
+            emergency_contact_phone: employee.emergency_contact_phone,
+            internal_notes: employee.internal_notes,
+          }
+        : {}),
       is_active: employee.is_active,
     },
   })
@@ -209,15 +217,17 @@ function EmployeeCard({
           ) : null}
         </div>
         <p>Position: {employee.position || '—'}</p>
-        <p>Hire date: {formatDate(employee.hire_date)}</p>
+        {showHr ? <p>Hire date: {formatDate(employee.hire_date)}</p> : null}
         <p>Phone: {employee.phone || '—'}</p>
-        <p>
-          Emergency contact:{' '}
-          {employee.emergency_contact_name || employee.emergency_contact_phone
-            ? [employee.emergency_contact_name, employee.emergency_contact_phone].filter(Boolean).join(' · ')
-            : '—'}
-        </p>
-        {employee.internal_notes ? <p>Notes: {employee.internal_notes}</p> : null}
+        {showHr ? (
+          <p>
+            Emergency contact:{' '}
+            {employee.emergency_contact_name || employee.emergency_contact_phone
+              ? [employee.emergency_contact_name, employee.emergency_contact_phone].filter(Boolean).join(' · ')
+              : '—'}
+          </p>
+        ) : null}
+        {showHr && employee.internal_notes ? <p>Notes: {employee.internal_notes}</p> : null}
         <div className="flex flex-wrap gap-2 pt-2">
           <Dialog>
             <DialogTrigger asChild>
@@ -246,22 +256,26 @@ function EmployeeCard({
                   <Label>Position</Label>
                   <Input {...form.register('position')} />
                 </div>
-                <div className="space-y-1">
-                  <Label>Hire date</Label>
-                  <Input type="date" {...form.register('hire_date')} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Emergency contact</Label>
-                  <Input {...form.register('emergency_contact_name')} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Emergency phone</Label>
-                  <Input {...form.register('emergency_contact_phone')} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Internal notes</Label>
-                  <Textarea {...form.register('internal_notes')} />
-                </div>
+                {showHr ? (
+                  <>
+                    <div className="space-y-1">
+                      <Label>Hire date</Label>
+                      <Input type="date" {...form.register('hire_date')} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Emergency contact</Label>
+                      <Input {...form.register('emergency_contact_name')} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Emergency phone</Label>
+                      <Input {...form.register('emergency_contact_phone')} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Internal notes</Label>
+                      <Textarea {...form.register('internal_notes')} />
+                    </div>
+                  </>
+                ) : null}
                 <Button type="submit">Save changes</Button>
               </form>
             </DialogContent>

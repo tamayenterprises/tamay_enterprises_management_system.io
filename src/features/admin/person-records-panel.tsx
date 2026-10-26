@@ -129,8 +129,9 @@ function PersonRecordsLists({ profileId }: { profileId: string }) {
                       onClick={async () => {
                         if (!confirmAction(`Remove certification "${cert.name}"? This cannot be undone.`)) return
                         try {
-                          await deleteCertification.mutateAsync(cert)
+                          const { fileWarning } = await deleteCertification.mutateAsync(cert)
                           toast.success('Certification removed')
+                          if (fileWarning) toast.warning(fileWarning)
                         } catch (error) {
                           toast.error(error instanceof Error ? error.message : 'Remove failed')
                         }

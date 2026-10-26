@@ -36,15 +36,15 @@ vi.mock('@/lib/supabase', () => ({
         return { error: null }
       },
     },
-    from: (table: string) => {
+    rpc: async (fn: string, args: { p_ids?: string[] }) => {
+      if (fn !== 'list_profiles') throw new Error(`unexpected rpc ${fn}`)
+      const own = PROFILES[args.p_ids?.[0] ?? '']
+      return { data: own ? [own] : [], error: null }
+    },
+    from: () => {
       const chain = {
         select: () => chain,
-        eq: (_col: string, value: string) => {
-          if (table === 'profiles') {
-            return { maybeSingle: async () => ({ data: PROFILES[value] ?? null, error: null }) }
-          }
-          return chain
-        },
+        eq: () => chain,
         order: async () => ({ data: currentUser ? DOCS_BY_USER[currentUser] : [], error: null }),
       }
       return chain

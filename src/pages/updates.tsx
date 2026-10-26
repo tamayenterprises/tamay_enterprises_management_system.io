@@ -34,7 +34,7 @@ import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedImageUploadAccept } from '@/lib/uploads'
-import type { CompanyUpdateAudience, Profile, Project } from '@/types/database'
+import type { CompanyUpdateAudience, DirectoryProfile, Profile, Project } from '@/types/database'
 
 const COMPANY_UPDATES_PREVIEW = 2
 const COMPANY_UPDATES_STEP = 3
@@ -687,7 +687,7 @@ export function UpdatesPage() {
             <MobileListGate>
             {projectList.visible.map((note) => {
               const project = (note as { project?: Project }).project
-              const author = (note as { author?: Profile }).author
+              const author = (note as { author?: DirectoryProfile }).author
               return (
                 <div key={note.id} className="rounded-md border border-border px-3 py-3 text-sm">
                   <div className="mb-1 flex flex-wrap gap-1">

@@ -13,7 +13,9 @@ import { SeeMoreButton } from '@/components/ui/see-more-button'
 import { PersonRecordsPanel } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features/data/hooks'
+import { useAuth } from '@/features/auth/auth-hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
+import { canManageProfileField } from '@/lib/profile-fields'
 import { fullName } from '@/lib/utils'
 import { PersonDirectoryFilters } from '@/components/ui/person-directory-filters'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
@@ -154,6 +156,7 @@ function SubcontractorCard({
   onToggleActive: () => Promise<void>
   onArchive: () => Promise<void>
 }) {
+  const { profile: viewer } = useAuth()
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     values: {
@@ -199,7 +202,9 @@ function SubcontractorCard({
         <p>Trade: {person.trade_specialization || '—'}</p>
         <p>Insurance: {person.insurance_info || '—'}</p>
         <p>License: {person.license_info || '—'}</p>
-        {person.internal_notes ? <p>Notes: {person.internal_notes}</p> : null}
+        {canManageProfileField(viewer?.role, 'internal_notes') && person.internal_notes ? (
+          <p>Notes: {person.internal_notes}</p>
+        ) : null}
         <div className="flex flex-wrap gap-2 pt-2">
           <Dialog>
             <DialogTrigger asChild>

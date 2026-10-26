@@ -5,6 +5,7 @@ import { buildIlikeOrFilter, defaultWarrantyEndDate } from '@/lib/utils'
 import { canViewContractFinance, stripContractFinanceFromProject } from '@/lib/project-finance'
 import { validateImageUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
 import type { ProjectFormValues } from '@/lib/validations'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 import type {
   ActivityLog,
   Profile,
@@ -93,16 +94,17 @@ export function useProjectClientAssignees(projectIds: string[]) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_assignments')
-        .select('project_id, profile:profiles!profile_id(id, first_name, last_name, company_name, role, email)')
+        .select('project_id, profile:profiles!profile_id(id, first_name, last_name, company_name, role)')
         .in('project_id', projectIds)
         .eq('is_active', true)
       if (error) throw error
 
-      const byProject = new Map<string, Profile[]>()
+      type ClientAssignee = Pick<Profile, 'id' | 'first_name' | 'last_name' | 'company_name' | 'role'>
+      const byProject = new Map<string, ClientAssignee[]>()
       for (const row of data ?? []) {
         const assignment = row as {
           project_id: string
-          profile: Profile | Profile[] | null
+          profile: ClientAssignee | ClientAssignee[] | null
         }
         const profile = Array.isArray(assignment.profile)
           ? assignment.profile[0]
@@ -124,7 +126,7 @@ export function useProjectWarrantyAudit(projectId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('activity_log')
-        .select('*, actor:profiles!actor_id(*)')
+        .select(`*, actor:profiles!actor_id(${PROFILE_DIRECTORY_COLUMNS})`)
         .eq('entity_type', 'project')
         .eq('entity_id', projectId!)
         .in('action', ['project_archived', 'project_restored', 'warranty_date_changed'])
@@ -161,7 +163,7 @@ export function useProjectAssignments(projectId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_assignments')
-        .select('*, profile:profiles!profile_id(*)')
+        .select(`*, profile:profiles!profile_id(${PROFILE_DIRECTORY_COLUMNS})`)
         .eq('project_id', projectId!)
         .eq('is_active', true)
       if (error) throw error
@@ -177,7 +179,7 @@ export function useProjectNotes(projectId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_notes')
-        .select('*, author:profiles(*)')
+        .select(`*, author:profiles(${PROFILE_DIRECTORY_COLUMNS})`)
         .eq('project_id', projectId!)
         .order('created_at', { ascending: true })
       if (error) throw error
@@ -257,7 +259,7 @@ export function useCreateProjectUpdate() {
       const { data, error } = await supabase
         .from('project_notes')
         .insert(payload)
-        .select('*, author:profiles(*)')
+        .select(`*, author:profiles(${PROFILE_DIRECTORY_COLUMNS})`)
         .single()
 
       if (error) {
@@ -351,7 +353,7 @@ export function usePostProjectPhotosToThread() {
       const { data: root, error: rootError } = await supabase
         .from('project_notes')
         .insert(rootPayload)
-        .select('*, author:profiles(*)')
+        .select(`*, author:profiles(${PROFILE_DIRECTORY_COLUMNS})`)
         .single()
       if (rootError) throw rootError
       notes.push(root as ProjectNote)
@@ -369,7 +371,7 @@ export function usePostProjectPhotosToThread() {
         const { data: reply, error: replyError } = await supabase
           .from('project_notes')
           .insert(replyPayload)
-          .select('*, author:profiles(*)')
+          .select(`*, author:profiles(${PROFILE_DIRECTORY_COLUMNS})`)
           .single()
         if (replyError) throw replyError
         notes.push(reply as ProjectNote)
@@ -426,7 +428,7 @@ export function usePostProjectDocumentsToThread() {
       const { data, error } = await supabase
         .from('project_notes')
         .insert(payload)
-        .select('*, author:profiles(*)')
+        .select(`*, author:profiles(${PROFILE_DIRECTORY_COLUMNS})`)
         .single()
       if (error) throw error
       return [data as ProjectNote]

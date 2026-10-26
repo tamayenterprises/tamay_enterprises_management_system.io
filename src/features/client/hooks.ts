@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import { validateImageUploadFile, validateUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
 import type { ProjectRequestFormValues } from '@/lib/validations'
 import type { Project, ProjectRequest, ProjectRequestFile, ProjectRequestStatus } from '@/types/database'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 export function useMyProjectRequests() {
   const { profile } = useAuth()
@@ -29,7 +30,7 @@ export function useProjectRequest(requestId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_requests')
-        .select('*, client:profiles!client_id(*), converted_project:projects(*), files:project_request_files(*)')
+        .select(`*, client:profiles!client_id(${PROFILE_DIRECTORY_COLUMNS}), converted_project:projects(*), files:project_request_files(*)`)
         .eq('id', requestId!)
         .single()
       if (error) throw error
@@ -46,7 +47,7 @@ export function useManagementProjectRequests(status?: ProjectRequestStatus | 'op
     queryFn: async () => {
       let query = supabase
         .from('project_requests')
-        .select('*, client:profiles!client_id(*), converted_project:projects(*), files:project_request_files(*)')
+        .select(`*, client:profiles!client_id(${PROFILE_DIRECTORY_COLUMNS}), converted_project:projects(*), files:project_request_files(*)`)
         .order('created_at', { ascending: false })
         .limit(100)
 

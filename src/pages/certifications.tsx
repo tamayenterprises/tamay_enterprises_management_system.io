@@ -285,13 +285,9 @@ export function CertificationsPage() {
               workers={workers}
               onSave={async (values, file) => {
                 try {
-                  await updateCertification.mutateAsync({
-                    id: cert.id,
-                    values,
-                    file,
-                    existingDocumentUrl: cert.document_url,
-                  })
+                  const { fileWarning } = await updateCertification.mutateAsync({ id: cert.id, values, file })
                   toast.success('Certification updated')
+                  if (fileWarning) toast.warning(fileWarning)
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : 'Update failed')
                 }
@@ -299,8 +295,9 @@ export function CertificationsPage() {
               onDelete={async () => {
                 if (!confirmAction(`Remove certification "${cert.name}"? This cannot be undone.`)) return
                 try {
-                  await deleteCertification.mutateAsync(cert)
+                  const { fileWarning } = await deleteCertification.mutateAsync(cert)
                   toast.success('Certification removed')
+                  if (fileWarning) toast.warning(fileWarning)
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : 'Remove failed')
                 }

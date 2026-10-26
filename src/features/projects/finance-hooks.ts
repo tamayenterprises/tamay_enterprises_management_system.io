@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import { supabase } from '@/lib/supabase'
 import { derivePaymentStatus, toMoneyNumber } from '@/lib/project-finance'
 import { validateUploadFile } from '@/lib/uploads'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 import type {
   Project,
   ProjectFinancialAudit,
@@ -211,7 +212,7 @@ export function useProjectReceipts(
     queryFn: async () => {
       let query = supabase
         .from('project_receipts')
-        .select('*, uploader:profiles!created_by(*)')
+        .select(`*, uploader:profiles!created_by(${PROFILE_DIRECTORY_COLUMNS})`)
         .eq('project_id', projectId!)
         .order('received_on', { ascending: false })
         .order('created_at', { ascending: false })

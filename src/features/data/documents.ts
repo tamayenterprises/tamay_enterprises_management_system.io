@@ -9,6 +9,7 @@ import {
 import { documentStorageBucket, sanitizeSearchTerm } from '@/lib/utils'
 import { validateUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 // Document lists depend on who is signed in and on management's sharing choices, so they are
 // keyed by user and always refetched instead of served from a cached earlier answer.
@@ -23,7 +24,7 @@ export function useProjectDocuments(projectId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select('*, owner:profiles!owner_id(*), uploader:profiles!uploaded_by(*)')
+        .select(`*, owner:profiles!owner_id(${PROFILE_DIRECTORY_COLUMNS}), uploader:profiles!uploaded_by(${PROFILE_DIRECTORY_COLUMNS})`)
         .eq('project_id', projectId!)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -53,7 +54,7 @@ export function useDocuments(filters?: {
     queryFn: async () => {
       let query = supabase
         .from('documents')
-        .select('*, owner:profiles!owner_id(*), uploader:profiles!uploaded_by(*), project:projects(*)')
+        .select(`*, owner:profiles!owner_id(${PROFILE_DIRECTORY_COLUMNS}), uploader:profiles!uploaded_by(${PROFILE_DIRECTORY_COLUMNS}), project:projects(*)`)
         .order('created_at', { ascending: false })
 
       if (filters?.category) query = query.eq('category', filters.category)

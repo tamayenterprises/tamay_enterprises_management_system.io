@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 import type {
   Notification,
   NotificationPreferences,
@@ -57,7 +58,7 @@ export function useNotifications(filters?: {
     queryFn: async () => {
       let query = supabase
         .from('notifications')
-        .select('*, actor:profiles!actor_id(*), project:projects(*)')
+        .select(`*, actor:profiles!actor_id(${PROFILE_DIRECTORY_COLUMNS}), project:projects(*)`)
         .eq('recipient_id', profile!.id)
         .order('created_at', { ascending: false })
         .limit(limit)
@@ -183,7 +184,7 @@ export function useProjectActivityFeed(filters?: {
     queryFn: async () => {
       let query = supabase
         .from('project_activity_events')
-        .select('*, actor:profiles!actor_id(*), project:projects(*)')
+        .select(`*, actor:profiles!actor_id(${PROFILE_DIRECTORY_COLUMNS}), project:projects(*)`)
         .order('created_at', { ascending: false })
         .limit(limit)
 

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { ActivityLog } from '@/types/database'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 export function useActivityLog(limit = 25) {
   return useQuery({
@@ -8,7 +9,7 @@ export function useActivityLog(limit = 25) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('activity_log')
-        .select('*, actor:profiles!actor_id(*)')
+        .select(`*, actor:profiles!actor_id(${PROFILE_DIRECTORY_COLUMNS})`)
         .order('created_at', { ascending: false })
         .limit(limit)
       if (error) throw error

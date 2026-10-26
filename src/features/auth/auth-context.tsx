@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { AuthContext } from '@/features/auth/auth-context-instance'
+import { listProfiles } from '@/features/data/profile-list'
 import type { Profile } from '@/types/database'
 
 export interface AuthContextValue {
@@ -14,10 +15,9 @@ export interface AuthContextValue {
   signOut: () => Promise<void>
 }
 
-async function fetchProfile(userId: string) {
-  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
-  if (error) throw error
-  return data as Profile | null
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const [profile] = await listProfiles({ ids: [userId], includeArchived: true })
+  return profile ?? null
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

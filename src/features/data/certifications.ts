@@ -5,6 +5,7 @@ import { sanitizeSearchTerm } from '@/lib/utils'
 import { validateUploadFile } from '@/lib/uploads'
 import type { CertificationFormValues } from '@/lib/validations'
 import type { Certification, CertificationStatus } from '@/types/database'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 export function useCertifications(filters?: {
   search?: string
@@ -18,7 +19,7 @@ export function useCertifications(filters?: {
     queryFn: async () => {
       let query = supabase
         .from('certifications')
-        .select('*, profile:profiles(*)')
+        .select(`*, profile:profiles(${PROFILE_DIRECTORY_COLUMNS})`)
         .order('expiration_date', { ascending: true, nullsFirst: false })
 
       if (filters?.status) query = query.eq('status', filters.status)
@@ -36,6 +37,46 @@ export function useCertifications(filters?: {
   })
 }
 
+/** Proofs live in the worker's own folder, whoever uploads them. */
+export function certificationProofPath(workerId: string, fileName: string, now = Date.now()) {
+  const safeName = fileName.replace(/[^\w.\-()+ ]+/g, '_')
+  return `${workerId}/certifications/${now}-${safeName}`
+}
+
+/** Shown when the record changed but an old proof file could not be deleted from Storage. */
+export const PROOF_FILE_CLEANUP_WARNING =
+  'The old proof file could not be deleted from storage. Ask an admin to remove it from the worker’s documents.'
+
+async function removeProofFile(path: string | null | undefined): Promise<string | undefined> {
+  if (!path || path.startsWith('http://') || path.startsWith('https://')) return undefined
+  const { data, error } = await supabase.storage.from('documents').remove([path])
+  // Storage reports a denied delete as success with no removed objects.
+  if (error || !data || data.length === 0) return PROOF_FILE_CLEANUP_WARNING
+  return undefined
+}
+
+async function attachProof(certification: Pick<Certification, 'id' | 'profile_id'>, file: File) {
+  const validationError = validateUploadFile(file)
+  if (validationError) throw new Error(validationError)
+
+  const path = certificationProofPath(certification.profile_id, file.name)
+  const { error: uploadError } = await supabase.storage.from('documents').upload(path, file)
+  if (uploadError) throw uploadError
+
+  const { data: previousPath, error } = await supabase.rpc('set_certification_proof', {
+    p_certification_id: certification.id,
+    p_storage_path: path,
+    p_file_name: file.name,
+    p_mime_type: file.type || null,
+    p_file_size: file.size,
+  })
+  if (error) {
+    await supabase.storage.from('documents').remove([path])
+    throw error
+  }
+  return previousPath ?? null
+}
+
 export function useCreateCertification() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
@@ -43,17 +84,9 @@ export function useCreateCertification() {
   return useMutation({
     mutationFn: async ({ values, file }: { values: CertificationFormValues; file?: File | null }) => {
       if (!profile?.organization_id) throw new Error('Missing organization')
-
-      let documentPath: string | null = null
-
       if (file) {
         const validationError = validateUploadFile(file)
         if (validationError) throw new Error(validationError)
-
-        const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_')
-        documentPath = `${profile.id}/certifications/${Date.now()}-${safeName}`
-        const { error: uploadError } = await supabase.storage.from('documents').upload(documentPath, file)
-        if (uploadError) throw uploadError
       }
 
       const { data, error } = await supabase
@@ -65,32 +98,25 @@ export function useCreateCertification() {
           issue_date: values.issue_date || null,
           expiration_date: values.expiration_date || null,
           notes: values.notes || null,
-          document_url: documentPath,
+          document_url: null,
           organization_id: profile.organization_id,
         })
         .select()
         .single()
+      if (error) throw error
+      const certification = data as Certification
 
-      if (error) {
-        if (documentPath) await supabase.storage.from('documents').remove([documentPath])
-        throw error
-      }
-
-      if (documentPath && file) {
-        await supabase.from('documents').insert({
-          organization_id: profile.organization_id,
-          owner_id: profile.id,
-          uploaded_by: profile.id,
-          name: `${values.name} proof - ${file.name}`,
-          category: 'certification',
-          storage_path: documentPath,
-          mime_type: file.type || null,
-          file_size: file.size,
-        })
+      if (file) {
+        try {
+          await attachProof(certification, file)
+        } catch (proofError) {
+          await supabase.from('certifications').delete().eq('id', certification.id)
+          throw proofError
+        }
         queryClient.invalidateQueries({ queryKey: ['documents'] })
       }
 
-      return data as Certification
+      return certification
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certifications'] }),
   })
@@ -105,43 +131,15 @@ export function useUpdateCertification() {
       id,
       values,
       file,
-      existingDocumentUrl,
     }: {
       id: string
       values: Partial<CertificationFormValues>
       file?: File | null
-      existingDocumentUrl?: string | null
-    }) => {
+    }): Promise<{ certification: Certification; fileWarning?: string }> => {
       if (!profile?.organization_id) throw new Error('Missing organization')
-
-      let documentPath = existingDocumentUrl ?? null
-
       if (file) {
         const validationError = validateUploadFile(file)
         if (validationError) throw new Error(validationError)
-
-        const safeName = file.name.replace(/[^\w.\-()+ ]+/g, '_')
-        const nextPath = `${profile.id}/certifications/${Date.now()}-${safeName}`
-        const { error: uploadError } = await supabase.storage.from('documents').upload(nextPath, file)
-        if (uploadError) throw uploadError
-
-        if (existingDocumentUrl) {
-          await supabase.storage.from('documents').remove([existingDocumentUrl])
-        }
-
-        documentPath = nextPath
-
-        await supabase.from('documents').insert({
-          organization_id: profile.organization_id,
-          owner_id: profile.id,
-          uploaded_by: profile.id,
-          name: `${values.name ?? 'Certification'} proof - ${file.name}`,
-          category: 'certification',
-          storage_path: nextPath,
-          mime_type: file.type || null,
-          file_size: file.size,
-        })
-        queryClient.invalidateQueries({ queryKey: ['documents'] })
       }
 
       const { data, error } = await supabase
@@ -153,13 +151,22 @@ export function useUpdateCertification() {
           notes: values.notes,
           issue_date: values.issue_date === '' ? null : values.issue_date,
           expiration_date: values.expiration_date === '' ? null : values.expiration_date,
-          document_url: documentPath,
         })
         .eq('id', id)
         .select()
         .single()
       if (error) throw error
-      return data as Certification
+      let certification = data as Certification
+
+      let fileWarning: string | undefined
+      if (file) {
+        const previousPath = await attachProof(certification, file)
+        fileWarning = await removeProofFile(previousPath)
+        queryClient.invalidateQueries({ queryKey: ['documents'] })
+        const { data: refreshed } = await supabase.from('certifications').select('*').eq('id', id).single()
+        if (refreshed) certification = refreshed as Certification
+      }
+      return { certification, fileWarning }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certifications'] }),
   })
@@ -169,12 +176,12 @@ export function useDeleteCertification() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (cert: Pick<Certification, 'id' | 'document_url'>) => {
-      const { error } = await supabase.from('certifications').delete().eq('id', cert.id)
+    mutationFn: async (cert: Pick<Certification, 'id'>): Promise<{ fileWarning?: string }> => {
+      const { data: proofPath, error } = await supabase.rpc('remove_certification', {
+        p_certification_id: cert.id,
+      })
       if (error) throw error
-      if (cert.document_url) {
-        await supabase.storage.from('documents').remove([cert.document_url])
-      }
+      return { fileWarning: await removeProofFile(proofPath) }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['certifications'] })

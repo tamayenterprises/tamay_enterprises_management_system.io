@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
 import type { Payment } from '@/types/database'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 async function functionErrorMessage(error: unknown) {
   if (error && typeof error === 'object' && 'context' in error) {
@@ -26,7 +27,7 @@ export function usePayments() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payments')
-        .select('*, project:projects(*), recipient:profiles!recipient_id(*)')
+        .select(`*, project:projects(*), recipient:profiles!recipient_id(${PROFILE_DIRECTORY_COLUMNS})`)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as Payment[]
@@ -87,7 +88,7 @@ export function useRecordManualPayment() {
           method: 'manual',
           paid_at: paidAt,
         })
-        .select('*, project:projects(*), recipient:profiles!recipient_id(*)')
+        .select(`*, project:projects(*), recipient:profiles!recipient_id(${PROFILE_DIRECTORY_COLUMNS})`)
         .single()
       if (error) throw error
       return data as Payment

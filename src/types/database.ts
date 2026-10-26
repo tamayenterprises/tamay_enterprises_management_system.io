@@ -65,6 +65,25 @@ export interface Profile {
   updated_at: string
 }
 
+/** Profile columns any approved user can read directly (embeds, joins). Private fields come from `list_profiles`. */
+export type DirectoryProfile = Pick<
+  Profile,
+  | 'id'
+  | 'organization_id'
+  | 'first_name'
+  | 'last_name'
+  | 'role'
+  | 'approval_status'
+  | 'is_active'
+  | 'avatar_url'
+  | 'position'
+  | 'company_name'
+  | 'trade_specialization'
+  | 'archived_at'
+  | 'created_at'
+  | 'updated_at'
+>
+
 export type LocationVerificationStatus = 'unverified' | 'needs_verification' | 'verified'
 export type AttendanceWorkflowStatus = 'working' | 'on_break' | 'completed'
 export type AttendanceActionType = 'WORK_STARTED' | 'BREAK_STARTED' | 'BREAK_ENDED' | 'WORK_ENDED'
@@ -171,7 +190,7 @@ export interface ProjectReceipt {
   voided_by: string | null
   created_at: string
   updated_at: string
-  uploader?: Profile | null
+  uploader?: DirectoryProfile | null
 }
 
 export interface ProjectFinancialAudit {
@@ -211,7 +230,7 @@ export interface Payment {
   created_at: string
   updated_at: string
   project?: Project | null
-  recipient?: Profile | null
+  recipient?: DirectoryProfile | null
 }
 
 export interface ProjectAssignment {
@@ -224,7 +243,7 @@ export interface ProjectAssignment {
   is_active: boolean
   /** Canonical project contact; optional until the Primary Client migration is applied. */
   is_primary_client?: boolean
-  profile?: Profile
+  profile?: DirectoryProfile
   project?: Project
 }
 
@@ -249,7 +268,7 @@ export interface ProjectNote {
   visible_to_client?: boolean
   created_at: string
   updated_at: string
-  author?: Profile
+  author?: DirectoryProfile
 }
 
 export type ProjectRequestStatus = 'pending' | 'under_review' | 'approved' | 'declined' | 'converted'
@@ -269,7 +288,7 @@ export interface ProjectRequest {
   reviewed_at: string | null
   created_at: string
   updated_at: string
-  client?: Profile
+  client?: DirectoryProfile
   converted_project?: Project | null
   files?: ProjectRequestFile[]
 }
@@ -300,7 +319,7 @@ export interface Certification {
   notes: string | null
   created_at: string
   updated_at: string
-  profile?: Profile
+  profile?: DirectoryProfile
 }
 
 export interface DocumentRecord {
@@ -320,8 +339,8 @@ export interface DocumentRecord {
   team_visible?: boolean
   created_at: string
   updated_at: string
-  owner?: Profile
-  uploader?: Profile
+  owner?: DirectoryProfile
+  uploader?: DirectoryProfile
   project?: Project
 }
 
@@ -380,7 +399,7 @@ export interface CompanyUpdate {
   notify_project_team: boolean
   created_at: string
   updated_at: string
-  author?: Profile | null
+  author?: DirectoryProfile | null
   project_refs?: Array<{ project_id: string; project?: Project | null }>
 }
 
@@ -411,7 +430,7 @@ export interface Notification {
   metadata?: Record<string, unknown>
   created_at: string
   updated_at?: string
-  actor?: Profile | null
+  actor?: DirectoryProfile | null
   project?: Project | null
 }
 
@@ -431,7 +450,7 @@ export interface ProjectActivityEvent {
   requires_attention: boolean
   metadata: Record<string, unknown>
   created_at: string
-  actor?: Profile | null
+  actor?: DirectoryProfile | null
   project?: Project | null
 }
 
@@ -458,7 +477,7 @@ export interface ActivityLog {
   action: string
   metadata: Record<string, unknown>
   created_at: string
-  actor?: Profile
+  actor?: DirectoryProfile
 }
 
 export interface WorkerStatusUpdate {
@@ -482,7 +501,8 @@ export interface CurrentWorkerStatus {
   updated_at: string
   first_name: string
   last_name: string
-  email: string
+  /** Null unless the viewer may see this person's email. */
+  email: string | null
   role: UserRole
   company_name: string | null
   project_name: string | null
@@ -507,7 +527,7 @@ export interface AttendanceRecord {
   created_at: string
   updated_at: string
   project?: Project | null
-  profile?: Profile | null
+  profile?: DirectoryProfile | null
 }
 
 export interface AttendanceEvent {
@@ -553,7 +573,7 @@ export interface AttendanceAttempt {
   device_info: Record<string, unknown> | null
   idempotency_key: string | null
   created_at: string
-  profile?: Profile | null
+  profile?: DirectoryProfile | null
   project?: Project | null
 }
 
@@ -585,7 +605,7 @@ export interface AttendanceExceptionRequest {
   revision?: number
   created_at: string
   updated_at: string
-  profile?: Profile | null
+  profile?: DirectoryProfile | null
   project?: Project | null
 }
 
@@ -609,7 +629,7 @@ export interface AttendanceCorrection {
   creation_source?: string | null
   idempotency_key?: string | null
   created_at: string
-  corrector?: Profile | null
+  corrector?: DirectoryProfile | null
 }
 
 export interface AttendanceActionResult {
@@ -980,6 +1000,27 @@ export interface Database {
       set_worker_status: Rpc
       admin_clock_out_worker: Rpc<{ p_user_id: string; p_note?: string | null }, { ok: boolean; clocked_out: boolean; message: string }>
       run_certification_maintenance: Rpc
+      list_profiles: Rpc<
+        {
+          p_ids?: string[] | null
+          p_roles?: string[] | null
+          p_search?: string | null
+          p_include_archived?: boolean
+          p_approval_status?: ApprovalStatus | null
+        },
+        Profile[]
+      >
+      set_certification_proof: Rpc<
+        {
+          p_certification_id: string
+          p_storage_path: string
+          p_file_name: string
+          p_mime_type?: string | null
+          p_file_size?: number | null
+        },
+        string | null
+      >
+      remove_certification: Rpc<{ p_certification_id: string }, string | null>
       register_project_note_mentions: Rpc
       register_project_note_project_refs: Rpc
       register_company_update_extras: Rpc

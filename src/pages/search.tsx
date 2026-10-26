@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
+import { listProfiles } from '@/features/data/profile-list'
 import { supabase } from '@/lib/supabase'
-import { buildIlikeOrFilter, fullName, sanitizeSearchTerm } from '@/lib/utils'
+import { fullName, sanitizeSearchTerm } from '@/lib/utils'
 
 export function SearchPage() {
   const [params] = useSearchParams()
@@ -15,37 +16,17 @@ export function SearchPage() {
     queryKey: ['search', safeQ],
     enabled: safeQ.length > 0,
     queryFn: async () => {
-      const peopleFilter = buildIlikeOrFilter(
-        ['first_name', 'last_name', 'email', 'company_name'],
-        safeQ,
-      )
-      if (!peopleFilter) {
-        return { employees: [], projects: [], documents: [] }
-      }
-
       const [employees, projects, documents] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, role, company_name')
-          .or(peopleFilter)
-          .limit(10),
+        listProfiles({ search: q }),
         supabase.from('projects').select('id, name, location, status').ilike('name', `%${safeQ}%`).limit(10),
         supabase.from('documents').select('id, name, category').ilike('name', `%${safeQ}%`).limit(10),
       ])
 
-      if (employees.error) throw employees.error
       if (projects.error) throw projects.error
       if (documents.error) throw documents.error
 
       return {
-        employees: (employees.data ?? []) as Array<{
-          id: string
-          first_name: string
-          last_name: string
-          email: string
-          role: string
-          company_name: string | null
-        }>,
+        employees: employees.slice(0, 10),
         projects: (projects.data ?? []) as Array<{
           id: string
           name: string
@@ -85,7 +66,7 @@ export function SearchPage() {
             {data.employees.map((person) => (
               <Link key={person.id} to={person.role === 'subcontractor' ? '/subcontractors' : '/employees'} className="block rounded-md border border-border px-3 py-2 hover:bg-muted/50">
                 <p className="font-medium">{fullName(person.first_name, person.last_name)}</p>
-                <p className="text-xs text-muted-foreground">{person.company_name || person.email}</p>
+                <p className="text-xs text-muted-foreground">{person.company_name || person.email || person.position || person.role}</p>
               </Link>
             ))}
           </ResultCard>

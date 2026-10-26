@@ -56,6 +56,9 @@ export function ProjectClientsSection({
     [resolution.clients],
   )
 
+  // Assignment embeds carry directory fields only; phone comes from the management client list.
+  const phoneByProfile = useMemo(() => new Map(clientOptions.map((item) => [item.id, item.phone])), [clientOptions])
+
   const selected = clientOptions.find((item) => item.id === selectedClient)
   const selectedAssignment = selected ? assignedByProfile.get(selected.id) : undefined
   const selectedIsPrimary = Boolean(selectedAssignment && selectedAssignment.id === primaryId)
@@ -238,8 +241,9 @@ export function ProjectClientsSection({
           const isPrimary = assignment.id === primaryId
           const eligible = isEligibleClientAssignment(assignment)
           const name = clientName(assignment.profile)
-          const tel = isPrimary && canManage ? phoneHref(assignment.profile?.phone) : null
-          const phoneLabel = isPrimary && canManage ? formatPhoneDisplay(assignment.profile?.phone) : null
+          const phone = phoneByProfile.get(assignment.profile_id)
+          const tel = isPrimary && canManage ? phoneHref(phone) : null
+          const phoneLabel = isPrimary && canManage ? formatPhoneDisplay(phone) : null
           return (
             <div
               key={assignment.id}

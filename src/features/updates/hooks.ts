@@ -3,10 +3,11 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import { createUpdatePhotoSignedUrl } from '@/features/data/hooks'
 import { supabase } from '@/lib/supabase'
 import { validateImageUploadFile, prepareUploadFileAsync, uploadErrorMessage } from '@/lib/uploads'
-import type { CompanyUpdate, CompanyUpdateAudience, Profile, Project } from '@/types/database'
+import type { CompanyUpdate, CompanyUpdateAudience, DirectoryProfile, Project } from '@/types/database'
+import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 export type CompanyUpdateWithMeta = CompanyUpdate & {
-  author?: Profile | null
+  author?: DirectoryProfile | null
   refs?: Array<{ project_id: string; project?: Project | null }>
 }
 
@@ -54,10 +55,10 @@ export function useCompanyUpdates(limit = 40) {
       const data = await loadCompanyUpdateRows(limit)
       const rows = data as CompanyUpdateWithMeta[]
       const authorIds = [...new Set(rows.map((row) => row.author_id).filter((id): id is string => Boolean(id)))]
-      const authors = new Map<string, Profile>()
+      const authors = new Map<string, DirectoryProfile>()
       if (authorIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('*').in('id', authorIds)
-        for (const profile of profiles ?? []) authors.set(profile.id, profile as Profile)
+        const { data: profiles } = await supabase.from('profiles').select(PROFILE_DIRECTORY_COLUMNS).in('id', authorIds)
+        for (const profile of profiles ?? []) authors.set(profile.id, profile as DirectoryProfile)
       }
 
       const rootIds = rows.filter((r) => !r.parent_id).map((r) => r.id)
@@ -97,7 +98,7 @@ export function useMyProjectUpdatesFeed(limit = 40) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_notes')
-        .select('*, author:profiles(*), project:projects(*)')
+        .select(`*, author:profiles(${PROFILE_DIRECTORY_COLUMNS}), project:projects(*)`)
         .is('parent_id', null)
         .order('created_at', { ascending: false })
         .limit(limit)
