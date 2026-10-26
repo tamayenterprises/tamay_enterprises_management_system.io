@@ -64,6 +64,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 const proof = () => new File(['%PDF'], 'osha card.pdf', { type: 'application/pdf' })
+const photoProof = () => new File(['jpeg'], 'osha card.jpg', { type: 'image/jpeg' })
 const values = { name: 'OSHA 10', certification_type: 'OSHA', profile_id: 'worker-1', issue_date: '', expiration_date: '', notes: '' }
 
 beforeEach(() => {
@@ -85,6 +86,12 @@ describe('certification proofs', () => {
     expect(calls[1]).toMatch(/^upload:worker-1\/certifications\/\d+-osha card\.pdf$/)
     expect(calls[2]).toMatch(/^rpc:set_certification_proof:.*"p_storage_path":"worker-1\/certifications\//)
     expect(calls.some((call) => call.startsWith('documents.insert'))).toBe(false)
+  })
+
+  it('accepts an image proof the same way as a PDF', async () => {
+    const { result } = renderHook(() => useCreateCertification(), { wrapper })
+    await result.current.mutateAsync({ values, file: photoProof() })
+    expect(calls[1]).toMatch(/^upload:worker-1\/certifications\/\d+-osha card\.jpg$/)
   })
 
   it('removes the uploaded file and the new certification when linking the proof fails', async () => {

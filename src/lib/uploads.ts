@@ -9,6 +9,9 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/webp',
   'image/heic',
   'image/heif',
+  'image/gif',
+  'image/bmp',
+  'image/tiff',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
@@ -31,6 +34,10 @@ const ALLOWED_EXTENSIONS = new Set([
   '.webp',
   '.heic',
   '.heif',
+  '.gif',
+  '.bmp',
+  '.tif',
+  '.tiff',
   '.doc',
   '.docx',
   '.xls',
@@ -42,7 +49,7 @@ const ALLOWED_EXTENSIONS = new Set([
   '.rtf',
 ])
 
-const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'])
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.gif', '.bmp', '.tif', '.tiff'])
 
 const DOCUMENT_EXTENSIONS = new Set([
   '.pdf',
@@ -59,14 +66,13 @@ const DOCUMENT_EXTENSIONS = new Set([
 
 /** Photos + documents (legacy combined picker — prefer split pickers on mobile). */
 export const UPLOAD_ACCEPT =
-  '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,application/pdf,image/*'
+  '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.gif,.bmp,.tif,.tiff,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,application/pdf,image/*'
 
 export const IMAGE_UPLOAD_ACCEPT =
-  '.jpg,.jpeg,.png,.webp,.heic,.heif,image/jpeg,image/png,image/webp,image/heic,image/heif'
+  '.jpg,.jpeg,.png,.webp,.heic,.heif,.gif,.bmp,.tif,.tiff,image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,image/bmp,image/tiff,image/*'
 
-/** Documents only — keeps mobile pickers out of the Photos-only UI. */
-export const DOCUMENT_UPLOAD_ACCEPT =
-  '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv'
+/** Certifications, personnel files, and document pickers — PDFs, Office, text, and images. */
+export const DOCUMENT_UPLOAD_ACCEPT = UPLOAD_ACCEPT
 
 export type PreparedUpload = {
   /** Always the original browser File — never a cloned File (Android content:// breaks on clone). */
@@ -99,6 +105,12 @@ function extensionForMime(type: string) {
       return '.heic'
     case 'image/heif':
       return '.heif'
+    case 'image/gif':
+      return '.gif'
+    case 'image/bmp':
+      return '.bmp'
+    case 'image/tiff':
+      return '.tiff'
     case 'application/msword':
       return '.doc'
     case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
@@ -181,6 +193,13 @@ export function contentTypeForUploadFile(file: File): string {
       return 'image/heic'
     case '.heif':
       return 'image/heif'
+    case '.gif':
+      return 'image/gif'
+    case '.bmp':
+      return 'image/bmp'
+    case '.tif':
+    case '.tiff':
+      return 'image/tiff'
     default:
       return file.type || 'application/octet-stream'
   }
@@ -399,7 +418,7 @@ export function isUploadSizeLimitMessage(message: string) {
 /** Validate a batch before upload/staging; oversized files are rejected with clear errors. */
 export function partitionUploadFiles(
   files: File[],
-  options?: { imagesOnly?: boolean; documentsOnly?: boolean },
+  options?: { imagesOnly?: boolean },
 ) {
   const accepted: File[] = []
   const errors: string[] = []
@@ -413,10 +432,7 @@ export function partitionUploadFiles(
         continue
       }
     }
-    if (options?.documentsOnly && isImageUploadFile(file)) {
-      errors.push(`“${file.name || 'File'}” is a photo. Use the photo uploader for images.`)
-      continue
-    }
+    // Document pickers also accept scans and photos (licenses, W-2s, cert cards).
     const validationError = options?.imagesOnly
       ? // For opaque picks, skip strict image check until sniff
         file.size > 0 && (!file.type || file.type === 'application/octet-stream') && !fileExtension(file)

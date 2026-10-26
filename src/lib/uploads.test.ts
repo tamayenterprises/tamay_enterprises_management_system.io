@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DOCUMENT_UPLOAD_ACCEPT,
   MAX_UPLOAD_BYTES,
+  partitionUploadFiles,
   prepareUploadFile,
   sniffUploadKind,
   validateUploadFile,
@@ -15,6 +17,13 @@ describe('validateUploadFile', () => {
   it('accepts pdf under size limit', () => {
     const file = new File(['hello'], 'safety.pdf', { type: 'application/pdf' })
     expect(validateUploadFile(file)).toBeNull()
+  })
+
+  it('accepts common image proofs and scans', () => {
+    expect(validateUploadFile(new File(['x'], 'license.jpg', { type: 'image/jpeg' }))).toBeNull()
+    expect(validateUploadFile(new File(['x'], 'w2.png', { type: 'image/png' }))).toBeNull()
+    expect(validateUploadFile(new File(['x'], 'card.webp', { type: 'image/webp' }))).toBeNull()
+    expect(validateUploadFile(new File(['x'], 'scan.heic', { type: 'image/heic' }))).toBeNull()
   })
 
   it('accepts Android Drive PDFs that have MIME but no extension', () => {
@@ -37,6 +46,20 @@ describe('validateUploadFile', () => {
   it('rejects unsupported extensions', () => {
     const bad = new File(['hello'], 'notes.exe', { type: 'application/x-msdownload' })
     expect(validateUploadFile(bad)).toMatch(/isn’t a supported type/i)
+  })
+})
+
+describe('document pickers', () => {
+  it('includes images in the document file dialog', () => {
+    expect(DOCUMENT_UPLOAD_ACCEPT).toMatch(/image\/\*/)
+    expect(DOCUMENT_UPLOAD_ACCEPT).toMatch(/\.jpg/)
+  })
+
+  it('stages photos through the document uploader', () => {
+    const photo = new File(['x'], 'license.jpg', { type: 'image/jpeg' })
+    const { accepted, errors } = partitionUploadFiles([photo])
+    expect(errors).toEqual([])
+    expect(accepted).toEqual([photo])
   })
 })
 

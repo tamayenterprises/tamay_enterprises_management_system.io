@@ -18,7 +18,7 @@ import {
   viewDocumentFile,
 } from '@/features/data/hooks'
 import { canRemoveDocument, canUploadPersonnelDocument, canViewerSeeDocument } from '@/lib/document-visibility'
-import { confirmAction, DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, partitionUploadFiles } from '@/lib/uploads'
+import { confirmAction, DOCUMENT_UPLOAD_ACCEPT, partitionUploadFiles } from '@/lib/uploads'
 import {
   certificationStatusLabel,
   documentCategoryLabel,
@@ -173,7 +173,7 @@ function PersonnelDocumentUploadDialog({
           </div>
           <FilePickerButton
             label={file ? 'Replace file' : 'Choose file'}
-            accept={`${DOCUMENT_UPLOAD_ACCEPT},${IMAGE_UPLOAD_ACCEPT}`}
+            accept={DOCUMENT_UPLOAD_ACCEPT}
             multiple={false}
             onFiles={stageFiles}
           />

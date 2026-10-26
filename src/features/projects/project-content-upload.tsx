@@ -276,7 +276,7 @@ export function ProjectContentUploadDialog({ projectId, open, onOpenChange }: Pr
               multiple
               selectedFiles={files}
               onFiles={(selected) => {
-                const { accepted, errors } = partitionUploadFiles(selected, { documentsOnly: true })
+                const { accepted, errors } = partitionUploadFiles(selected)
                 if (errors.length > 0) {
                   const message =
                     errors.length === 1
