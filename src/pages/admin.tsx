@@ -9,6 +9,7 @@ import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PersonRecordsPanel } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
@@ -508,6 +509,7 @@ function UserRow({
           />
         </div>
       ) : null}
+      {user.role !== 'client' ? <PersonRecordsPanel profileId={user.id} personLabel={personLabel} /> : null}
     </div>
   )
 }

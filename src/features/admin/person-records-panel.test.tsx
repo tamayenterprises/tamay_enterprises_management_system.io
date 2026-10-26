@@ -52,11 +52,17 @@ vi.mock('@/features/data/hooks', () => ({
   }),
   useDeleteDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteCertification: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUploadDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
   createCertificationProofUrl: vi.fn(),
   viewDocumentFile: vi.fn(),
 }))
 
 describe('PersonRecordsPanel', () => {
+  it('shows an Upload button for admin', () => {
+    render(<PersonRecordsPanel profileId="person-1" personLabel="Santiago" />)
+    expect(screen.getByRole('button', { name: 'Upload' })).toBeInTheDocument()
+  })
+
   it('keeps certification proofs out of the Documents list', async () => {
     const user = userEvent.setup()
     render(<PersonRecordsPanel profileId="person-1" personLabel="Santiago" />)

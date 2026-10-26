@@ -3,6 +3,10 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
+import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
   createCertificationProofUrl,
@@ -10,15 +14,17 @@ import {
   useDeleteCertification,
   useDeleteDocument,
   useDocuments,
+  useUploadDocument,
   viewDocumentFile,
 } from '@/features/data/hooks'
-import { canRemoveDocument, canViewerSeeDocument } from '@/lib/document-visibility'
-import { confirmAction } from '@/lib/uploads'
+import { canRemoveDocument, canUploadPersonnelDocument, canViewerSeeDocument } from '@/lib/document-visibility'
+import { confirmAction, DOCUMENT_UPLOAD_ACCEPT, IMAGE_UPLOAD_ACCEPT, partitionUploadFiles } from '@/lib/uploads'
 import {
   certificationStatusLabel,
   documentCategoryLabel,
   formatDate,
   isManagementRole,
+  PERSONNEL_DOCUMENT_KINDS,
 } from '@/lib/utils'
 
 export function PersonRecordsPanel({
@@ -28,19 +34,128 @@ export function PersonRecordsPanel({
   profileId: string
   personLabel: string
 }) {
+  const { profile } = useAuth()
+  const canUpload = canUploadPersonnelDocument(profile)
   const [open, setOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   return (
-    <CompactAccordion
-      title="Documents & certifications"
-      summary={`Files ${personLabel} uploaded, plus certifications on this account.`}
-      expandLabel="View files"
-      collapseLabel="Hide files"
-      open={open}
-      onOpenChange={setOpen}
-    >
-      {open ? <PersonRecordsLists profileId={profileId} /> : null}
-    </CompactAccordion>
+    <>
+      <CompactAccordion
+        title="Documents & certifications"
+        summary={
+          canUpload
+            ? `Upload W-2, W-9, licenses, insurance, and other files for ${personLabel}.`
+            : `Files ${personLabel} uploaded, plus certifications on this account.`
+        }
+        expandLabel="View files"
+        collapseLabel="Hide files"
+        open={open}
+        onOpenChange={setOpen}
+        actions={
+          canUpload ? (
+            <Button type="button" size="sm" onClick={() => setUploadOpen(true)}>
+              Upload
+            </Button>
+          ) : null
+        }
+      >
+        {open ? <PersonRecordsLists profileId={profileId} /> : null}
+      </CompactAccordion>
+      {canUpload ? (
+        <PersonnelDocumentUploadDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          profileId={profileId}
+          personLabel={personLabel}
+          onUploaded={() => setOpen(true)}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function PersonnelDocumentUploadDialog({
+  open,
+  onOpenChange,
+  profileId,
+  personLabel,
+  onUploaded,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  profileId: string
+  personLabel: string
+  onUploaded: () => void
+}) {
+  const uploadDocument = useUploadDocument()
+  const [kindLabel, setKindLabel] = useState(PERSONNEL_DOCUMENT_KINDS[0].label)
+  const [file, setFile] = useState<File | null>(null)
+
+  const kind = PERSONNEL_DOCUMENT_KINDS.find((item) => item.label === kindLabel) ?? PERSONNEL_DOCUMENT_KINDS[0]
+
+  function stageFiles(selected: File[]) {
+    const { accepted, errors } = partitionUploadFiles(selected)
+    if (errors[0]) toast.error(errors[0])
+    if (accepted[0]) setFile(accepted[0])
+  }
+
+  async function submit() {
+    if (!file) {
+      toast.error('Choose a file to upload.')
+      return
+    }
+    try {
+      await uploadDocument.mutateAsync({
+        file,
+        category: kind.category,
+        kindLabel: kind.label,
+        ownerId: profileId,
+        bucket: 'documents',
+      })
+      toast.success(`${kind.label} uploaded for ${personLabel}`)
+      setFile(null)
+      onOpenChange(false)
+      onUploaded()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Upload failed')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Upload for {personLabel}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="personnel-doc-type">Document type</Label>
+            <NativeSelect
+              id="personnel-doc-type"
+              value={kind.label}
+              onChange={(event) => setKindLabel(event.target.value)}
+            >
+              {PERSONNEL_DOCUMENT_KINDS.map((item) => (
+                <option key={item.label} value={item.label}>
+                  {item.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <FilePickerButton
+            label={file ? 'Replace file' : 'Choose file'}
+            accept={`${DOCUMENT_UPLOAD_ACCEPT},${IMAGE_UPLOAD_ACCEPT}`}
+            multiple={false}
+            onFiles={stageFiles}
+          />
+          {file ? <SelectedFilesList files={[file]} onChange={(files) => setFile(files[0] ?? null)} /> : null}
+          <Button type="button" disabled={uploadDocument.isPending} onClick={() => void submit()}>
+            {uploadDocument.isPending ? 'Uploading…' : 'Upload'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -159,7 +274,7 @@ function PersonRecordsLists({ profileId }: { profileId: string }) {
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{doc.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {documentCategoryLabel(doc.category)}
+                      {doc.kind_label || documentCategoryLabel(doc.category)}
                       {doc.project?.name ? ` · ${doc.project.name}` : ''}
                       {' · '}
                       {formatDate(doc.created_at)}

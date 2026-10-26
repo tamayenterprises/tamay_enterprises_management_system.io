@@ -195,6 +195,29 @@ describe('useUploadDocument', () => {
     expect(insertCalls).toEqual([{ returning: true }])
   })
 
+  it('admin can upload a personnel file owned by another worker', async () => {
+    const doc = await asRole('admin').current.mutateAsync({
+      file: pdf(),
+      category: 'identification',
+      kindLabel: 'W-9',
+      ownerId: 'worker-9',
+    })
+    expect(doc.owner_id).toBe('worker-9')
+    expect(doc.uploaded_by).toBe('admin')
+    expect(String(doc.storage_path)).toContain('worker-9/personnel/')
+  })
+
+  it('employees cannot upload personnel files for someone else', async () => {
+    await expect(
+      asRole('employee').current.mutateAsync({
+        file: pdf(),
+        category: 'identification',
+        ownerId: 'worker-9',
+      }),
+    ).rejects.toThrow('Only an admin can upload personnel documents for another person.')
+    expect(upload).not.toHaveBeenCalled()
+  })
+
   it.each(['admin', 'project_manager'])('%s can upload both photos and documents', async (role) => {
     const result = asRole(role)
     await result.current.mutateAsync({ file: jpg(), ...photo })

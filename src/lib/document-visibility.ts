@@ -79,6 +79,11 @@ export function canUploadProjectDocuments(viewer: Viewer) {
   return isManagementRole(viewer?.role) || isClientRole(viewer?.role)
 }
 
+/** Tax / license / insurance files on a worker's record: admin only. */
+export function canUploadPersonnelDocument(viewer: Viewer) {
+  return viewer?.role === 'admin'
+}
+
 /** Mirrors the documents INSERT policy: workers add photos / field images to projects only. */
 export function canCreateProjectFile(
   viewer: Viewer,

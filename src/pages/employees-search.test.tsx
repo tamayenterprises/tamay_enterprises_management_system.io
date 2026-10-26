@@ -21,6 +21,13 @@ vi.mock('@/features/data/hooks', () => ({
   useSetWorkerStatus: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useWorkerEligibility: () => ({ data: undefined }),
   useWorkerStatusHistory: () => ({ data: [] }),
+  useCertifications: () => ({ data: [], isLoading: false, isError: false }),
+  useDocuments: () => ({ data: [], isLoading: false, isError: false }),
+  useDeleteDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteCertification: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUploadDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  createCertificationProofUrl: vi.fn(),
+  viewDocumentFile: vi.fn(),
 }))
 
 const employee = {

@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import {
   PROJECT_DOCUMENT_UPLOAD_DENIED,
   canCreateProjectFile,
+  canUploadPersonnelDocument,
   canViewerSeeDocument,
 } from '@/lib/document-visibility'
 import { documentStorageBucket, sanitizeSearchTerm } from '@/lib/utils'
@@ -90,17 +91,25 @@ export function useUploadDocument() {
       projectId,
       bucket = 'documents',
       kindLabel,
+      ownerId,
     }: {
       file: File
       category: DocumentRecord['category']
       projectId?: string | null
       bucket?: 'documents' | 'project-files'
       kindLabel?: string | null
+      ownerId?: string | null
     }) => {
       if (!profile?.organization_id) throw new Error('Missing organization')
 
       const validationError = validateUploadFile(file)
       if (validationError) throw new Error(validationError)
+
+      const forSomeoneElse = Boolean(ownerId && ownerId !== profile.id)
+      if (forSomeoneElse && (projectId || !canUploadPersonnelDocument(profile))) {
+        throw new Error('Only an admin can upload personnel documents for another person.')
+      }
+      const documentOwnerId = forSomeoneElse ? ownerId! : profile.id
 
       const prepared = await prepareUploadFileAsync(file)
       const target = { project_id: projectId || null, category, mime_type: prepared.contentType }
@@ -108,7 +117,9 @@ export function useUploadDocument() {
       const safeName = prepared.displayName.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
       const path = projectId
         ? `${profile.id}/${projectId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
-        : `${profile.id}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
+        : forSomeoneElse
+          ? `${documentOwnerId}/personnel/${Date.now()}-${crypto.randomUUID()}-${safeName}`
+          : `${profile.id}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
 
       const { error: uploadError } = await supabase.storage.from(bucket).upload(path, prepared.file, {
         contentType: prepared.contentType,
@@ -118,7 +129,7 @@ export function useUploadDocument() {
 
       const baseRow = {
         organization_id: profile.organization_id,
-        owner_id: profile.id,
+        owner_id: documentOwnerId,
         uploaded_by: profile.id,
         project_id: projectId || null,
         name: prepared.displayName,
@@ -126,6 +137,7 @@ export function useUploadDocument() {
         storage_path: path,
         mime_type: prepared.contentType,
         file_size: prepared.file.size || null,
+        ...(forSomeoneElse ? { team_visible: false } : {}),
       }
 
       const trimmedKind = kindLabel?.trim() || null

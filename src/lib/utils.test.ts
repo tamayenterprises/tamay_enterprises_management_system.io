@@ -5,6 +5,7 @@ import {
   certificationStatusLabel,
   cn,
   deriveCertificationStatus,
+  PERSONNEL_DOCUMENT_KINDS,
   documentCategoryLabel,
   documentStorageBucket,
   formatFileSize,
@@ -40,6 +41,17 @@ describe('utils', () => {
 
   it('labels document categories and formats file sizes', () => {
     expect(documentCategoryLabel('work_photo')).toBe('Work photo')
+    expect(PERSONNEL_DOCUMENT_KINDS.map((item) => item.label)).toEqual([
+      'W-2',
+      'W-9',
+      'Void check',
+      "Driver's license",
+      'IRS',
+      'Liability insurance',
+      "Workers' compensation",
+      'ITIN',
+      'Trade license',
+    ])
     expect(formatFileSize(512)).toBe('512 B')
     expect(formatFileSize(2048)).toBe('2.0 KB')
     expect(documentStorageBucket({ storage_path: 'user/file.pdf', project_id: null })).toBe('documents')

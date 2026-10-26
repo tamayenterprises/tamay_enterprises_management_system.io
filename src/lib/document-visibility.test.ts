@@ -3,6 +3,7 @@ import projectsSource from '../features/data/projects.ts?raw'
 import {
   canCreateProjectFile,
   canRemoveDocument,
+  canUploadPersonnelDocument,
   canUploadProjectDocuments,
   canViewerSeeDocument,
   documentVisibilityHelp,
@@ -49,6 +50,12 @@ describe('upload rule (mirrors the documents INSERT policy)', () => {
 
   it('signed-out: nothing', () => {
     expect(canCreateProjectFile(null, file('work_photo', 'image/jpeg'))).toBe(false)
+  })
+
+  it('only admins upload personnel documents for another worker', () => {
+    expect(canUploadPersonnelDocument(as('admin'))).toBe(true)
+    expect(canUploadPersonnelDocument(as('project_manager'))).toBe(false)
+    expect(canUploadPersonnelDocument(as('employee'))).toBe(false)
   })
 })
 

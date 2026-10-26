@@ -212,6 +212,19 @@ export const PHOTO_KIND_OPTIONS = [
   'Other',
 ] as const
 
+/** Admin personnel files on a worker's record (stored as kind_label + category). */
+export const PERSONNEL_DOCUMENT_KINDS = [
+  { label: 'W-2', category: 'identification' as const },
+  { label: 'W-9', category: 'identification' as const },
+  { label: 'Void check', category: 'identification' as const },
+  { label: "Driver's license", category: 'identification' as const },
+  { label: 'IRS', category: 'identification' as const },
+  { label: 'Liability insurance', category: 'insurance' as const },
+  { label: "Workers' compensation", category: 'insurance' as const },
+  { label: 'ITIN', category: 'identification' as const },
+  { label: 'Trade license', category: 'license' as const },
+] as const
+
 /** Document type options for project uploads (stored on documents.kind_label). */
 export const DOCUMENT_KIND_OPTIONS = [
   'Agreement',
