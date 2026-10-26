@@ -1,3 +1,6 @@
+import { isManagementRole } from '@/lib/utils'
+import type { UserRole } from '@/types/database'
+
 export type NotificationLinkSource = {
   destination_route?: string | null
   link?: string | null
@@ -90,4 +93,30 @@ export function notificationDestination(
     route = route.replace('/projects/', '/portal/projects/')
   }
   return route
+}
+
+const MANAGEMENT_ATTENDANCE_TYPES = new Set([
+  'ATTENDANCE_EXCEPTION_SUBMITTED',
+  'ATTENDANCE_REJECTED',
+  'ATTENDANCE_CORRECTED',
+])
+
+/** Clock-in exceptions are for management review. Workers only see their own mentioned outcome. */
+export function notificationVisibleToRole(
+  item: {
+    activity_type?: string | null
+    entity_type?: string | null
+    relevance?: string | null
+    link?: string | null
+    destination_route?: string | null
+  },
+  role?: UserRole | null,
+) {
+  if (isManagementRole(role)) return true
+  const type = item.activity_type ?? ''
+  if (MANAGEMENT_ATTENDANCE_TYPES.has(type) && item.relevance !== 'mentioned') return false
+  if (item.entity_type === 'attendance_exception' && item.relevance !== 'mentioned') return false
+  const dest = item.destination_route || item.link || ''
+  if (dest.includes('/timesheets') && item.relevance !== 'mentioned') return false
+  return true
 }

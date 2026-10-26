@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { notificationDestination } from './notification-destination'
+import { notificationDestination, notificationVisibleToRole } from './notification-destination'
 
 describe('notificationDestination', () => {
   it('points company update notifications at the specific post', () => {
@@ -59,5 +59,40 @@ describe('notificationDestination', () => {
         activity_type: 'FILE_UPLOADED',
       }),
     ).toBe('/projects/p1?tab=files&doc=doc-4')
+  })
+})
+
+describe('notificationVisibleToRole', () => {
+  const exception = {
+    activity_type: 'ATTENDANCE_EXCEPTION_SUBMITTED',
+    entity_type: 'attendance_exception',
+    relevance: 'requires_attention',
+    destination_route: '/timesheets?exception=x',
+  }
+
+  it('hides other workers clock-in exceptions from employees and subcontractors', () => {
+    expect(notificationVisibleToRole(exception, 'employee')).toBe(false)
+    expect(notificationVisibleToRole(exception, 'subcontractor')).toBe(false)
+    expect(notificationVisibleToRole(exception, 'client')).toBe(false)
+  })
+
+  it('keeps exceptions for management and keeps a worker mentioned about their own outcome', () => {
+    expect(notificationVisibleToRole(exception, 'admin')).toBe(true)
+    expect(notificationVisibleToRole(exception, 'project_manager')).toBe(true)
+    expect(
+      notificationVisibleToRole(
+        { ...exception, activity_type: 'ATTENTION_REVIEWED', relevance: 'mentioned' },
+        'employee',
+      ),
+    ).toBe(true)
+  })
+
+  it('still shows assigned-project conversation to the crew', () => {
+    expect(
+      notificationVisibleToRole(
+        { activity_type: 'COMMENT_CREATED', entity_type: 'project_note', relevance: 'assigned_project' },
+        'employee',
+      ),
+    ).toBe(true)
   })
 })

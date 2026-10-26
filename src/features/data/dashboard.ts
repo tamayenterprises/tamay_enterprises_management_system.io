@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/auth-hooks'
 import { useProjects } from '@/features/data/projects'
 import { useCertifications } from '@/features/data/certifications'
 import { usePendingApprovals, useProfiles } from '@/features/data/people'
+import { notificationVisibleToRole } from '@/lib/notification-destination'
 import type { Notification } from '@/types/database'
 
 export function useDashboardData() {
@@ -40,7 +41,7 @@ export function useDashboardData() {
         .order('created_at', { ascending: false })
         .limit(5)
       if (error) throw error
-      return (data ?? []) as Notification[]
+      return ((data ?? []) as Notification[]).filter((row) => notificationVisibleToRole(row, profile!.role))
     },
   })
 

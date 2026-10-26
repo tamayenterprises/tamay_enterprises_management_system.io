@@ -68,6 +68,7 @@ Finance migrations **390 / finance-proof / 410** and Stripe payments migrations 
 - Migration `00000` (avatars / `20260329`) updates the workforce status view — run after workforce status. **Do not re-run on Production** if avatars are already live.
 - Migration `20260332` (geofencing) adds project coordinates, breaks, location attempts, exceptions, and RPCs. After applying it, deploy Edge Function `geocode-address` (optional Mapbox secret `MAPBOX_ACCESS_TOKEN`; otherwise Nominatim).
 - Nearby Finder: deploy `places-nearby` and set Supabase secret `GOOGLE_PLACES_API_KEY` (Places API New). Never put this key in Vercel `VITE_` variables.
+- Migration `20261026230000` keeps clock-in exception notifications on admin / project manager only. Apply it in the SQL editor so existing worker inboxes drop other people's exceptions.
 - Existing projects are marked `needs_verification` until an admin verifies coordinates on the project page.
 - Migration `20260333` adds `project_activity_events`, structured mention storage, notification preferences, and extends `notifications`. It backfills **activity feed events** for project updates from the last 14 days only (no unread notification spam).
 - Migration `20260334` is split because Postgres cannot use new enum values in the same transaction that adds them. Always run `00000` then `00001` as two separate SQL Editor runs. Historical project notes are not exposed company-wide.

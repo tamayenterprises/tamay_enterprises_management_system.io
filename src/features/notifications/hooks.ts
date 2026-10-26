@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/auth-hooks'
+import { notificationVisibleToRole } from '@/lib/notification-destination'
 import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 import type {
   Notification,
@@ -32,13 +33,13 @@ export function useUnreadNotifications() {
     enabled: Boolean(profile?.id),
     refetchInterval: 30_000,
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
-        .select('*', { count: 'exact', head: true })
+        .select('activity_type, entity_type, relevance, link, destination_route')
         .eq('recipient_id', profile!.id)
         .eq('is_read', false)
       if (error) throw error
-      return count ?? 0
+      return (data ?? []).filter((row) => notificationVisibleToRole(row, profile!.role)).length
     },
   })
 }
@@ -79,9 +80,9 @@ export function useNotifications(filters?: {
         let rows = (legacy.data ?? []) as Notification[]
         if (status === 'unread') rows = rows.filter((n) => !n.is_read)
         if (status === 'read') rows = rows.filter((n) => n.is_read)
-        return rows
+        return rows.filter((row) => notificationVisibleToRole(row, profile!.role))
       }
-      return (data ?? []) as Notification[]
+      return ((data ?? []) as Notification[]).filter((row) => notificationVisibleToRole(row, profile!.role))
     },
   })
 }
