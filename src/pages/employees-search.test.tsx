@@ -90,6 +90,17 @@ describe('Employees private fields by viewer', () => {
     return screen.findByRole('dialog')
   }
 
+  it('admin sees an Upload button on the employee card', () => {
+    render(<EmployeesPage />)
+    expect(screen.getAllByRole('button', { name: 'Upload' }).length).toBeGreaterThan(0)
+  })
+
+  it('project manager does not see Upload on the employee card', () => {
+    viewerRole = 'project_manager'
+    render(<EmployeesPage />)
+    expect(screen.queryByRole('button', { name: 'Upload' })).not.toBeInTheDocument()
+  })
+
   it('admin sees and edits hire date, emergency contact and notes', async () => {
     render(<EmployeesPage />)
     expect(screen.getByText(/Hire date:/)).toBeInTheDocument()

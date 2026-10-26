@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Textarea } from '@/components/ui/textarea'
 import { SeeMoreButton } from '@/components/ui/see-more-button'
-import { PersonRecordsPanel } from '@/features/admin/person-records-panel'
+import { PersonRecordsPanel, PersonnelUploadButton } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import {
   useProfiles,
@@ -229,6 +229,10 @@ function EmployeeCard({
         ) : null}
         {showHr && employee.internal_notes ? <p>Notes: {employee.internal_notes}</p> : null}
         <div className="flex flex-wrap gap-2 pt-2">
+          <PersonnelUploadButton
+            profileId={employee.id}
+            personLabel={fullName(employee.first_name, employee.last_name)}
+          />
           <Dialog>
             <DialogTrigger asChild>
               <Button size="sm">Edit profile</Button>

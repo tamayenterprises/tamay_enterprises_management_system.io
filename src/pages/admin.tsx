@@ -9,7 +9,7 @@ import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
 import { Input } from '@/components/ui/input'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { PersonRecordsPanel } from '@/features/admin/person-records-panel'
+import { PersonRecordsPanel, PersonnelUploadButton } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
@@ -483,6 +483,9 @@ function UserRow({
             <Button size="sm" variant="outline" className="min-h-11 w-full sm:w-auto" onClick={onReapprove}>
               Re-approve
             </Button>
+          ) : null}
+          {user.role !== 'client' ? (
+            <PersonnelUploadButton profileId={user.id} personLabel={personLabel} />
           ) : null}
           <Button size="sm" variant="outline" className="min-h-11 w-full sm:w-auto" disabled={isSelf} onClick={onToggleActive}>
             {user.is_active ? 'Deactivate' : 'Activate'}

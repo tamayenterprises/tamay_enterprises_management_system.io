@@ -27,6 +27,34 @@ import {
   PERSONNEL_DOCUMENT_KINDS,
 } from '@/lib/utils'
 
+export function PersonnelUploadButton({
+  profileId,
+  personLabel,
+  onUploaded,
+}: {
+  profileId: string
+  personLabel: string
+  onUploaded?: () => void
+}) {
+  const { profile } = useAuth()
+  const [open, setOpen] = useState(false)
+  if (!canUploadPersonnelDocument(profile)) return null
+  return (
+    <>
+      <Button type="button" size="sm" onClick={() => setOpen(true)}>
+        Upload
+      </Button>
+      <PersonnelDocumentUploadDialog
+        open={open}
+        onOpenChange={setOpen}
+        profileId={profileId}
+        personLabel={personLabel}
+        onUploaded={onUploaded}
+      />
+    </>
+  )
+}
+
 export function PersonRecordsPanel({
   profileId,
   personLabel,
@@ -86,7 +114,7 @@ function PersonnelDocumentUploadDialog({
   onOpenChange: (open: boolean) => void
   profileId: string
   personLabel: string
-  onUploaded: () => void
+  onUploaded?: () => void
 }) {
   const uploadDocument = useUploadDocument()
   const [kindLabel, setKindLabel] = useState(PERSONNEL_DOCUMENT_KINDS[0].label)
@@ -116,7 +144,7 @@ function PersonnelDocumentUploadDialog({
       toast.success(`${kind.label} uploaded for ${personLabel}`)
       setFile(null)
       onOpenChange(false)
-      onUploaded()
+      onUploaded?.()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed')
     }

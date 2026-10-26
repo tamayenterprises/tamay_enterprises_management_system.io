@@ -60,7 +60,7 @@ vi.mock('@/features/data/hooks', () => ({
 describe('PersonRecordsPanel', () => {
   it('shows an Upload button for admin', () => {
     render(<PersonRecordsPanel profileId="person-1" personLabel="Santiago" />)
-    expect(screen.getByRole('button', { name: 'Upload' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Upload' }).length).toBeGreaterThan(0)
   })
 
   it('keeps certification proofs out of the Documents list', async () => {
