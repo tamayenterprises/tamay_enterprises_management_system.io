@@ -200,9 +200,11 @@ describe('useUploadDocument', () => {
       file: pdf(),
       category: 'identification',
       kindLabel: 'W-9',
+      title: 'W-9',
       ownerId: 'worker-9',
     })
     expect(doc.owner_id).toBe('worker-9')
+    expect(doc.name).toBe('W-9')
     expect(doc.uploaded_by).toBe('admin')
     expect(String(doc.storage_path)).toContain('worker-9/personnel/')
   })

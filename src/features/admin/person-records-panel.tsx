@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { NativeSelect } from '@/components/ui/native-select'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
   createCertificationProofUrl,
@@ -24,7 +24,6 @@ import {
   documentCategoryLabel,
   formatDate,
   isManagementRole,
-  PERSONNEL_DOCUMENT_KINDS,
 } from '@/lib/utils'
 
 export function PersonnelUploadButton({
@@ -117,12 +116,8 @@ function PersonnelDocumentUploadDialog({
   onUploaded?: () => void
 }) {
   const uploadDocument = useUploadDocument()
-  const [kindLabel, setKindLabel] = useState<(typeof PERSONNEL_DOCUMENT_KINDS)[number]['label']>(
-    PERSONNEL_DOCUMENT_KINDS[0].label,
-  )
+  const [documentName, setDocumentName] = useState('')
   const [file, setFile] = useState<File | null>(null)
-
-  const kind = PERSONNEL_DOCUMENT_KINDS.find((item) => item.label === kindLabel) ?? PERSONNEL_DOCUMENT_KINDS[0]
 
   function stageFiles(selected: File[]) {
     const { accepted, errors } = partitionUploadFiles(selected)
@@ -131,6 +126,11 @@ function PersonnelDocumentUploadDialog({
   }
 
   async function submit() {
+    const name = documentName.trim()
+    if (!name) {
+      toast.error('Name the document.')
+      return
+    }
     if (!file) {
       toast.error('Choose a file to upload.')
       return
@@ -138,13 +138,15 @@ function PersonnelDocumentUploadDialog({
     try {
       await uploadDocument.mutateAsync({
         file,
-        category: kind.category,
-        kindLabel: kind.label,
+        category: 'miscellaneous',
+        kindLabel: name,
+        title: name,
         ownerId: profileId,
         bucket: 'documents',
       })
-      toast.success(`${kind.label} uploaded for ${personLabel}`)
+      toast.success(`${name} uploaded for ${personLabel}`)
       setFile(null)
+      setDocumentName('')
       onOpenChange(false)
       onUploaded?.()
     } catch (error) {
@@ -160,21 +162,14 @@ function PersonnelDocumentUploadDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="personnel-doc-type">Document type</Label>
-            <NativeSelect
-              id="personnel-doc-type"
-              value={kind.label}
-              onChange={(event) => {
-                const next = PERSONNEL_DOCUMENT_KINDS.find((item) => item.label === event.target.value)
-                if (next) setKindLabel(next.label)
-              }}
-            >
-              {PERSONNEL_DOCUMENT_KINDS.map((item) => (
-                <option key={item.label} value={item.label}>
-                  {item.label}
-                </option>
-              ))}
-            </NativeSelect>
+            <Label htmlFor="personnel-doc-name">Document name</Label>
+            <Input
+              id="personnel-doc-name"
+              value={documentName}
+              onChange={(event) => setDocumentName(event.target.value)}
+              placeholder="W-2, W-9, driver's license…"
+              autoComplete="off"
+            />
           </div>
           <FilePickerButton
             label={file ? 'Replace file' : 'Choose file'}

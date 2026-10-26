@@ -92,6 +92,7 @@ export function useUploadDocument() {
       bucket = 'documents',
       kindLabel,
       ownerId,
+      title,
     }: {
       file: File
       category: DocumentRecord['category']
@@ -99,6 +100,7 @@ export function useUploadDocument() {
       bucket?: 'documents' | 'project-files'
       kindLabel?: string | null
       ownerId?: string | null
+      title?: string | null
     }) => {
       if (!profile?.organization_id) throw new Error('Missing organization')
 
@@ -132,7 +134,7 @@ export function useUploadDocument() {
         owner_id: documentOwnerId,
         uploaded_by: profile.id,
         project_id: projectId || null,
-        name: prepared.displayName,
+        name: title?.trim() || prepared.displayName,
         category,
         storage_path: path,
         mime_type: prepared.contentType,

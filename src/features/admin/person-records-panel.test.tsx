@@ -63,6 +63,15 @@ describe('PersonRecordsPanel', () => {
     expect(screen.getAllByRole('button', { name: 'Upload' }).length).toBeGreaterThan(0)
   })
 
+  it('lets admin type a document name instead of picking a type', async () => {
+    const user = userEvent.setup()
+    render(<PersonRecordsPanel profileId="person-1" personLabel="Santiago" />)
+    await user.click(screen.getAllByRole('button', { name: 'Upload' })[0]!)
+    expect(screen.getByLabelText('Document name')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Document type')).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/W-2/)).toBeInTheDocument()
+  })
+
   it('keeps certification proofs out of the Documents list', async () => {
     const user = userEvent.setup()
     render(<PersonRecordsPanel profileId="person-1" personLabel="Santiago" />)
