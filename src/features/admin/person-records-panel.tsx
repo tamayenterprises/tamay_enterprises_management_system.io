@@ -117,7 +117,9 @@ function PersonnelDocumentUploadDialog({
   onUploaded?: () => void
 }) {
   const uploadDocument = useUploadDocument()
-  const [kindLabel, setKindLabel] = useState(PERSONNEL_DOCUMENT_KINDS[0].label)
+  const [kindLabel, setKindLabel] = useState<(typeof PERSONNEL_DOCUMENT_KINDS)[number]['label']>(
+    PERSONNEL_DOCUMENT_KINDS[0].label,
+  )
   const [file, setFile] = useState<File | null>(null)
 
   const kind = PERSONNEL_DOCUMENT_KINDS.find((item) => item.label === kindLabel) ?? PERSONNEL_DOCUMENT_KINDS[0]
@@ -162,7 +164,10 @@ function PersonnelDocumentUploadDialog({
             <NativeSelect
               id="personnel-doc-type"
               value={kind.label}
-              onChange={(event) => setKindLabel(event.target.value)}
+              onChange={(event) => {
+                const next = PERSONNEL_DOCUMENT_KINDS.find((item) => item.label === event.target.value)
+                if (next) setKindLabel(next.label)
+              }}
             >
               {PERSONNEL_DOCUMENT_KINDS.map((item) => (
                 <option key={item.label} value={item.label}>
