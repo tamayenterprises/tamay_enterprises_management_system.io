@@ -11,6 +11,7 @@ import {
 describe('route scroll memory', () => {
   it('keys pages by path and search, not hash or deep-link params', () => {
     expect(routeScrollKey('/dashboard', '')).toBe('/dashboard')
+    expect(routeScrollKey('/admin', '?role=project_manager&q=cherry&approval=approved')).toBe('/admin')
     expect(routeScrollKey('/updates', '?tab=company')).toBe('/updates?tab=company')
     expect(routeScrollKey('/updates', '?tab=company&update=abc&reply=def')).toBe(
       '/updates?tab=company',

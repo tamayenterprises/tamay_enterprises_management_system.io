@@ -2,6 +2,8 @@ const positions = new Map<string, number>()
 const STORAGE_KEY = 'tamay.route-scroll.v1'
 
 const FOCUS_PARAMS = ['update', 'reply', 'parent', 'doc'] as const
+const VIEW_STATE_PARAMS = ['q', 'role', 'approval', 'archived'] as const
+const SCROLL_IGNORE_PARAMS = [...FOCUS_PARAMS, ...VIEW_STATE_PARAMS] as const
 
 export function isRouteFocusNavigation(search = '', hash = '') {
   if (hash) return true
@@ -11,7 +13,7 @@ export function isRouteFocusNavigation(search = '', hash = '') {
 
 export function routeScrollKey(pathname: string, search = '') {
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
-  for (const key of FOCUS_PARAMS) params.delete(key)
+  for (const key of SCROLL_IGNORE_PARAMS) params.delete(key)
   const qs = params.toString()
   return qs ? `${pathname}?${qs}` : pathname
 }
@@ -51,8 +53,10 @@ function hydratePositions() {
 }
 
 export function rememberRouteScroll(key: string, y: number) {
-  if (isDocumentHidden()) return
-  positions.set(key, Math.max(0, Math.round(y)))
+  const next = Math.max(0, Math.round(y))
+  // Background tabs often report scroll 0; keep the last in-view position.
+  if (isDocumentHidden() && next <= 0) return
+  positions.set(key, next)
   persistPositions()
 }
 

@@ -40,7 +40,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const syncSession = async (nextSession: Session | null) => {
       if (!mounted) return
-      resetCacheForUser(nextSession?.user?.id ?? null)
+      const nextUserId = nextSession?.user?.id ?? null
+      const sameUser = Boolean(nextUserId && nextUserId === cachedUserId.current)
+      resetCacheForUser(nextUserId)
 
       if (!nextSession?.user) {
         setSession(null)
@@ -49,15 +51,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // Mark loading before exposing the session so route guards never see
-      // "signed in but no profile yet" and bounce back to /sign-in.
-      setLoading(true)
+      // Token refresh / tab focus must not remount the app (that resets Admin filters
+      // and jumps scroll to the top). Only block the tree when the signed-in user changes.
+      if (!sameUser) setLoading(true)
       setSession(nextSession)
       try {
         const nextProfile = await fetchProfile(nextSession.user.id)
         if (mounted) setProfile(nextProfile)
       } catch {
-        if (mounted) setProfile(null)
+        if (mounted && !sameUser) setProfile(null)
       } finally {
         if (mounted) setLoading(false)
       }

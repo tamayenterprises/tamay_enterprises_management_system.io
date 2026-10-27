@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import {
   fullName,
   roleLabel,
 } from '@/lib/utils'
+import { adminDirectoryFromSearch, writeAdminDirectoryParams } from '@/lib/admin-directory-filters'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import { confirmAction } from '@/lib/uploads'
 import { ProfileAvatar } from '@/features/profile/avatar'
@@ -35,10 +36,11 @@ import type { ApprovalStatus, Profile, UserRole } from '@/types/database'
 
 export function AdminPage() {
   const { profile } = useAuth()
-  const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<string>('all')
-  const [approvalFilter, setApprovalFilter] = useState<string>('all')
-  const [showArchived, setShowArchived] = useState(false)
+  const [params, setParams] = useSearchParams()
+  const { search, roleFilter, approvalFilter, showArchived } = adminDirectoryFromSearch(params.toString())
+  const patchFilters = (next: Parameters<typeof writeAdminDirectoryParams>[1]) => {
+    setParams(writeAdminDirectoryParams(params, next), { replace: true })
+  }
   const pending = usePendingApprovals()
   const profiles = useProfiles({ includeArchived: true, search: search || undefined })
   const roles = useRoles()
@@ -219,9 +221,9 @@ export function AdminPage() {
               className="w-full sm:w-56"
               placeholder="Search name or email..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => patchFilters({ search: e.target.value })}
             />
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <Select value={roleFilter} onValueChange={(value) => patchFilters({ roleFilter: value })}>
               <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
@@ -234,7 +236,7 @@ export function AdminPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={approvalFilter} onValueChange={setApprovalFilter}>
+            <Select value={approvalFilter} onValueChange={(value) => patchFilters({ approvalFilter: value })}>
               <SelectTrigger className="w-full sm:w-44">
                 <SelectValue placeholder="Approval" />
               </SelectTrigger>
@@ -249,7 +251,7 @@ export function AdminPage() {
               variant={showArchived ? 'secondary' : 'outline'}
               size="sm"
               className="min-h-11 w-full sm:w-auto"
-              onClick={() => setShowArchived((value) => !value)}
+              onClick={() => patchFilters({ showArchived: !showArchived })}
             >
               {showArchived ? 'Hide removed' : 'Show removed'}
             </Button>

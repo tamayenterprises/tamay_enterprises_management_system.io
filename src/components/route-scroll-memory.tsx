@@ -39,11 +39,15 @@ export function RouteScrollMemory() {
 
     restore()
     const timers = [0, 50, 150, 400].map((ms) => window.setTimeout(restore, ms))
+    const onVisibility = () => {
+      if (document.hidden) save()
+      else restore()
+    }
     window.addEventListener('scroll', save, { passive: true })
     window.addEventListener('pointerdown', save, true)
     window.addEventListener('pageshow', restore)
     window.addEventListener('focus', restore)
-    document.addEventListener('visibilitychange', restore)
+    document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       save()
@@ -51,7 +55,7 @@ export function RouteScrollMemory() {
       window.removeEventListener('pointerdown', save, true)
       window.removeEventListener('pageshow', restore)
       window.removeEventListener('focus', restore)
-      document.removeEventListener('visibilitychange', restore)
+      document.removeEventListener('visibilitychange', onVisibility)
       timers.forEach((id) => window.clearTimeout(id))
     }
   }, [key, focused, location.hash])
