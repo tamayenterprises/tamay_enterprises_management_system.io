@@ -93,13 +93,13 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
   }, [accountOpen])
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen">
       <aside
         id="client-sidebar"
         aria-label="Client portal navigation"
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[240px] shrink-0 flex-col border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
-          'overflow-hidden shadow-lg lg:sticky lg:top-0 lg:shadow-none lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex h-dvh max-h-dvh w-[240px] shrink-0 flex-col border-r border-white/10 bg-sidebar text-sidebar-foreground transition-transform duration-300',
+          'overflow-hidden shadow-lg lg:shadow-none lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
@@ -167,7 +167,7 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
         />
       ) : null}
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 lg:pl-[240px]">
         <header className="sticky top-0 z-20 border-b border-border/70 bg-white/90 backdrop-blur-md">
           <div className="flex items-center gap-2 px-3 py-2.5 sm:px-5">
             <Button

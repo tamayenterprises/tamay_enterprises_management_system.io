@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { NativeSelect } from '@/components/ui/native-select'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
   downloadDocumentFile,
@@ -293,43 +292,43 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
 
       <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         <Input className="w-full min-w-0 sm:w-64" placeholder="Search documents..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <Select value={category} onValueChange={(value) => setCategory(value as 'all' | DocumentCategory)}>
-          <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {CATEGORIES.map((item) => (
-              <SelectItem key={item} value={item}>
-                {documentCategoryLabel(item)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <NativeSelect
+          className="w-full sm:w-52"
+          value={category}
+          onChange={(event) => setCategory(event.target.value as 'all' | DocumentCategory)}
+          aria-label="Category"
+        >
+          <option value="all">All categories</option>
+          {CATEGORIES.map((item) => (
+            <option key={item} value={item}>
+              {documentCategoryLabel(item)}
+            </option>
+          ))}
+        </NativeSelect>
         {personal ? null : (
-          <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-full sm:w-52">
-              <SelectValue placeholder="Project" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All projects</SelectItem>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <NativeSelect
+            className="w-full sm:w-52"
+            value={projectFilter}
+            onChange={(event) => setProjectFilter(event.target.value)}
+            aria-label="Project"
+          >
+            <option value="all">All projects</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </NativeSelect>
         )}
-        <Select value={scope} onValueChange={setScope}>
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue placeholder="Scope" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All visible</SelectItem>
-            <SelectItem value="mine">Uploaded by me</SelectItem>
-          </SelectContent>
-        </Select>
+        <NativeSelect
+          className="w-full sm:w-44"
+          value={scope}
+          onChange={(event) => setScope(event.target.value)}
+          aria-label="Scope"
+        >
+          <option value="all">All visible</option>
+          <option value="mine">Uploaded by me</option>
+        </NativeSelect>
       </div>
 
       {documents.length === 0 ? (
