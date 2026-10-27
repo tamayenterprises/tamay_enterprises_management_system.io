@@ -114,7 +114,7 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
 
   const mobileUpload = isMobileUploadDevice()
   const title = personal ? 'Personal Documents' : 'Work Documents'
-  const uploadLabel = personal ? 'Upload personal document' : 'Upload work document'
+  const uploadLabel = personal ? 'Upload Signed Documents' : 'Upload work document'
 
   const stageFiles = (selected: File[]) => {
     const { accepted, errors } = partitionUploadFiles(selected)

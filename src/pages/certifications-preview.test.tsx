@@ -52,7 +52,7 @@ describe('Certifications list', () => {
     expect(screen.getByRole('heading', { name: 'Uploaded by Tamay' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Your certifications' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Personal Documents' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Upload personal document' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upload Signed Documents' })).toBeInTheDocument()
 
     expect(screen.getByText('Cert 1')).toBeInTheDocument()
     expect(screen.getByText('Cert 2')).toBeInTheDocument()
