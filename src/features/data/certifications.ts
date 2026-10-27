@@ -89,22 +89,30 @@ export function useCreateCertification() {
         if (validationError) throw new Error(validationError)
       }
 
-      const { data, error } = await supabase
-        .from('certifications')
-        .insert({
-          name: values.name,
-          certification_type: values.certification_type,
-          profile_id: values.profile_id,
-          issue_date: values.issue_date || null,
-          expiration_date: values.expiration_date || null,
-          notes: values.notes || null,
-          document_url: null,
-          organization_id: profile.organization_id,
-        })
-        .select()
-        .single()
-      if (error) throw error
-      const certification = data as Certification
+      const baseRow = {
+        name: values.name,
+        certification_type: values.certification_type,
+        profile_id: values.profile_id,
+        issue_date: values.issue_date || null,
+        expiration_date: values.expiration_date || null,
+        notes: values.notes || null,
+        document_url: null,
+        organization_id: profile.organization_id,
+      }
+      const insertRow = (row: typeof baseRow & { created_by?: string }) =>
+        supabase.from('certifications').insert(row).select().single()
+
+      let insert = await insertRow({ ...baseRow, created_by: profile.id })
+      if (
+        insert.error &&
+        /created_by|schema cache|Could not find/i.test(
+          [insert.error.message, insert.error.details, insert.error.hint].filter(Boolean).join(' '),
+        )
+      ) {
+        insert = await insertRow(baseRow)
+      }
+      if (insert.error) throw insert.error
+      const certification = insert.data as Certification
 
       if (file) {
         try {

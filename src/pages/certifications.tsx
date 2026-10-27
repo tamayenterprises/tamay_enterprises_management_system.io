@@ -23,6 +23,8 @@ import {
   useProfiles,
   useUpdateCertification,
 } from '@/features/data/hooks'
+import { DocumentsLibrary } from '@/features/documents/documents-library'
+import { isSelfUploadedCertification } from '@/lib/certification-source'
 import { useListPreview } from '@/lib/list-preview'
 import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
@@ -74,9 +76,35 @@ export function CertificationsPage() {
   )
 
   const certifications = data ?? []
+  const companyCerts = useMemo(
+    () =>
+      canManage
+        ? []
+        : certifications.filter((cert) => !isSelfUploadedCertification(cert, profile?.id)),
+    [canManage, certifications, profile?.id],
+  )
+  const ownCerts = useMemo(
+    () =>
+      canManage
+        ? []
+        : certifications.filter((cert) => isSelfUploadedCertification(cert, profile?.id)),
+    [canManage, certifications, profile?.id],
+  )
   const list = useListPreview(
     certifications,
     `${search}:${status}:${type}`,
+    CERTIFICATIONS_STEP,
+    CERTIFICATIONS_PREVIEW,
+  )
+  const companyList = useListPreview(
+    companyCerts,
+    `company:${search}:${status}:${type}`,
+    CERTIFICATIONS_STEP,
+    CERTIFICATIONS_PREVIEW,
+  )
+  const ownList = useListPreview(
+    ownCerts,
+    `own:${search}:${status}:${type}`,
     CERTIFICATIONS_STEP,
     CERTIFICATIONS_PREVIEW,
   )
@@ -101,7 +129,7 @@ export function CertificationsPage() {
           <p className="text-sm text-muted-foreground">
             {canManage
               ? 'Track OSHA, CPR, equipment, and trade credentials across the workforce.'
-              : 'Upload your certification proof file, keep expiration dates current, and remove outdated records.'}
+              : 'Company-uploaded credentials stay separate from certifications you add. Documents live on this page too.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -268,20 +296,133 @@ export function CertificationsPage() {
         <SummaryCard label="Missing dates" value={alertCounts.missing} />
       </div>
 
-      {certifications.length === 0 ? (
-        <EmptyState
-          title="No certifications found"
-          description="Add OSHA, CPR, equipment, or trade credentials with a proof file to start tracking."
-        />
+      {canManage ? (
+        certifications.length === 0 ? (
+          <EmptyState
+            title="No certifications found"
+            description="Add OSHA, CPR, equipment, or trade credentials with a proof file to start tracking."
+          />
+        ) : (
+          <CertificationGrid
+            list={list}
+            canManage={canManage}
+            viewerId={profile?.id}
+            workers={workers}
+            updateCertification={updateCertification}
+            deleteCertification={deleteCertification}
+          />
+        )
       ) : (
-        <div className="space-y-3">
-        <div className="grid gap-4 lg:grid-cols-2">
-          {list.visible.map((cert) => (
+        <div className="space-y-8">
+          <CertificationSourceSection
+            title="Uploaded by Tamay"
+            description="Certifications management added to your record. You can view the proof; ask Tamay to change these."
+            emptyTitle="No company certifications yet"
+            emptyDescription="When Tamay uploads OSHA, licenses, or other credentials for you, they show up here."
+            list={companyList}
+            canManage={false}
+            viewerId={profile?.id}
+            workers={workers}
+            updateCertification={updateCertification}
+            deleteCertification={deleteCertification}
+          />
+          <CertificationSourceSection
+            title="Your certifications"
+            description="Credentials you uploaded yourself. Add, edit, or remove these anytime."
+            emptyTitle="You have not uploaded certifications yet"
+            emptyDescription="Use Add certification to upload your own OSHA, CPR, equipment, or trade proof."
+            list={ownList}
+            canManage={false}
+            viewerId={profile?.id}
+            workers={workers}
+            updateCertification={updateCertification}
+            deleteCertification={deleteCertification}
+          />
+        </div>
+      )}
+
+      {canManage ? null : (
+        <div className="border-t border-border pt-8">
+          <DocumentsLibrary variant="section" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CertificationSourceSection({
+  title,
+  description,
+  emptyTitle,
+  emptyDescription,
+  list,
+  canManage,
+  viewerId,
+  workers,
+  updateCertification,
+  deleteCertification,
+}: {
+  title: string
+  description: string
+  emptyTitle: string
+  emptyDescription: string
+  list: ReturnType<typeof useListPreview<Certification>>
+  canManage: boolean
+  viewerId?: string
+  workers: Array<{ id: string; first_name: string; last_name: string }>
+  updateCertification: ReturnType<typeof useUpdateCertification>
+  deleteCertification: ReturnType<typeof useDeleteCertification>
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="font-display text-2xl font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      {list.total === 0 ? (
+        <EmptyState title={emptyTitle} description={emptyDescription} />
+      ) : (
+        <CertificationGrid
+          list={list}
+          canManage={canManage}
+          viewerId={viewerId}
+          workers={workers}
+          updateCertification={updateCertification}
+          deleteCertification={deleteCertification}
+        />
+      )}
+    </section>
+  )
+}
+
+function CertificationGrid({
+  list,
+  canManage,
+  viewerId,
+  workers,
+  updateCertification,
+  deleteCertification,
+}: {
+  list: ReturnType<typeof useListPreview<Certification>>
+  canManage: boolean
+  viewerId?: string
+  workers: Array<{ id: string; first_name: string; last_name: string }>
+  updateCertification: ReturnType<typeof useUpdateCertification>
+  deleteCertification: ReturnType<typeof useDeleteCertification>
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-4 lg:grid-cols-2">
+        {list.visible.map((cert) => {
+          const selfUploaded = isSelfUploadedCertification(cert, viewerId)
+          return (
             <CertificationCard
               key={cert.id}
               cert={cert}
               canManage={canManage}
-              canRemove={canManage || cert.profile_id === profile?.id}
+              canEdit={canManage || selfUploaded}
+              canRemove={canManage || selfUploaded}
+              sourceLabel={canManage ? null : selfUploaded ? 'Yours' : 'From Tamay'}
               workers={workers}
               onSave={async (values, file) => {
                 try {
@@ -311,16 +452,15 @@ export function CertificationsPage() {
                 }
               }}
             />
-          ))}
-        </div>
-        <SeeMoreButton
-          shown={list.shown}
-          total={list.total}
-          step={CERTIFICATIONS_STEP}
-          onMore={list.showMore}
-        />
-        </div>
-      )}
+          )
+        })}
+      </div>
+      <SeeMoreButton
+        shown={list.shown}
+        total={list.total}
+        step={CERTIFICATIONS_STEP}
+        onMore={list.showMore}
+      />
     </div>
   )
 }
@@ -353,7 +493,9 @@ function SummaryCard({
 function CertificationCard({
   cert,
   canManage,
+  canEdit,
   canRemove,
+  sourceLabel,
   workers,
   onSave,
   onDelete,
@@ -361,7 +503,9 @@ function CertificationCard({
 }: {
   cert: Certification
   canManage: boolean
+  canEdit: boolean
   canRemove: boolean
+  sourceLabel: string | null
   workers: Array<{ id: string; first_name: string; last_name: string }>
   onSave: (values: CertificationFormValues, file?: File | null) => Promise<void>
   onDelete: () => Promise<void>
@@ -391,17 +535,22 @@ function CertificationCard({
             {cert.certification_type}
           </p>
         </div>
-        <Badge
-          variant={
-            cert.status === 'valid'
-              ? 'success'
-              : cert.status === 'expiring_soon'
-                ? 'warning'
-                : 'destructive'
-          }
-        >
-          {certificationStatusLabel(cert.status)}
-        </Badge>
+        <div className="flex flex-col items-end gap-1">
+          {sourceLabel ? (
+            <Badge variant="secondary">{sourceLabel}</Badge>
+          ) : null}
+          <Badge
+            variant={
+              cert.status === 'valid'
+                ? 'success'
+                : cert.status === 'expiring_soon'
+                  ? 'warning'
+                  : 'destructive'
+            }
+          >
+            {certificationStatusLabel(cert.status)}
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p>Issued: {formatDate(cert.issue_date)}</p>
@@ -414,6 +563,7 @@ function CertificationCard({
               View proof
             </Button>
           ) : null}
+          {canEdit ? (
           <Dialog
             open={open}
             onOpenChange={(next) => {
@@ -519,6 +669,7 @@ function CertificationCard({
               </form>
             </DialogContent>
           </Dialog>
+          ) : null}
           {canRemove ? (
             <Button size="sm" variant="destructive" onClick={onDelete}>
               Remove

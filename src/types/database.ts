@@ -317,6 +317,7 @@ export interface Certification {
   status: CertificationStatus
   document_url: string | null
   notes: string | null
+  created_by?: string | null
   created_at: string
   updated_at: string
   profile?: DirectoryProfile

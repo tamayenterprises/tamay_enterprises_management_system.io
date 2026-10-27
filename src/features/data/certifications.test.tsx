@@ -38,7 +38,7 @@ vi.mock('@/lib/supabase', () => ({
     from: (table: string) => {
       const chain = {
         insert: (row: Record<string, unknown>) => {
-          calls.push(`${table}.insert:${String(row.document_url)}`)
+          calls.push(`${table}.insert:${String(row.document_url)}:${String(row.created_by ?? '')}`)
           return chain
         },
         update: () => {
@@ -82,7 +82,7 @@ describe('certification proofs', () => {
     const { result } = renderHook(() => useCreateCertification(), { wrapper })
     await result.current.mutateAsync({ values, file: proof() })
 
-    expect(calls[0]).toBe('certifications.insert:null')
+    expect(calls[0]).toBe('certifications.insert:null:manager-1')
     expect(calls[1]).toMatch(/^upload:worker-1\/certifications\/\d+-osha card\.pdf$/)
     expect(calls[2]).toMatch(/^rpc:set_certification_proof:.*"p_storage_path":"worker-1\/certifications\//)
     expect(calls.some((call) => call.startsWith('documents.insert'))).toBe(false)
