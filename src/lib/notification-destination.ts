@@ -9,6 +9,7 @@ export type NotificationLinkSource = {
   parent_entity_id?: string | null
   project_id?: string | null
   activity_type?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 function applyQuery(path: string, extra: Record<string, string | undefined>) {
@@ -46,19 +47,44 @@ function isProjectDocument(item: NotificationLinkSource) {
   return item.entity_type === 'document' || item.activity_type === 'FILE_UPLOADED'
 }
 
+function metaString(value: unknown) {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
 export function documentDeleteRequestMeta(item: {
   entity_type?: string | null
   entity_id?: string | null
   metadata?: Record<string, unknown> | null
 }) {
   if (item.entity_type !== 'document_delete_request') return null
-  const requestId =
-    typeof item.metadata?.request_id === 'string'
-      ? item.metadata.request_id
-      : (item.entity_id ?? null)
-  const status = typeof item.metadata?.status === 'string' ? item.metadata.status : 'pending'
-  const reason = typeof item.metadata?.reason === 'string' ? item.metadata.reason : ''
-  return { requestId, status, reason }
+  const metadata = item.metadata ?? {}
+  const certificationId = metaString(metadata.certification_id)
+  const documentId = metaString(metadata.document_id)
+  const requestId = metaString(metadata.request_id) ?? item.entity_id ?? null
+  const status = metaString(metadata.status) ?? 'pending'
+  const reason = metaString(metadata.reason) ?? ''
+  const target =
+    metaString(metadata.target) ?? (certificationId ? 'certification' : 'document')
+  return {
+    requestId,
+    status,
+    reason,
+    target,
+    documentId,
+    certificationId,
+    name: metaString(metadata.document_name),
+  }
+}
+
+export function documentDeleteRequestDestination(item: NotificationLinkSource) {
+  const meta = documentDeleteRequestMeta(item)
+  if (!meta) return null
+  if (meta.certificationId) return `/certifications?cert=${meta.certificationId}`
+  if (meta.documentId && item.project_id) {
+    return `/projects/${item.project_id}?tab=files&doc=${meta.documentId}`
+  }
+  if (meta.documentId) return `/documents?doc=${meta.documentId}`
+  return item.destination_route || item.link || '/notifications'
 }
 
 export function isPendingDocumentDeleteRequest(item: {
@@ -108,6 +134,8 @@ export function notificationDestination(
     if (base) {
       route = applyQuery(base, { tab: 'files', doc: entityId })
     }
+  } else if (item.entity_type === 'document_delete_request') {
+    route = documentDeleteRequestDestination(item) ?? route
   }
 
   if (!route) return null

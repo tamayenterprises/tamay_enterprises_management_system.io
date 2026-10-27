@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import type { DocumentRecord } from '@/types/database'
 import { DocumentsPage } from './documents'
@@ -41,7 +42,11 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 describe('Documents list', () => {
   it('shows two documents, then three more at a time', async () => {
     const user = userEvent.setup()
-    render(<DocumentsPage />)
+    render(
+      <MemoryRouter>
+        <DocumentsPage />
+      </MemoryRouter>,
+    )
 
     expect(screen.getByRole('heading', { name: 'Work Documents' })).toBeInTheDocument()
     expect(screen.getByText('File 1.pdf')).toBeInTheDocument()

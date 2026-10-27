@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ import {
   isCompanyUploadedDocument,
   isSelfUploadedDocument,
 } from '@/lib/document-visibility'
+import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { useListPreview } from '@/lib/list-preview'
 import {
   documentCategoryBadgeVariant,
@@ -80,6 +82,8 @@ export function DocumentsLibrary({
 }) {
   const personal = variant === 'personal'
   const { profile } = useAuth()
+  const [params] = useSearchParams()
+  const focusDocId = params.get('doc')
   const canManage = isManagementRole(profile?.role)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<'all' | DocumentCategory>('all')
@@ -132,6 +136,12 @@ export function DocumentsLibrary({
     DOCUMENTS_STEP,
     DOCUMENTS_PREVIEW,
   )
+
+  useEffect(() => {
+    if (!focusDocId) return
+    list.revealAll()
+    return scheduleScrollToId(`doc-${focusDocId}`)
+  }, [focusDocId, documents, list.revealAll])
 
   const counts = useMemo(() => {
     const rows = authorizedRows
@@ -281,6 +291,7 @@ export function DocumentsLibrary({
             <DocumentCard
               key={doc.id}
               doc={doc}
+              focused={focusDocId === doc.id}
               personal={personal}
               canDelete={canRemoveDocument(doc, profile) && !pendingByDocumentId.has(doc.id)}
               canRequestDelete={canRequestDocumentDelete(doc, profile)}
@@ -513,6 +524,7 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
 
 function DocumentCard({
   doc,
+  focused,
   personal,
   canDelete,
   canRequestDelete,
@@ -525,6 +537,7 @@ function DocumentCard({
   onResolveDelete,
 }: {
   doc: DocumentRecord
+  focused: boolean
   personal: boolean
   canDelete: boolean
   canRequestDelete: boolean
@@ -537,7 +550,10 @@ function DocumentCard({
   onResolveDelete: (approve: boolean) => Promise<void>
 }) {
   return (
-    <Card>
+    <Card
+      id={`doc-${doc.id}`}
+      className={focused ? 'border-accent bg-accent/5 ring-2 ring-accent/30' : undefined}
+    >
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-lg">{doc.name}</CardTitle>

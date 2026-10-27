@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -29,6 +30,7 @@ import {
 import { DeleteRequestDialog } from '@/features/documents/delete-request-dialog'
 import { DocumentsLibrary } from '@/features/documents/documents-library'
 import { canRequestCertificationDelete, isSelfUploadedCertification } from '@/lib/certification-source'
+import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { useListPreview } from '@/lib/list-preview'
 import { canAccessAdmin, certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
@@ -42,6 +44,8 @@ const CERT_TYPES = ['OSHA', 'Equipment', 'Trade', 'CPR', 'First Aid', 'Company-s
 
 export function CertificationsPage() {
   const { profile } = useAuth()
+  const [params] = useSearchParams()
+  const focusCertId = params.get('cert')
   const canManage = isManagementRole(profile?.role)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<'all' | CertificationStatus>('all')
@@ -310,6 +314,7 @@ export function CertificationsPage() {
             list={list}
             canManage={canManage}
             viewerId={profile?.id}
+            focusCertId={focusCertId}
             workers={workers}
             updateCertification={updateCertification}
             deleteCertification={deleteCertification}
@@ -325,6 +330,7 @@ export function CertificationsPage() {
             list={companyList}
             canManage={false}
             viewerId={profile?.id}
+            focusCertId={focusCertId}
             workers={workers}
             updateCertification={updateCertification}
             deleteCertification={deleteCertification}
@@ -339,6 +345,7 @@ export function CertificationsPage() {
             list={ownList}
             canManage={false}
             viewerId={profile?.id}
+            focusCertId={focusCertId}
             workers={workers}
             updateCertification={updateCertification}
             deleteCertification={deleteCertification}
@@ -363,6 +370,7 @@ function CertificationSourceSection({
   list,
   canManage,
   viewerId,
+  focusCertId,
   workers,
   updateCertification,
   deleteCertification,
@@ -375,6 +383,7 @@ function CertificationSourceSection({
   list: ReturnType<typeof useListPreview<Certification>>
   canManage: boolean
   viewerId?: string
+  focusCertId?: string | null
   workers: Array<{ id: string; first_name: string; last_name: string }>
   updateCertification: ReturnType<typeof useUpdateCertification>
   deleteCertification: ReturnType<typeof useDeleteCertification>
@@ -393,6 +402,7 @@ function CertificationSourceSection({
           list={list}
           canManage={canManage}
           viewerId={viewerId}
+          focusCertId={focusCertId}
           workers={workers}
           updateCertification={updateCertification}
           deleteCertification={deleteCertification}
@@ -407,6 +417,7 @@ function CertificationGrid({
   list,
   canManage,
   viewerId,
+  focusCertId,
   workers,
   updateCertification,
   deleteCertification,
@@ -414,6 +425,7 @@ function CertificationGrid({
   list: ReturnType<typeof useListPreview<Certification>>
   canManage: boolean
   viewerId?: string
+  focusCertId?: string | null
   workers: Array<{ id: string; first_name: string; last_name: string }>
   updateCertification: ReturnType<typeof useUpdateCertification>
   deleteCertification: ReturnType<typeof useDeleteCertification>
@@ -434,6 +446,12 @@ function CertificationGrid({
   const canApproveDeletes = canAccessAdmin(profile?.role)
   const canRequestDelete = canRequestCertificationDelete(profile)
 
+  useEffect(() => {
+    if (!focusCertId) return
+    list.revealAll()
+    return scheduleScrollToId(`cert-${focusCertId}`)
+  }, [focusCertId, list.revealAll, list.total])
+
   return (
     <div className="space-y-3">
       <div className="grid gap-4 lg:grid-cols-2">
@@ -450,6 +468,7 @@ function CertificationGrid({
               canRequestDelete={canRequestDelete}
               canApproveDelete={canApproveDeletes && pending}
               deletePending={pending}
+              focused={focusCertId === cert.id}
               sourceLabel={canManage ? null : selfUploaded ? 'Yours' : 'From Tamay'}
               workers={workers}
               onSave={async (values, file) => {
@@ -579,6 +598,7 @@ function CertificationCard({
   canRequestDelete,
   canApproveDelete,
   deletePending,
+  focused,
   sourceLabel,
   workers,
   onSave,
@@ -594,6 +614,7 @@ function CertificationCard({
   canRequestDelete: boolean
   canApproveDelete: boolean
   deletePending: boolean
+  focused: boolean
   sourceLabel: string | null
   workers: Array<{ id: string; first_name: string; last_name: string }>
   onSave: (values: CertificationFormValues, file?: File | null) => Promise<void>
@@ -617,7 +638,10 @@ function CertificationCard({
   })
 
   return (
-    <Card>
+    <Card
+      id={`cert-${cert.id}`}
+      className={focused ? 'border-accent bg-accent/5 ring-2 ring-accent/30' : undefined}
+    >
       <CardHeader className="flex flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-xl">{cert.name}</CardTitle>

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import type { Certification, DocumentRecord } from '@/types/database'
 import { CertificationsPage } from './certifications'
@@ -71,7 +72,11 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 describe('Certifications list', () => {
   it('separates Tamay uploads from the worker’s own certifications', async () => {
     const user = userEvent.setup()
-    render(<CertificationsPage />)
+    render(
+      <MemoryRouter>
+        <CertificationsPage />
+      </MemoryRouter>,
+    )
 
     expect(screen.getByRole('heading', { name: 'Uploaded by Tamay' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Your certifications' })).toBeInTheDocument()

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { useProfiles, useReviewDocumentDelete } from '@/features/data/hooks'
+import { deleteRequestOpenLabel, openDeleteRequestTarget } from '@/lib/delete-request-open'
 import {
   relevanceLabel,
   useCreateNotification,
@@ -365,6 +366,17 @@ export function NotificationsPage() {
                   toast.error(error instanceof Error ? error.message : 'Update failed')
                 }
               }}
+              onOpenFile={async () => {
+                const meta = documentDeleteRequestMeta(item)
+                try {
+                  await openDeleteRequestTarget({
+                    documentId: meta?.documentId,
+                    certificationId: meta?.certificationId,
+                  })
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Could not open this file')
+                }
+              }}
               onResolveDelete={async (approve) => {
                 const meta = documentDeleteRequestMeta(item)
                 if (!meta?.requestId) {
@@ -436,6 +448,7 @@ function NotificationCard({
   onMarkUnread,
   onDelete,
   onReview,
+  onOpenFile,
   onResolveDelete,
   onOpen,
 }: {
@@ -446,6 +459,7 @@ function NotificationCard({
   onMarkUnread: () => Promise<void>
   onDelete: () => Promise<void>
   onReview: (status: 'reviewed' | 'resolved') => Promise<void>
+  onOpenFile: () => Promise<void>
   onResolveDelete: (approve: boolean) => Promise<void>
   onOpen: () => Promise<void>
 }) {
@@ -488,6 +502,14 @@ function NotificationCard({
         <div className="flex flex-wrap gap-2">
           {canApproveDelete ? (
             <>
+              <Button size="sm" variant="outline" onClick={() => void onOpenFile()}>
+                {deleteRequestOpenLabel(deleteMeta?.target)}
+              </Button>
+              {destination ? (
+                <Button size="sm" variant="outline" onClick={() => void onOpen()}>
+                  View record
+                </Button>
+              ) : null}
               <Button size="sm" onClick={() => void onResolveDelete(true)}>
                 Approve delete
               </Button>
