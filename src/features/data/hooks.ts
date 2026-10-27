@@ -21,7 +21,10 @@ export {
   viewDocumentFile,
   useDeleteDocument,
   useDocuments,
+  usePendingDocumentDeleteRequests,
   useProjectDocuments,
+  useRequestDocumentDelete,
+  useReviewDocumentDelete,
   useSetDocumentTeamVisibility,
   useUploadDocument,
 } from '@/features/data/documents'

@@ -46,6 +46,28 @@ function isProjectDocument(item: NotificationLinkSource) {
   return item.entity_type === 'document' || item.activity_type === 'FILE_UPLOADED'
 }
 
+export function documentDeleteRequestMeta(item: {
+  entity_type?: string | null
+  entity_id?: string | null
+  metadata?: Record<string, unknown> | null
+}) {
+  if (item.entity_type !== 'document_delete_request') return null
+  const requestId =
+    typeof item.metadata?.request_id === 'string'
+      ? item.metadata.request_id
+      : (item.entity_id ?? null)
+  const status = typeof item.metadata?.status === 'string' ? item.metadata.status : 'pending'
+  const reason = typeof item.metadata?.reason === 'string' ? item.metadata.reason : ''
+  return { requestId, status, reason }
+}
+
+export function isPendingDocumentDeleteRequest(item: {
+  entity_type?: string | null
+  metadata?: Record<string, unknown> | null
+}) {
+  return documentDeleteRequestMeta(item)?.status === 'pending'
+}
+
 /** Open the exact update, reply, or file the notification is about. */
 export function notificationDestination(
   item: NotificationLinkSource,

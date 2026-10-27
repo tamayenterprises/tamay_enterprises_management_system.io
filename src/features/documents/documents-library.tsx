@@ -12,17 +12,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { NativeSelect } from '@/components/ui/native-select'
+import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
   downloadDocumentFile,
   useDeleteDocument,
   useDocuments,
+  usePendingDocumentDeleteRequests,
   useProjects,
+  useRequestDocumentDelete,
   useUploadDocument,
   viewDocumentFile,
 } from '@/features/data/hooks'
 import {
   canRemoveDocument,
+  canRequestDocumentDelete,
   canViewerSeeDocument,
   isCompanyUploadedDocument,
   isSelfUploadedDocument,
@@ -82,6 +86,8 @@ export function DocumentsLibrary({
   const [uploadOpen, setUploadOpen] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [uploadProjectId, setUploadProjectId] = useState<string>('none')
+  const [deleteTarget, setDeleteTarget] = useState<DocumentRecord | null>(null)
+  const [deleteReason, setDeleteReason] = useState('')
   const projectSelectId = personal ? 'personal-upload-project' : 'upload-project'
 
   const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
@@ -98,6 +104,12 @@ export function DocumentsLibrary({
   })
   const uploadDocument = useUploadDocument()
   const deleteDocument = useDeleteDocument()
+  const requestDelete = useRequestDocumentDelete()
+  const { data: pendingDeleteRequests = [] } = usePendingDocumentDeleteRequests()
+  const pendingDeleteIds = useMemo(
+    () => new Set(pendingDeleteRequests.flatMap((item) => (item.document_id ? [item.document_id] : []))),
+    [pendingDeleteRequests],
+  )
 
   const authorizedRows = useMemo(() => {
     const rows = (data ?? []).filter((doc) => canViewerSeeDocument(doc, profile))
@@ -264,6 +276,8 @@ export function DocumentsLibrary({
               doc={doc}
               personal={personal}
               canDelete={canRemoveDocument(doc, profile)}
+              canRequestDelete={canRequestDocumentDelete(doc, profile)}
+              deletePending={pendingDeleteIds.has(doc.id)}
               onView={async () => {
                 try {
                   await viewDocumentFile(doc)
@@ -287,6 +301,10 @@ export function DocumentsLibrary({
                   toast.error(error instanceof Error ? error.message : 'Remove failed')
                 }
               }}
+              onRequestDelete={() => {
+                setDeleteReason('')
+                setDeleteTarget(doc)
+              }}
             />
           ))}
         </div>
@@ -299,7 +317,79 @@ export function DocumentsLibrary({
       </div>
     )
 
-  if (compact) return fileCards
+  const deleteRequestDialog = (
+    <Dialog
+      open={Boolean(deleteTarget)}
+      onOpenChange={(open) => {
+        if (!open) {
+          setDeleteTarget(null)
+          setDeleteReason('')
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Request document delete</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Admin will review this before anything is removed
+          {deleteTarget ? ` (${deleteTarget.name}).` : '.'}
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="document-delete-reason">Why do you want to delete this document?</Label>
+          <Textarea
+            id="document-delete-reason"
+            value={deleteReason}
+            onChange={(event) => setDeleteReason(event.target.value)}
+            placeholder="Give a short reason for the admin."
+            rows={4}
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setDeleteTarget(null)
+              setDeleteReason('')
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={requestDelete.isPending}
+            onClick={async () => {
+              if (!deleteTarget) return
+              const reason = deleteReason.trim()
+              if (reason.length < 5) {
+                toast.error('Please explain why this document should be deleted.')
+                return
+              }
+              try {
+                await requestDelete.mutateAsync({ documentId: deleteTarget.id, reason })
+                toast.success('Delete request sent to admin')
+                setDeleteTarget(null)
+                setDeleteReason('')
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : 'Could not send delete request')
+              }
+            }}
+          >
+            {requestDelete.isPending ? 'Sending…' : 'Send request'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (compact) {
+    return (
+      <>
+        {fileCards}
+        {deleteRequestDialog}
+      </>
+    )
+  }
 
   const headingClass = personal
     ? 'font-display text-2xl font-semibold'
@@ -410,6 +500,7 @@ export function DocumentsLibrary({
       ) : (
         fileCards
       )}
+      {deleteRequestDialog}
     </div>
   )
 }
@@ -429,16 +520,22 @@ function DocumentCard({
   doc,
   personal,
   canDelete,
+  canRequestDelete,
+  deletePending,
   onView,
   onDownload,
   onDelete,
+  onRequestDelete,
 }: {
   doc: DocumentRecord
   personal: boolean
   canDelete: boolean
+  canRequestDelete: boolean
+  deletePending: boolean
   onView: () => Promise<void>
   onDownload: () => Promise<void>
   onDelete: () => Promise<void>
+  onRequestDelete: () => void
 }) {
   return (
     <Card>
@@ -452,9 +549,12 @@ function DocumentCard({
               : ''}
           </p>
         </div>
-        <Badge variant={documentCategoryBadgeVariant(doc.category)}>
-          {documentCategoryLabel(doc.category)}
-        </Badge>
+        <div className="flex flex-col items-end gap-1">
+          <Badge variant={documentCategoryBadgeVariant(doc.category)}>
+            {documentCategoryLabel(doc.category)}
+          </Badge>
+          {deletePending ? <Badge variant="outline">Delete pending</Badge> : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-muted-foreground">
         <p>
@@ -471,6 +571,10 @@ function DocumentCard({
           {canDelete ? (
             <Button size="sm" variant="destructive" onClick={onDelete}>
               Remove
+            </Button>
+          ) : canRequestDelete ? (
+            <Button size="sm" variant="destructive" disabled={deletePending} onClick={onRequestDelete}>
+              Delete
             </Button>
           ) : null}
         </div>

@@ -323,6 +323,22 @@ export interface Certification {
   profile?: DirectoryProfile
 }
 
+export type DocumentDeleteRequestStatus = 'pending' | 'approved' | 'denied'
+
+export interface DocumentDeleteRequest {
+  id: string
+  organization_id: string
+  document_id: string | null
+  document_name: string
+  requested_by: string
+  reason: string
+  status: DocumentDeleteRequestStatus
+  reviewed_by: string | null
+  reviewed_at: string | null
+  review_note: string | null
+  created_at: string
+}
+
 export interface DocumentRecord {
   id: string
   organization_id: string
@@ -918,6 +934,14 @@ export interface Database {
           Fk<'documents_project_id_fkey', 'project_id', 'projects'>,
         ]
       >
+      document_delete_requests: Table<
+        DocumentDeleteRequest,
+        [
+          Fk<'document_delete_requests_document_id_fkey', 'document_id', 'documents'>,
+          Fk<'document_delete_requests_requested_by_fkey', 'requested_by', 'profiles'>,
+          Fk<'document_delete_requests_reviewed_by_fkey', 'reviewed_by', 'profiles'>,
+        ]
+      >
       notifications: Table<
         Notification,
         [
@@ -1013,6 +1037,11 @@ export interface Database {
           p_approval_status?: ApprovalStatus | null
         },
         Profile[]
+      >
+      request_document_delete: Rpc<{ p_document_id: string; p_reason: string }, string>
+      review_document_delete: Rpc<
+        { p_request_id: string; p_approve: boolean; p_review_note?: string | null },
+        { status: DocumentDeleteRequestStatus; request_id: string }
       >
       set_certification_proof: Rpc<
         {

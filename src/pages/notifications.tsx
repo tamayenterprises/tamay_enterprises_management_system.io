@@ -13,7 +13,7 @@ import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-hooks'
-import { useProfiles } from '@/features/data/hooks'
+import { useProfiles, useReviewDocumentDelete } from '@/features/data/hooks'
 import {
   relevanceLabel,
   useCreateNotification,
@@ -26,7 +26,12 @@ import {
   useUpdateNotificationPreferences,
 } from '@/features/notifications/hooks'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
-import { notificationDestination } from '@/lib/notification-destination'
+import {
+  documentDeleteRequestMeta,
+  isPendingDocumentDeleteRequest,
+  notificationDestination,
+} from '@/lib/notification-destination'
+import { confirmAction } from '@/lib/uploads'
 import { canAccessAdmin, formatRelative, fullName, isManagementRole } from '@/lib/utils'
 import type { Notification, NotificationPreferences } from '@/types/database'
 
@@ -56,6 +61,8 @@ export function NotificationsPage() {
   const deleteNotification = useDeleteNotification()
   const createNotification = useCreateNotification()
   const reviewNotification = useReviewNotification()
+  const reviewDocumentDelete = useReviewDocumentDelete()
+  const canApproveDeletes = canAccessAdmin(profile?.role)
 
   const counts = useMemo(() => {
     const unread = allNotifications.filter((item) => !item.is_read).length
@@ -322,7 +329,12 @@ export function NotificationsPage() {
             <NotificationCard
               key={item.id}
               item={item}
-              canReview={canManage && (item.review_status === 'new' || item.relevance === 'requires_attention')}
+              canApproveDelete={canApproveDeletes && isPendingDocumentDeleteRequest(item)}
+              canReview={
+                !isPendingDocumentDeleteRequest(item) &&
+                canManage &&
+                (item.review_status === 'new' || item.relevance === 'requires_attention')
+              }
               onMarkRead={async () => {
                 try {
                   await markRead.mutateAsync({ id: item.id, isRead: true })
@@ -351,6 +363,23 @@ export function NotificationsPage() {
                   toast.success(reviewStatus === 'resolved' ? 'Marked resolved' : 'Marked reviewed')
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : 'Update failed')
+                }
+              }}
+              onResolveDelete={async (approve) => {
+                const meta = documentDeleteRequestMeta(item)
+                if (!meta?.requestId) {
+                  toast.error('This delete request is no longer available.')
+                  return
+                }
+                const prompt = approve
+                  ? 'Approve this delete? The document will be removed.'
+                  : 'Deny this delete request? The document will stay.'
+                if (!confirmAction(prompt)) return
+                try {
+                  await reviewDocumentDelete.mutateAsync({ requestId: meta.requestId, approve })
+                  toast.success(approve ? 'Document deleted' : 'Delete request denied')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Could not review the request')
                 }
               }}
               onOpen={async () => {
@@ -402,22 +431,27 @@ function SummaryCard({
 function NotificationCard({
   item,
   canReview,
+  canApproveDelete,
   onMarkRead,
   onMarkUnread,
   onDelete,
   onReview,
+  onResolveDelete,
   onOpen,
 }: {
   item: Notification
   canReview: boolean
+  canApproveDelete: boolean
   onMarkRead: () => Promise<void>
   onMarkUnread: () => Promise<void>
   onDelete: () => Promise<void>
   onReview: (status: 'reviewed' | 'resolved') => Promise<void>
+  onResolveDelete: (approve: boolean) => Promise<void>
   onOpen: () => Promise<void>
 }) {
   const actorName = item.actor ? fullName(item.actor.first_name, item.actor.last_name) : null
   const destination = notificationDestination(item)
+  const deleteMeta = documentDeleteRequestMeta(item)
 
   return (
     <Card className={item.is_read ? 'opacity-90' : 'border-accent/40'}>
@@ -439,6 +473,11 @@ function NotificationCard({
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p>{item.preview_text || item.message}</p>
+        {deleteMeta?.reason ? (
+          <p>
+            <span className="font-medium">Reason:</span> {deleteMeta.reason}
+          </p>
+        ) : null}
         <p className="text-xs text-muted-foreground">
           {actorName ? `${actorName} · ` : ''}
           {formatRelative(item.created_at)}
@@ -446,7 +485,16 @@ function NotificationCard({
           {item.review_status && item.review_status !== 'none' ? ` · ${item.review_status}` : ''}
         </p>
         <div className="flex flex-wrap gap-2">
-          {destination ? (
+          {canApproveDelete ? (
+            <>
+              <Button size="sm" onClick={() => void onResolveDelete(true)}>
+                Approve delete
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void onResolveDelete(false)}>
+                Deny
+              </Button>
+            </>
+          ) : destination ? (
             <Button size="sm" onClick={() => void onOpen()}>
               View activity
             </Button>

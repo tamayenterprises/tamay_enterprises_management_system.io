@@ -26,6 +26,8 @@ vi.mock('@/features/data/hooks', () => ({
   }),
   useUploadDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  usePendingDocumentDeleteRequests: () => ({ data: [] }),
+  useRequestDocumentDelete: () => ({ mutateAsync: vi.fn(), isPending: false }),
   viewDocumentFile: vi.fn(),
   downloadDocumentFile: vi.fn(),
 }))

@@ -9,7 +9,7 @@ import {
 } from '@/lib/document-visibility'
 import { documentStorageBucket, sanitizeSearchTerm } from '@/lib/utils'
 import { validateUploadFile, uploadErrorMessage, prepareUploadFileAsync } from '@/lib/uploads'
-import type { DocumentCategory, DocumentRecord } from '@/types/database'
+import type { DocumentCategory, DocumentDeleteRequest, DocumentRecord } from '@/types/database'
 import { PROFILE_DIRECTORY_COLUMNS } from '@/lib/profile-fields'
 
 // Document lists depend on who is signed in and on management's sharing choices, so they are
@@ -233,6 +233,83 @@ export function useDeleteDocument() {
       if (doc.project_id) {
         queryClient.invalidateQueries({ queryKey: ['project-documents', doc.project_id] })
       }
+    },
+  })
+}
+
+function documentDeleteSetupError(error: { message?: string } | null) {
+  if (!error?.message) return null
+  if (/schema cache|PGRST|does not exist|could not find/i.test(error.message)) {
+    return 'Document delete requests are not set up yet. Run migration 20261027020000_document_delete_requests.sql in the SQL editor.'
+  }
+  return null
+}
+
+export function usePendingDocumentDeleteRequests() {
+  const { profile } = useAuth()
+  return useQuery({
+    queryKey: ['document-delete-requests', 'pending', profile?.id],
+    enabled: Boolean(profile?.id),
+    ...AUTHORIZED_LIST_OPTIONS,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('document_delete_requests')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+      if (error) {
+        const setup = documentDeleteSetupError(error)
+        if (setup) return [] as DocumentDeleteRequest[]
+        throw error
+      }
+      return (data ?? []) as DocumentDeleteRequest[]
+    },
+  })
+}
+
+export function useRequestDocumentDelete() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ documentId, reason }: { documentId: string; reason: string }) => {
+      const { data, error } = await supabase.rpc('request_document_delete', {
+        p_document_id: documentId,
+        p_reason: reason,
+      })
+      if (error) throw new Error(documentDeleteSetupError(error) ?? error.message)
+      return data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['document-delete-requests'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
+
+export function useReviewDocumentDelete() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      approve,
+      reviewNote,
+    }: {
+      requestId: string
+      approve: boolean
+      reviewNote?: string
+    }) => {
+      const { data, error } = await supabase.rpc('review_document_delete', {
+        p_request_id: requestId,
+        p_approve: approve,
+        p_review_note: reviewNote ?? null,
+      })
+      if (error) throw new Error(documentDeleteSetupError(error) ?? error.message)
+      return data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['document-delete-requests'] })
+      void queryClient.invalidateQueries({ queryKey: ['documents'] })
+      void queryClient.invalidateQueries({ queryKey: ['project-documents'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
 }

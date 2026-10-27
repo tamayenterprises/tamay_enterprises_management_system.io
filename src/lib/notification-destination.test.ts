@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { notificationDestination, notificationVisibleToRole } from './notification-destination'
+import {
+  isPendingDocumentDeleteRequest,
+  notificationDestination,
+  notificationVisibleToRole,
+} from './notification-destination'
 
 describe('notificationDestination', () => {
   it('points company update notifications at the specific post', () => {
@@ -59,6 +63,28 @@ describe('notificationDestination', () => {
         activity_type: 'FILE_UPLOADED',
       }),
     ).toBe('/projects/p1?tab=files&doc=doc-4')
+  })
+
+  it('keeps document delete requests on notifications instead of project files', () => {
+    expect(
+      notificationDestination({
+        destination_route: '/notifications',
+        entity_type: 'document_delete_request',
+        entity_id: 'req-1',
+      }),
+    ).toBe('/notifications')
+    expect(
+      isPendingDocumentDeleteRequest({
+        entity_type: 'document_delete_request',
+        metadata: { status: 'pending' },
+      }),
+    ).toBe(true)
+    expect(
+      isPendingDocumentDeleteRequest({
+        entity_type: 'document_delete_request',
+        metadata: { status: 'approved' },
+      }),
+    ).toBe(false)
   })
 })
 
