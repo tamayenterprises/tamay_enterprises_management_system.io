@@ -12,8 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
 import { NativeSelect } from '@/components/ui/native-select'
-import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-hooks'
+import { DeleteRequestDialog } from '@/features/documents/delete-request-dialog'
 import {
   downloadDocumentFile,
   useDeleteDocument,
@@ -21,6 +21,7 @@ import {
   usePendingDocumentDeleteRequests,
   useProjects,
   useRequestDocumentDelete,
+  useReviewDocumentDelete,
   useUploadDocument,
   viewDocumentFile,
 } from '@/features/data/hooks'
@@ -38,6 +39,7 @@ import {
   formatDate,
   formatFileSize,
   fullName,
+  canAccessAdmin,
   isManagementRole,
 } from '@/lib/utils'
 import {
@@ -105,11 +107,16 @@ export function DocumentsLibrary({
   const uploadDocument = useUploadDocument()
   const deleteDocument = useDeleteDocument()
   const requestDelete = useRequestDocumentDelete()
+  const reviewDelete = useReviewDocumentDelete()
   const { data: pendingDeleteRequests = [] } = usePendingDocumentDeleteRequests()
-  const pendingDeleteIds = useMemo(
-    () => new Set(pendingDeleteRequests.flatMap((item) => (item.document_id ? [item.document_id] : []))),
-    [pendingDeleteRequests],
-  )
+  const pendingByDocumentId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of pendingDeleteRequests) {
+      if (item.document_id) map.set(item.document_id, item.id)
+    }
+    return map
+  }, [pendingDeleteRequests])
+  const canApproveDeletes = canAccessAdmin(profile?.role)
 
   const authorizedRows = useMemo(() => {
     const rows = (data ?? []).filter((doc) => canViewerSeeDocument(doc, profile))
@@ -275,9 +282,10 @@ export function DocumentsLibrary({
               key={doc.id}
               doc={doc}
               personal={personal}
-              canDelete={canRemoveDocument(doc, profile)}
+              canDelete={canRemoveDocument(doc, profile) && !pendingByDocumentId.has(doc.id)}
               canRequestDelete={canRequestDocumentDelete(doc, profile)}
-              deletePending={pendingDeleteIds.has(doc.id)}
+              canApproveDelete={canApproveDeletes && pendingByDocumentId.has(doc.id)}
+              deletePending={pendingByDocumentId.has(doc.id)}
               onView={async () => {
                 try {
                   await viewDocumentFile(doc)
@@ -305,6 +313,25 @@ export function DocumentsLibrary({
                 setDeleteReason('')
                 setDeleteTarget(doc)
               }}
+              onResolveDelete={async (approve) => {
+                const requestId = pendingByDocumentId.get(doc.id)
+                if (!requestId) return
+                if (
+                  !confirmAction(
+                    approve
+                      ? 'Approve this delete? The document will be removed.'
+                      : 'Deny this delete request? The document will stay.',
+                  )
+                ) {
+                  return
+                }
+                try {
+                  await reviewDelete.mutateAsync({ requestId, approve })
+                  toast.success(approve ? 'Document deleted' : 'Delete request denied')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Could not review the request')
+                }
+              }}
             />
           ))}
         </div>
@@ -318,68 +345,36 @@ export function DocumentsLibrary({
     )
 
   const deleteRequestDialog = (
-    <Dialog
+    <DeleteRequestDialog
       open={Boolean(deleteTarget)}
-      onOpenChange={(open) => {
-        if (!open) {
-          setDeleteTarget(null)
-          setDeleteReason('')
-        }
+      itemKind="document"
+      itemName={deleteTarget?.name}
+      reason={deleteReason}
+      submitting={requestDelete.isPending}
+      onReasonChange={setDeleteReason}
+      onClose={() => {
+        setDeleteTarget(null)
+        setDeleteReason('')
       }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Request document delete</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          Admin will review this before anything is removed
-          {deleteTarget ? ` (${deleteTarget.name}).` : '.'}
-        </p>
-        <div className="space-y-2">
-          <Label htmlFor="document-delete-reason">Why do you want to delete this document?</Label>
-          <Textarea
-            id="document-delete-reason"
-            value={deleteReason}
-            onChange={(event) => setDeleteReason(event.target.value)}
-            placeholder="Give a short reason for the admin."
-            rows={4}
-          />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setDeleteTarget(null)
-              setDeleteReason('')
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={requestDelete.isPending}
-            onClick={async () => {
-              if (!deleteTarget) return
-              const reason = deleteReason.trim()
-              if (reason.length < 5) {
-                toast.error('Please explain why this document should be deleted.')
-                return
-              }
-              try {
-                await requestDelete.mutateAsync({ documentId: deleteTarget.id, reason })
-                toast.success('Delete request sent to admin')
-                setDeleteTarget(null)
-                setDeleteReason('')
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : 'Could not send delete request')
-              }
-            }}
-          >
-            {requestDelete.isPending ? 'Sending…' : 'Send request'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      onSubmit={() => {
+        void (async () => {
+          if (!deleteTarget) return
+          const reason = deleteReason.trim()
+          if (reason.length < 5) {
+            toast.error('Please explain why this document should be deleted.')
+            return
+          }
+          try {
+            await requestDelete.mutateAsync({ documentId: deleteTarget.id, reason })
+            toast.success('Delete request sent. Status is Pending until an admin decides.')
+            setDeleteTarget(null)
+            setDeleteReason('')
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Could not send delete request')
+          }
+        })()
+      }}
+    />
   )
 
   if (compact) {
@@ -521,21 +516,25 @@ function DocumentCard({
   personal,
   canDelete,
   canRequestDelete,
+  canApproveDelete,
   deletePending,
   onView,
   onDownload,
   onDelete,
   onRequestDelete,
+  onResolveDelete,
 }: {
   doc: DocumentRecord
   personal: boolean
   canDelete: boolean
   canRequestDelete: boolean
+  canApproveDelete: boolean
   deletePending: boolean
   onView: () => Promise<void>
   onDownload: () => Promise<void>
   onDelete: () => Promise<void>
   onRequestDelete: () => void
+  onResolveDelete: (approve: boolean) => Promise<void>
 }) {
   return (
     <Card>
@@ -553,7 +552,7 @@ function DocumentCard({
           <Badge variant={documentCategoryBadgeVariant(doc.category)}>
             {documentCategoryLabel(doc.category)}
           </Badge>
-          {deletePending ? <Badge variant="outline">Delete pending</Badge> : null}
+          {deletePending ? <Badge variant="warning">Pending</Badge> : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-muted-foreground">
@@ -568,7 +567,16 @@ function DocumentCard({
           <Button size="sm" variant="outline" onClick={onDownload}>
             Download
           </Button>
-          {canDelete ? (
+          {canApproveDelete ? (
+            <>
+              <Button size="sm" onClick={() => void onResolveDelete(true)}>
+                Approve delete
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void onResolveDelete(false)}>
+                Deny
+              </Button>
+            </>
+          ) : canDelete ? (
             <Button size="sm" variant="destructive" onClick={onDelete}>
               Remove
             </Button>

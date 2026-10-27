@@ -463,6 +463,7 @@ function NotificationCard({
           ) : null}
         </div>
         <div className="flex flex-col items-end gap-1">
+          {canApproveDelete ? <Badge variant="warning">Pending</Badge> : null}
           <Badge variant={item.is_read ? 'secondary' : 'accent'}>{item.is_read ? 'Read' : 'Unread'}</Badge>
           {item.relevance ? (
             <Badge variant="outline" className="text-[10px]">

@@ -20,13 +20,17 @@ import {
   useCertifications,
   useCreateCertification,
   useDeleteCertification,
+  usePendingDocumentDeleteRequests,
   useProfiles,
+  useRequestCertificationDelete,
+  useReviewDocumentDelete,
   useUpdateCertification,
 } from '@/features/data/hooks'
+import { DeleteRequestDialog } from '@/features/documents/delete-request-dialog'
 import { DocumentsLibrary } from '@/features/documents/documents-library'
-import { isSelfUploadedCertification } from '@/lib/certification-source'
+import { canRequestCertificationDelete, isSelfUploadedCertification } from '@/lib/certification-source'
 import { useListPreview } from '@/lib/list-preview'
-import { certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
+import { canAccessAdmin, certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
 import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
 import type { Certification, CertificationStatus } from '@/types/database'
@@ -315,7 +319,7 @@ export function CertificationsPage() {
         <div className="space-y-8">
           <CertificationSourceSection
             title="Uploaded by Tamay"
-            description="Certifications and files Tamay added to your record. You can view them here; ask Tamay to change these."
+            description="Certifications and files Tamay added to your record. Request a delete if something should be removed."
             emptyTitle="No company certifications yet"
             emptyDescription="When Tamay uploads OSHA, licenses, W-2s, or other files for you, they show up here."
             list={companyList}
@@ -329,7 +333,7 @@ export function CertificationsPage() {
           </CertificationSourceSection>
           <CertificationSourceSection
             title="Your certifications"
-            description="Credentials you uploaded yourself. Add, edit, or remove these anytime."
+            description="Credentials you uploaded yourself. Add or edit these anytime. Delete sends a Pending request to admin."
             emptyTitle="You have not uploaded certifications yet"
             emptyDescription="Use Add certification to upload your own OSHA, CPR, equipment, or trade proof."
             list={ownList}
@@ -414,18 +418,38 @@ function CertificationGrid({
   updateCertification: ReturnType<typeof useUpdateCertification>
   deleteCertification: ReturnType<typeof useDeleteCertification>
 }) {
+  const { profile } = useAuth()
+  const requestDelete = useRequestCertificationDelete()
+  const reviewDelete = useReviewDocumentDelete()
+  const { data: pendingDeleteRequests = [] } = usePendingDocumentDeleteRequests()
+  const pendingByCertId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of pendingDeleteRequests) {
+      if (item.certification_id) map.set(item.certification_id, item.id)
+    }
+    return map
+  }, [pendingDeleteRequests])
+  const [deleteTarget, setDeleteTarget] = useState<Certification | null>(null)
+  const [deleteReason, setDeleteReason] = useState('')
+  const canApproveDeletes = canAccessAdmin(profile?.role)
+  const canRequestDelete = canRequestCertificationDelete(profile)
+
   return (
     <div className="space-y-3">
       <div className="grid gap-4 lg:grid-cols-2">
         {list.visible.map((cert) => {
           const selfUploaded = isSelfUploadedCertification(cert, viewerId)
+          const pending = pendingByCertId.has(cert.id)
           return (
             <CertificationCard
               key={cert.id}
               cert={cert}
               canManage={canManage}
               canEdit={canManage || selfUploaded}
-              canRemove={canManage || selfUploaded}
+              canRemove={canManage && !pending}
+              canRequestDelete={canRequestDelete}
+              canApproveDelete={canApproveDeletes && pending}
+              deletePending={pending}
               sourceLabel={canManage ? null : selfUploaded ? 'Yours' : 'From Tamay'}
               workers={workers}
               onSave={async (values, file) => {
@@ -447,6 +471,29 @@ function CertificationGrid({
                   toast.error(error instanceof Error ? error.message : 'Remove failed')
                 }
               }}
+              onRequestDelete={() => {
+                setDeleteReason('')
+                setDeleteTarget(cert)
+              }}
+              onResolveDelete={async (approve) => {
+                const requestId = pendingByCertId.get(cert.id)
+                if (!requestId) return
+                if (
+                  !confirmAction(
+                    approve
+                      ? 'Approve this delete? The certification will be removed.'
+                      : 'Deny this delete request? The certification will stay.',
+                  )
+                ) {
+                  return
+                }
+                try {
+                  await reviewDelete.mutateAsync({ requestId, approve })
+                  toast.success(approve ? 'Certification deleted' : 'Delete request denied')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Could not review the request')
+                }
+              }}
               onViewProof={async () => {
                 try {
                   const url = await createCertificationProofUrl(cert.document_url)
@@ -464,6 +511,36 @@ function CertificationGrid({
         total={list.total}
         step={CERTIFICATIONS_STEP}
         onMore={list.showMore}
+      />
+      <DeleteRequestDialog
+        open={Boolean(deleteTarget)}
+        itemKind="certification"
+        itemName={deleteTarget?.name}
+        reason={deleteReason}
+        submitting={requestDelete.isPending}
+        onReasonChange={setDeleteReason}
+        onClose={() => {
+          setDeleteTarget(null)
+          setDeleteReason('')
+        }}
+        onSubmit={() => {
+          void (async () => {
+            if (!deleteTarget) return
+            const reason = deleteReason.trim()
+            if (reason.length < 5) {
+              toast.error('Please explain why this certification should be deleted.')
+              return
+            }
+            try {
+              await requestDelete.mutateAsync({ certificationId: deleteTarget.id, reason })
+              toast.success('Delete request sent. Status is Pending until an admin decides.')
+              setDeleteTarget(null)
+              setDeleteReason('')
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : 'Could not send delete request')
+            }
+          })()
+        }}
       />
     </div>
   )
@@ -499,20 +576,30 @@ function CertificationCard({
   canManage,
   canEdit,
   canRemove,
+  canRequestDelete,
+  canApproveDelete,
+  deletePending,
   sourceLabel,
   workers,
   onSave,
   onDelete,
+  onRequestDelete,
+  onResolveDelete,
   onViewProof,
 }: {
   cert: Certification
   canManage: boolean
   canEdit: boolean
   canRemove: boolean
+  canRequestDelete: boolean
+  canApproveDelete: boolean
+  deletePending: boolean
   sourceLabel: string | null
   workers: Array<{ id: string; first_name: string; last_name: string }>
   onSave: (values: CertificationFormValues, file?: File | null) => Promise<void>
   onDelete: () => Promise<void>
+  onRequestDelete: () => void
+  onResolveDelete: (approve: boolean) => Promise<void>
   onViewProof: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
@@ -554,6 +641,7 @@ function CertificationCard({
           >
             {certificationStatusLabel(cert.status)}
           </Badge>
+          {deletePending ? <Badge variant="warning">Pending</Badge> : null}
         </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
@@ -674,9 +762,22 @@ function CertificationCard({
             </DialogContent>
           </Dialog>
           ) : null}
-          {canRemove ? (
+          {canApproveDelete ? (
+            <>
+              <Button size="sm" onClick={() => void onResolveDelete(true)}>
+                Approve delete
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void onResolveDelete(false)}>
+                Deny
+              </Button>
+            </>
+          ) : canRemove ? (
             <Button size="sm" variant="destructive" onClick={onDelete}>
               Remove
+            </Button>
+          ) : canRequestDelete ? (
+            <Button size="sm" variant="destructive" disabled={deletePending} onClick={onRequestDelete}>
+              Delete
             </Button>
           ) : null}
         </div>

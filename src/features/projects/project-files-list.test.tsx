@@ -10,6 +10,9 @@ const removeDoc = vi.fn()
 
 vi.mock('@/features/data/hooks', () => ({
   useDeleteDocument: () => ({ mutateAsync: removeDoc, isPending: false }),
+  usePendingDocumentDeleteRequests: () => ({ data: [] }),
+  useRequestDocumentDelete: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useReviewDocumentDelete: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSetDocumentTeamVisibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
   viewDocumentFile: (doc: DocumentRecord) => viewFile(doc),
   downloadDocumentFile: (doc: DocumentRecord) => downloadFile(doc),
@@ -61,7 +64,7 @@ beforeEach(() => {
 })
 
 describe('ProjectFilesList — assigned employee', () => {
-  it('renders only the shared document, with View and Download but no Remove', async () => {
+  it('renders only the shared document, with View, Download, and Delete request', async () => {
     render(<ProjectFilesList documents={[documentA, documentB]} viewer={EMPLOYEE} />)
     expect(screen.getByText('1 project document')).toBeInTheDocument()
     await openDocuments()
@@ -69,6 +72,7 @@ describe('ProjectFilesList — assigned employee', () => {
     const rowA = screen.getByText('Project Breakdown.pdf').closest('[id="doc-doc-a"]') as HTMLElement
     expect(within(rowA).getByRole('button', { name: 'View' })).toBeInTheDocument()
     expect(within(rowA).getByRole('button', { name: 'Download' })).toBeInTheDocument()
+    expect(within(rowA).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
 
     expect(screen.queryByText('Agreement.pdf')).not.toBeInTheDocument()
     expect(document.getElementById('doc-doc-b')).toBeNull()
@@ -121,7 +125,7 @@ describe('ProjectFilesList — assigned employee', () => {
     expect(screen.queryByText('Signed contract.jpg')).not.toBeInTheDocument()
   })
 
-  it('employees and subcontractors can open a photo they took themselves but cannot remove it', async () => {
+  it('employees and subcontractors can open a photo they took themselves and request delete', async () => {
     for (const viewer of [EMPLOYEE, { id: 'sub-1', role: 'subcontractor' } as const]) {
       const own = file({ id: 'p9', name: 'My photo.jpg', category: 'work_photo', mime_type: 'image/jpeg', owner_id: viewer.id, uploaded_by: viewer.id })
       const { unmount } = render(<ProjectFilesList documents={[own]} viewer={viewer} />)
@@ -129,6 +133,7 @@ describe('ProjectFilesList — assigned employee', () => {
       const row = document.getElementById('doc-p9') as HTMLElement
       expect(within(row).getByText('My photo.jpg')).toBeInTheDocument()
       expect(within(row).getByRole('button', { name: 'Open' })).toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
       expect(screen.queryByRole('switch')).not.toBeInTheDocument()
       expect(screen.queryByText(/Visibility:/)).not.toBeInTheDocument()

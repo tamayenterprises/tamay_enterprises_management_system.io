@@ -329,6 +329,7 @@ export interface DocumentDeleteRequest {
   id: string
   organization_id: string
   document_id: string | null
+  certification_id?: string | null
   document_name: string
   requested_by: string
   reason: string
@@ -938,6 +939,7 @@ export interface Database {
         DocumentDeleteRequest,
         [
           Fk<'document_delete_requests_document_id_fkey', 'document_id', 'documents'>,
+          Fk<'document_delete_requests_certification_id_fkey', 'certification_id', 'certifications'>,
           Fk<'document_delete_requests_requested_by_fkey', 'requested_by', 'profiles'>,
           Fk<'document_delete_requests_reviewed_by_fkey', 'reviewed_by', 'profiles'>,
         ]
@@ -1039,6 +1041,7 @@ export interface Database {
         Profile[]
       >
       request_document_delete: Rpc<{ p_document_id: string; p_reason: string }, string>
+      request_certification_delete: Rpc<{ p_certification_id: string; p_reason: string }, string>
       review_document_delete: Rpc<
         { p_request_id: string; p_approve: boolean; p_review_note?: string | null },
         { status: DocumentDeleteRequestStatus; request_id: string }

@@ -57,6 +57,8 @@ vi.mock('@/features/data/hooks', () => ({
   useDeleteDocument: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePendingDocumentDeleteRequests: () => ({ data: [] }),
   useRequestDocumentDelete: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRequestCertificationDelete: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useReviewDocumentDelete: () => ({ mutateAsync: vi.fn(), isPending: false }),
   viewDocumentFile: vi.fn(),
   downloadDocumentFile: vi.fn(),
 }))
@@ -77,7 +79,7 @@ describe('Certifications list', () => {
     expect(screen.getByRole('button', { name: 'Upload Signed Documents' })).toBeInTheDocument()
     expect(screen.getByText('w-2')).toBeInTheDocument()
     expect(screen.getByText('My file.pdf')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Delete' }).length).toBeGreaterThan(1)
     expect(screen.getByText(/Carlos Tamay/)).toBeInTheDocument()
 
     expect(screen.getByText('Cert 1')).toBeInTheDocument()

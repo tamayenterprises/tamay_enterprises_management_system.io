@@ -240,7 +240,7 @@ export function useDeleteDocument() {
 function documentDeleteSetupError(error: { message?: string } | null) {
   if (!error?.message) return null
   if (/schema cache|PGRST|does not exist|could not find/i.test(error.message)) {
-    return 'Document delete requests are not set up yet. Run migration 20261027020000_document_delete_requests.sql in the SQL editor.'
+    return 'Delete requests are not set up yet. Run migrations 20261027020000_document_delete_requests.sql and 20261027030000_certification_and_all_document_delete_requests.sql in the SQL editor.'
   }
   return null
 }
@@ -263,6 +263,25 @@ export function usePendingDocumentDeleteRequests() {
         throw error
       }
       return (data ?? []) as DocumentDeleteRequest[]
+    },
+  })
+}
+
+export function useRequestCertificationDelete() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ certificationId, reason }: { certificationId: string; reason: string }) => {
+      const { data, error } = await supabase.rpc('request_certification_delete', {
+        p_certification_id: certificationId,
+        p_reason: reason,
+      })
+      if (error) throw new Error(documentDeleteSetupError(error) ?? error.message)
+      return data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['document-delete-requests'] })
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      void queryClient.invalidateQueries({ queryKey: ['certifications'] })
     },
   })
 }
@@ -309,6 +328,7 @@ export function useReviewDocumentDelete() {
       void queryClient.invalidateQueries({ queryKey: ['document-delete-requests'] })
       void queryClient.invalidateQueries({ queryKey: ['documents'] })
       void queryClient.invalidateQueries({ queryKey: ['project-documents'] })
+      void queryClient.invalidateQueries({ queryKey: ['certifications'] })
       void queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
   })

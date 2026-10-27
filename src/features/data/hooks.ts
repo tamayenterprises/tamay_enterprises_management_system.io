@@ -23,6 +23,7 @@ export {
   useDocuments,
   usePendingDocumentDeleteRequests,
   useProjectDocuments,
+  useRequestCertificationDelete,
   useRequestDocumentDelete,
   useReviewDocumentDelete,
   useSetDocumentTeamVisibility,

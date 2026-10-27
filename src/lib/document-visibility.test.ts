@@ -113,9 +113,12 @@ describe('canRemoveDocument', () => {
 })
 
 describe('canRequestDocumentDelete', () => {
-  it('lets workers request deletion of files they uploaded', () => {
+  it('lets workers request deletion of any file they can see', () => {
     const own = { owner_id: 'employee-1', uploaded_by: 'employee-1', project_id: null }
     expect(canRequestDocumentDelete(projectDoc(own), as('employee'))).toBe(true)
+    expect(canRequestDocumentDelete(projectDoc({ team_visible: true, uploaded_by: 'admin-1' }), as('employee'))).toBe(
+      true,
+    )
     expect(canRequestDocumentDelete(projectDoc({ uploaded_by: 'admin-1' }), as('employee'))).toBe(false)
     expect(canRequestDocumentDelete(projectDoc(own), as('admin'))).toBe(false)
     expect(canRequestDocumentDelete(projectDoc(own), as('client'))).toBe(false)

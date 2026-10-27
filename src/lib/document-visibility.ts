@@ -100,11 +100,11 @@ export function canRemoveDocument(doc: DocumentAccessFields, viewer: Viewer) {
   return true
 }
 
-/** Workers ask admin to delete a file they uploaded; they cannot remove it themselves. */
+/** Workers ask admin to delete any file they can see; they cannot remove it themselves. */
 export function canRequestDocumentDelete(doc: DocumentAccessFields, viewer: Viewer) {
   if (!viewer) return false
   if (isManagementRole(viewer.role) || isClientRole(viewer.role)) return false
-  return isSelfUploadedDocument(doc, viewer.id)
+  return canViewerSeeDocument(doc, viewer)
 }
 
 /** Formal project documents come from management; clients keep their portal uploads. */
