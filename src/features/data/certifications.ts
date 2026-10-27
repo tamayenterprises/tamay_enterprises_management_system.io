@@ -19,7 +19,7 @@ export function useCertifications(filters?: {
     queryFn: async () => {
       let query = supabase
         .from('certifications')
-        .select(`*, profile:profiles(${PROFILE_DIRECTORY_COLUMNS})`)
+        .select(`*, profile:profiles!profile_id(${PROFILE_DIRECTORY_COLUMNS})`)
         .order('expiration_date', { ascending: true, nullsFirst: false })
 
       if (filters?.status) query = query.eq('status', filters.status)

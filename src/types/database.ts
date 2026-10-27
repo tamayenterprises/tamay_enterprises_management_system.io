@@ -905,7 +905,10 @@ export interface Database {
       >
       certifications: Table<
         Certification,
-        [Fk<'certifications_profile_id_fkey', 'profile_id', 'profiles'>]
+        [
+          Fk<'certifications_profile_id_fkey', 'profile_id', 'profiles'>,
+          Fk<'certifications_created_by_fkey', 'created_by', 'profiles'>,
+        ]
       >
       documents: Table<
         DocumentRecord,

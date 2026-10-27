@@ -45,7 +45,7 @@ export function CertificationsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [proofFile, setProofFile] = useState<File | null>(null)
 
-  const { data, isLoading, isError } = useCertifications({
+  const { data, isLoading } = useCertifications({
     search,
     status: status === 'all' ? undefined : status,
     type: type === 'all' ? undefined : type,
@@ -119,7 +119,6 @@ export function CertificationsPage() {
   }, [data])
 
   if (isLoading && !data) return <LoadingState />
-  if (isError) return <EmptyState title="Unable to load certifications" />
 
   return (
     <div className="space-y-6">
