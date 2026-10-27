@@ -39,7 +39,7 @@ import {
   partitionUploadFiles,
   resolvedDocumentUploadAccept,
   resolvedImageUploadAccept,
-  uploadFolderHint,
+  uploadSizeHint,
 } from '@/lib/uploads'
 import type { DocumentCategory, DocumentRecord } from '@/types/database'
 
@@ -201,15 +201,8 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
             selectedFiles={files}
             onFiles={stageFiles}
           />
-          <FilePickerButton
-            size="sm"
-            variant="outline"
-            directory
-            selectedFiles={files}
-            onFiles={stageFiles}
-          />
         </div>
-        <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
+        <p className="text-xs text-muted-foreground">{uploadSizeHint()}</p>
         <SelectedFilesList files={files} onChange={setFiles} />
       </div>
       {personal ? null : (
