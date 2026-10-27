@@ -65,7 +65,7 @@ describe('subcontractor personal document categories', () => {
     expect(screen.getByRole('option', { name: 'Commercial Auto Insurance' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Certification' })).not.toBeInTheDocument()
     expect(
-      screen.getByText('Tamay Enterprises MUST listed as a Certification Holder'),
+      screen.getByText('Tamay Enterprises MUST BE listed as a Certification Holder'),
     ).toBeInTheDocument()
     expect(
       screen.queryByText('Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'),
@@ -82,7 +82,7 @@ describe('subcontractor personal document categories', () => {
       screen.getByText('Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'),
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('Tamay Enterprises MUST listed as a Certification Holder'),
+      screen.queryByText('Tamay Enterprises MUST BE listed as a Certification Holder'),
     ).not.toBeInTheDocument()
   })
 })

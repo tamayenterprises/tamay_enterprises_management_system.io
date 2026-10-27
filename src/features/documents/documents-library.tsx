@@ -459,7 +459,7 @@ export function DocumentsLibrary({
             }
           >
             {subcontractorPersonalKinds
-              ? 'Tamay Enterprises MUST listed as a Certification Holder'
+              ? 'Tamay Enterprises MUST BE listed as a Certification Holder'
               : personal
                 ? 'Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'
                 : canManage
