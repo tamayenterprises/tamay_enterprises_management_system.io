@@ -3,10 +3,15 @@ export function markNativeFilePickerOpen() {
   document.body.dataset.nativeFilePicker = '1'
 }
 
+export function clearNativeFilePickerFlag() {
+  if (typeof document === 'undefined') return
+  delete document.body.dataset.nativeFilePicker
+}
+
 export function markNativeFilePickerClosed() {
   if (typeof document === 'undefined') return
   window.setTimeout(() => {
-    delete document.body.dataset.nativeFilePicker
+    clearNativeFilePickerFlag()
   }, 500)
 }
 

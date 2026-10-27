@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { MobileListGate, SeeMoreButton } from '@/components/ui/see-more-button'
-import { FilePickerButton, SelectedFilesList, isNativeFilePickerOpen } from '@/components/ui/file-picker-button'
+import { FilePickerButton, SelectedFilesList } from '@/components/ui/file-picker-button'
+import { clearNativeFilePickerFlag } from '@/components/ui/file-picker-helpers'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
@@ -112,7 +113,7 @@ export function ClientRequestsPage() {
         <Dialog
           open={open}
           onOpenChange={(next) => {
-            if (!next && isNativeFilePickerOpen()) return
+            if (!next) clearNativeFilePickerFlag()
             setOpen(next)
             if (!next) {
               setPhotos([])
