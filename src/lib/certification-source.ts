@@ -1,4 +1,4 @@
-import { isClientRole, isManagementRole } from '@/lib/utils'
+import { isClientRole } from '@/lib/utils'
 import type { Profile } from '@/types/database'
 
 /** True when this worker added the certification themselves (not Tamay / management). */
@@ -9,10 +9,10 @@ export function isSelfUploadedCertification(
   return Boolean(workerId && cert.created_by === workerId)
 }
 
-/** Workers ask admin to delete any certification on their record. */
+/** Workers and project managers ask admin to delete certifications on their own record. */
 export function canRequestCertificationDelete(viewer?: Pick<Profile, 'role'> | null) {
   if (!viewer) return false
-  if (isManagementRole(viewer.role) || isClientRole(viewer.role)) return false
+  if (viewer.role === 'admin' || isClientRole(viewer.role)) return false
   return true
 }
 

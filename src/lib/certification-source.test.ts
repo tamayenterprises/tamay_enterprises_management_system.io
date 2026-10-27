@@ -29,11 +29,11 @@ describe('certificationMatchesType', () => {
 })
 
 describe('canRequestCertificationDelete', () => {
-  it('lets workers request deletion and keeps management on immediate remove', () => {
+  it('lets workers and project managers request deletion; admin removes directly', () => {
     expect(canRequestCertificationDelete({ role: 'employee' })).toBe(true)
     expect(canRequestCertificationDelete({ role: 'subcontractor' })).toBe(true)
     expect(canRequestCertificationDelete({ role: 'admin' })).toBe(false)
-    expect(canRequestCertificationDelete({ role: 'project_manager' })).toBe(false)
+    expect(canRequestCertificationDelete({ role: 'project_manager' })).toBe(true)
     expect(canRequestCertificationDelete({ role: 'client' })).toBe(false)
   })
 })

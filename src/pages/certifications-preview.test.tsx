@@ -5,8 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Certification, DocumentRecord } from '@/types/database'
 import { CertificationsPage } from './certifications'
 
+const auth = vi.hoisted(() => ({ role: 'employee' as string }))
+
 vi.mock('@/features/auth/auth-hooks', () => ({
-  useAuth: () => ({ profile: { id: 'u1', role: 'employee', organization_id: 'org' } }),
+  useAuth: () => ({ profile: { id: 'u1', role: auth.role, organization_id: 'org' } }),
 }))
 vi.mock('@/features/data/hooks', () => ({
   useCertifications: () => ({
@@ -71,6 +73,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 describe('Certifications list', () => {
   it('separates Tamay uploads from the worker’s own certifications', async () => {
+    auth.role = 'employee'
     const user = userEvent.setup()
     render(
       <MemoryRouter>
@@ -100,7 +103,25 @@ describe('Certifications list', () => {
     expect(screen.queryByText('Cert 6')).not.toBeInTheDocument()
   })
 
+  it('gives project managers the same worker certifications layout', () => {
+    auth.role = 'project_manager'
+    render(
+      <MemoryRouter>
+        <CertificationsPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Uploaded by Tamay' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Your certifications' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Personal Documents' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Upload Signed Documents' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Type' })).toBeInTheDocument()
+    expect(screen.getByText('w-2')).toBeInTheDocument()
+    expect(screen.getByText('My file.pdf')).toBeInTheDocument()
+  })
+
   it('limits the list to one certification type, and All types shows everything', async () => {
+    auth.role = 'employee'
     const user = userEvent.setup()
     render(
       <MemoryRouter>

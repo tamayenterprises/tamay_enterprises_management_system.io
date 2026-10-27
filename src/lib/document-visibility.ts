@@ -95,7 +95,8 @@ export function canViewerSeeDocument(doc: DocumentAccessFields, viewer: Viewer) 
 /** Mirrors public.can_modify_document_row: employees and subcontractors cannot delete files. */
 export function canRemoveDocument(doc: DocumentAccessFields, viewer: Viewer) {
   if (!viewer) return false
-  if (isManagementRole(viewer.role)) return true
+  if (viewer.role === 'admin') return true
+  if (viewer.role === 'project_manager') return isWorkDocument(doc)
   if (!isClientRole(viewer.role) || !isOwnDocument(doc, viewer)) return false
   return true
 }
@@ -103,7 +104,10 @@ export function canRemoveDocument(doc: DocumentAccessFields, viewer: Viewer) {
 /** Workers ask admin to delete any file they can see; they cannot remove it themselves. */
 export function canRequestDocumentDelete(doc: DocumentAccessFields, viewer: Viewer) {
   if (!viewer) return false
-  if (isManagementRole(viewer.role) || isClientRole(viewer.role)) return false
+  if (viewer.role === 'admin' || isClientRole(viewer.role)) return false
+  if (viewer.role === 'project_manager') {
+    return isPersonalDocument(doc) && canViewerSeeDocument(doc, viewer)
+  }
   return canViewerSeeDocument(doc, viewer)
 }
 

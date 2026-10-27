@@ -38,7 +38,7 @@ import {
 } from '@/lib/certification-source'
 import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { useListPreview } from '@/lib/list-preview'
-import { canAccessAdmin, certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
+import { canAccessAdmin, certificationStatusLabel, formatDate, fullName } from '@/lib/utils'
 import { resolvedDocumentUploadAccept, confirmAction } from '@/lib/uploads'
 import { certificationSchema, type CertificationFormValues } from '@/lib/validations'
 import type { Certification, CertificationStatus } from '@/types/database'
@@ -50,7 +50,7 @@ export function CertificationsPage() {
   const { profile } = useAuth()
   const [params] = useSearchParams()
   const focusCertId = params.get('cert')
-  const canManage = isManagementRole(profile?.role)
+  const canManage = profile?.role === 'admin'
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<'all' | CertificationStatus>('all')
   const [type, setType] = useState<string>('all')

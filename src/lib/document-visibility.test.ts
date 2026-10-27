@@ -107,6 +107,7 @@ describe('canRemoveDocument', () => {
   it('management removes anything; clients only their own uploads', () => {
     expect(canRemoveDocument(projectDoc(), as('admin'))).toBe(true)
     expect(canRemoveDocument(projectDoc(), as('project_manager'))).toBe(true)
+    expect(canRemoveDocument(projectDoc({ project_id: null }), as('project_manager'))).toBe(false)
     expect(canRemoveDocument(projectDoc(), as('client'))).toBe(false)
     expect(canRemoveDocument(projectDoc({ owner_id: 'client-1', uploaded_by: 'client-1' }), as('client'))).toBe(true)
   })
@@ -122,6 +123,10 @@ describe('canRequestDocumentDelete', () => {
     expect(canRequestDocumentDelete(projectDoc({ uploaded_by: 'admin-1' }), as('employee'))).toBe(false)
     expect(canRequestDocumentDelete(projectDoc(own), as('admin'))).toBe(false)
     expect(canRequestDocumentDelete(projectDoc(own), as('client'))).toBe(false)
+    expect(canRequestDocumentDelete(projectDoc(own), as('project_manager'))).toBe(true)
+    expect(canRequestDocumentDelete(projectDoc({ team_visible: true, uploaded_by: 'admin-1' }), as('project_manager'))).toBe(
+      false,
+    )
   })
 })
 
