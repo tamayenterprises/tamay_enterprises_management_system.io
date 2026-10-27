@@ -129,6 +129,35 @@ export function useApproveUser() {
   })
 }
 
+export function useUpdatePmPageAccess() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ id, pages }: { id: string; pages: string[] }) => {
+      const { error } = await supabase.from('profiles').update({ granted_pages: pages }).eq('id', id)
+      if (error) throw error
+
+      if (profile?.organization_id) {
+        await supabase.from('activity_log').insert({
+          organization_id: profile.organization_id,
+          actor_id: profile.id,
+          entity_type: 'profile',
+          entity_id: id,
+          action: 'updated_page_access',
+          metadata: { pages },
+        })
+      }
+
+      return fetchProfile(id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-log'] })
+    },
+  })
+}
+
 export function useUpdateUserRole() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()

@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/auth-hooks'
 import { LoadingState } from '@/components/ui/loading-state'
 import type { UserRole } from '@/types/database'
+import { canAccessAppPage, type AppPageKey } from '@/lib/page-access'
 import { homePathForRole, isClientRole, isManagementRole } from '@/lib/utils'
 
 export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
@@ -59,6 +60,13 @@ export function ManagementRoute() {
   const { profile, loading } = useAuth()
   if (loading) return <LoadingState />
   if (!isManagementRole(profile?.role)) return <Navigate to={homePathForRole(profile?.role)} replace />
+  return <Outlet />
+}
+
+export function PageAccessRoute({ page }: { page: AppPageKey }) {
+  const { profile, loading } = useAuth()
+  if (loading) return <LoadingState />
+  if (!canAccessAppPage(profile, page)) return <Navigate to={homePathForRole(profile?.role)} replace />
   return <Outlet />
 }
 

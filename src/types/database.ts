@@ -61,6 +61,8 @@ export interface Profile {
   insurance_info: string | null
   license_info: string | null
   archived_at: string | null
+  /** Project manager page allowlist. Null = default PM pages. Ignored for other roles. */
+  granted_pages?: string[] | null
   created_at: string
   updated_at: string
 }

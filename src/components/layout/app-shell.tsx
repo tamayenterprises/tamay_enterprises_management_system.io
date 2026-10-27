@@ -30,30 +30,29 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SidebarProfileAvatar } from '@/features/profile/avatar'
 import { NotificationBell } from '@/features/notifications/notification-bell'
-import { cn, isManagementRole } from '@/lib/utils'
+import { canAccessAppPage, type AppPageKey } from '@/lib/page-access'
+import { cn } from '@/lib/utils'
 import { useUnreadNotifications } from '@/features/notifications/hooks'
-import { canHaveWorkSchedule } from '@/features/schedule/hooks'
-import { canUseNearbyFinder } from '@/features/nearby/nearby-access'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/projects', label: 'Projects', icon: Briefcase },
-  { to: '/schedule', label: 'My Schedule', icon: CalendarDays, schedule: true },
-  { to: '/nearby', label: 'Nearby Finder', icon: MapPin, nearby: true },
-  { to: '/client-requests', label: 'Client requests', icon: ClipboardList, management: true },
-  { to: '/updates', label: 'Updates', icon: MessageSquareText },
-  { to: '/employees', label: 'Employees', icon: Users, management: true },
-  { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, management: true },
-  { to: '/clients', label: 'Clients', icon: ContactRound, admin: true },
-  { to: '/timesheets', label: 'Timesheets', icon: Clock3, management: true },
-  { to: '/work-schedule', label: 'Work Schedule', icon: CalendarRange, management: true },
-  { to: '/activity', label: 'Activity', icon: Activity },
-  { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
-  { to: '/documents', label: 'Work Documents', icon: FileText },
-  { to: '/drafts', label: 'Drafts', icon: NotebookPen },
-  { to: '/payments', label: 'Payment History', icon: ReceiptText, management: true },
-  { to: '/notifications', label: 'Notifications', icon: Bell },
-  { to: '/admin', label: 'Admin', icon: UserCog, admin: true },
+const navItems: Array<{ to: string; label: string; icon: typeof LayoutDashboard; page: AppPageKey }> = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard' },
+  { to: '/projects', label: 'Projects', icon: Briefcase, page: 'projects' },
+  { to: '/schedule', label: 'My Schedule', icon: CalendarDays, page: 'schedule' },
+  { to: '/nearby', label: 'Nearby Finder', icon: MapPin, page: 'nearby' },
+  { to: '/client-requests', label: 'Client requests', icon: ClipboardList, page: 'client-requests' },
+  { to: '/updates', label: 'Updates', icon: MessageSquareText, page: 'updates' },
+  { to: '/employees', label: 'Employees', icon: Users, page: 'employees' },
+  { to: '/subcontractors', label: 'Subcontractors', icon: HardHat, page: 'subcontractors' },
+  { to: '/clients', label: 'Clients', icon: ContactRound, page: 'clients' },
+  { to: '/timesheets', label: 'Timesheets', icon: Clock3, page: 'timesheets' },
+  { to: '/work-schedule', label: 'Work Schedule', icon: CalendarRange, page: 'work-schedule' },
+  { to: '/activity', label: 'Activity', icon: Activity, page: 'activity' },
+  { to: '/certifications', label: 'Certifications', icon: ShieldCheck, page: 'certifications' },
+  { to: '/documents', label: 'Work Documents', icon: FileText, page: 'documents' },
+  { to: '/drafts', label: 'Drafts', icon: NotebookPen, page: 'drafts' },
+  { to: '/payments', label: 'Payment History', icon: ReceiptText, page: 'payments' },
+  { to: '/notifications', label: 'Notifications', icon: Bell, page: 'notifications' },
+  { to: '/admin', label: 'Admin', icon: UserCog, page: 'admin' },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -72,13 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     navigate('/sign-in', { replace: true })
   }
 
-  const visibleNav = navItems.filter((item) => {
-    if (item.admin) return profile?.role === 'admin'
-    if (item.management) return isManagementRole(profile?.role)
-    if (item.schedule) return canHaveWorkSchedule(profile?.role)
-    if (item.nearby) return canUseNearbyFinder(profile?.role)
-    return true
-  })
+  const visibleNav = navItems.filter((item) => canAccessAppPage(profile, item.page))
 
   const onSearch = (event: React.FormEvent) => {
     event.preventDefault()

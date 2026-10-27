@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { LoadingState } from '@/components/ui/loading-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PersonRecordsPanel, PersonnelUploadButton } from '@/features/admin/person-records-panel'
+import { ProjectManagerPageAccess } from '@/features/admin/pm-page-access'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { useAuth } from '@/features/auth/auth-hooks'
 import {
@@ -95,8 +96,9 @@ export function AdminPage() {
         <div className="min-w-0">
           <h1 className="font-display text-3xl font-semibold">Admin panel</h1>
           <p className="text-sm text-muted-foreground">
-            Approve registrations, assign roles, remove people when Tamay is done with them, and
-            unassign projects when a worker is finished or replaced.
+            Approve registrations, assign roles, choose which pages each project manager can open,
+            remove people when Tamay is done with them, and unassign projects when a worker is
+            finished or replaced.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 sm:flex-nowrap lg:shrink-0">
@@ -512,6 +514,7 @@ function UserRow({
           />
         </div>
       ) : null}
+      {user.role === 'project_manager' ? <ProjectManagerPageAccess user={user} /> : null}
       {user.role !== 'client' ? <PersonRecordsPanel profileId={user.id} personLabel={personLabel} /> : null}
     </div>
   )
@@ -523,6 +526,7 @@ function formatActivityAction(action: string) {
     rejected_user: 'Rejected registration',
     updated_role: 'Updated user role',
     updated_access: 'Updated user access',
+    updated_page_access: 'Updated project manager page access',
     removed_user: 'Removed user (archived + unassigned)',
   }
   return labels[action] ?? action.replaceAll('_', ' ')

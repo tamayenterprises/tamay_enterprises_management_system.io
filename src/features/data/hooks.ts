@@ -36,6 +36,7 @@ export {
   useProfiles,
   useRoles,
   useSetWorkerStatus,
+  useUpdatePmPageAccess,
   useUpdateProfile,
   useUpdateUserRole,
   useWorkerEligibility,

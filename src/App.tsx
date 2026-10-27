@@ -7,7 +7,7 @@ import {
   AdminRoute,
   ClientRoute,
   GuestRoute,
-  ManagementRoute,
+  PageAccessRoute,
   ProtectedRoute,
   StaffRoute,
 } from '@/features/auth/route-guards'
@@ -131,30 +131,60 @@ export default function App() {
                   <Route element={<StaffRoute />}>
                     <Route element={<AuthenticatedLayout />}>
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                      <Route path="/dashboard" element={<DashboardPage />} />
-                      <Route path="/projects" element={<ProjectsPage />} />
-                      <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-                      <Route path="/certifications" element={<CertificationsPage />} />
-                      <Route path="/documents" element={<DocumentsPage />} />
-                      <Route path="/notifications" element={<NotificationsPage />} />
-                      <Route path="/activity" element={<RecentActivityPage />} />
-                      <Route path="/updates" element={<UpdatesPage />} />
-                      <Route path="/drafts" element={<DraftsPage />} />
+                      <Route element={<PageAccessRoute page="dashboard" />}>
+                        <Route path="/dashboard" element={<DashboardPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="projects" />}>
+                        <Route path="/projects" element={<ProjectsPage />} />
+                        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="certifications" />}>
+                        <Route path="/certifications" element={<CertificationsPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="documents" />}>
+                        <Route path="/documents" element={<DocumentsPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="notifications" />}>
+                        <Route path="/notifications" element={<NotificationsPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="activity" />}>
+                        <Route path="/activity" element={<RecentActivityPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="updates" />}>
+                        <Route path="/updates" element={<UpdatesPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="drafts" />}>
+                        <Route path="/drafts" element={<DraftsPage />} />
+                      </Route>
                       <Route path="/search" element={<SearchPage />} />
-                      <Route path="/schedule" element={<MySchedulePage />} />
-                      <Route path="/nearby" element={<NearbyFinderPage />} />
-
-                      <Route element={<ManagementRoute />}>
+                      <Route element={<PageAccessRoute page="schedule" />}>
+                        <Route path="/schedule" element={<MySchedulePage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="nearby" />}>
+                        <Route path="/nearby" element={<NearbyFinderPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="employees" />}>
                         <Route path="/employees" element={<EmployeesPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="subcontractors" />}>
                         <Route path="/subcontractors" element={<SubcontractorsPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="timesheets" />}>
                         <Route path="/timesheets" element={<TimesheetsPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="work-schedule" />}>
                         <Route path="/work-schedule" element={<WorkSchedulePage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="client-requests" />}>
                         <Route path="/client-requests" element={<ProjectRequestsAdminPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="payments" />}>
                         <Route path="/payments" element={<PaymentsPage />} />
                       </Route>
-
-                      <Route element={<AdminRoute />}>
+                      <Route element={<PageAccessRoute page="clients" />}>
                         <Route path="/clients" element={<ClientsPage />} />
+                      </Route>
+                      <Route element={<AdminRoute />}>
                         <Route path="/admin" element={<AdminPage />} />
                       </Route>
                     </Route>
