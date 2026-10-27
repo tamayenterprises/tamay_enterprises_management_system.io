@@ -53,6 +53,16 @@ function isOwnDocument(doc: Pick<DocumentRecord, 'owner_id' | 'uploaded_by'>, vi
   return doc.owner_id === viewer.id || doc.uploaded_by === viewer.id
 }
 
+/** HR / personnel files live off a project (W-2s, licenses, personal uploads). */
+export function isPersonalDocument(doc: Pick<DocumentRecord, 'project_id'>) {
+  return !doc.project_id
+}
+
+/** Job files are always linked to a project. */
+export function isWorkDocument(doc: Pick<DocumentRecord, 'project_id'>) {
+  return Boolean(doc.project_id)
+}
+
 /**
  * Mirrors public.can_view_document_row for rows the API already returned (it cannot check
  * assignment). The database is the enforcement point; this keeps the UI fail-closed.

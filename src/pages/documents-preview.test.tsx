@@ -17,7 +17,7 @@ vi.mock('@/features/data/hooks', () => ({
       mime_type: 'application/pdf',
       owner_id: 'u1',
       uploaded_by: 'u1',
-      project_id: null,
+      project_id: 'p1',
       team_visible: true,
     })) as DocumentRecord[],
     isLoading: false,
@@ -40,6 +40,7 @@ describe('Documents list', () => {
     const user = userEvent.setup()
     render(<DocumentsPage />)
 
+    expect(screen.getByRole('heading', { name: 'Work Documents' })).toBeInTheDocument()
     expect(screen.getByText('File 1.pdf')).toBeInTheDocument()
     expect(screen.getByText('File 2.pdf')).toBeInTheDocument()
     expect(screen.queryByText('File 3.pdf')).not.toBeInTheDocument()

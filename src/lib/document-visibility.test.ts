@@ -8,7 +8,9 @@ import {
   canViewerSeeDocument,
   documentVisibilityHelp,
   documentVisibilityLabel,
+  isPersonalDocument,
   isProjectPhotoDocument,
+  isWorkDocument,
 } from './document-visibility'
 import type { DocumentRecord, UserRole } from '@/types/database'
 
@@ -104,6 +106,15 @@ describe('canRemoveDocument', () => {
     expect(canRemoveDocument(projectDoc(), as('project_manager'))).toBe(true)
     expect(canRemoveDocument(projectDoc(), as('client'))).toBe(false)
     expect(canRemoveDocument(projectDoc({ owner_id: 'client-1', uploaded_by: 'client-1' }), as('client'))).toBe(true)
+  })
+})
+
+describe('personal vs work libraries', () => {
+  it('treats files without a project as personal and project-linked files as work', () => {
+    expect(isPersonalDocument({ project_id: null })).toBe(true)
+    expect(isWorkDocument({ project_id: null })).toBe(false)
+    expect(isPersonalDocument({ project_id: 'p1' })).toBe(false)
+    expect(isWorkDocument({ project_id: 'p1' })).toBe(true)
   })
 })
 

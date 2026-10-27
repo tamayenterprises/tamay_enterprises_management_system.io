@@ -42,6 +42,8 @@ export function useDocuments(filters?: {
   /** Files this person owns or uploaded. */
   personId?: string
   mineOnly?: boolean
+  /** Personal = no project. Work = linked to a project. */
+  library?: 'personal' | 'work'
 }) {
   const { profile } = useAuth()
 
@@ -64,6 +66,8 @@ export function useDocuments(filters?: {
         if (safe) query = query.ilike('name', `%${safe}%`)
       }
       if (filters?.projectId) query = query.eq('project_id', filters.projectId)
+      if (filters?.library === 'personal') query = query.is('project_id', null)
+      if (filters?.library === 'work') query = query.not('project_id', 'is', null)
       if (filters?.personId) {
         query = query.or(`owner_id.eq.${filters.personId},uploaded_by.eq.${filters.personId}`)
       } else if (filters?.ownerId) {

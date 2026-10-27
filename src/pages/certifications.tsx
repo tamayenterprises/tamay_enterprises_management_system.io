@@ -128,7 +128,7 @@ export function CertificationsPage() {
           <p className="text-sm text-muted-foreground">
             {canManage
               ? 'Track OSHA, CPR, equipment, and trade credentials across the workforce.'
-              : 'Company-uploaded credentials stay separate from certifications you add. Documents live on this page too.'}
+              : 'Company-uploaded credentials stay separate from certifications you add. Personal documents live on this page too.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -342,7 +342,7 @@ export function CertificationsPage() {
 
       {canManage ? null : (
         <div className="border-t border-border pt-8">
-          <DocumentsLibrary variant="section" />
+          <DocumentsLibrary variant="personal" />
         </div>
       )}
     </div>

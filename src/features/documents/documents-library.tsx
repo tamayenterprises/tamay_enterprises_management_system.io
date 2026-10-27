@@ -57,7 +57,8 @@ const CATEGORIES: DocumentCategory[] = [
   'miscellaneous',
 ]
 
-export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'section' }) {
+export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'personal' }) {
+  const personal = variant === 'personal'
   const { profile } = useAuth()
   const canManage = isManagementRole(profile?.role)
   const [search, setSearch] = useState('')
@@ -67,14 +68,19 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
   const [uploadOpen, setUploadOpen] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [uploadProjectId, setUploadProjectId] = useState<string>('none')
-  const projectSelectId = variant === 'section' ? 'cert-page-upload-project' : 'upload-project'
+  const projectSelectId = personal ? 'personal-upload-project' : 'upload-project'
 
   const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
   const { data, isLoading, isError, isFetching } = useDocuments({
     search,
     category: category === 'all' ? undefined : category,
-    projectId: projectFilter === 'all' || projectFilter === 'none' ? undefined : projectFilter,
+    projectId: personal
+      ? undefined
+      : projectFilter === 'all' || projectFilter === 'none'
+        ? undefined
+        : projectFilter,
     mineOnly: scope === 'mine',
+    library: personal ? 'personal' : 'work',
   })
   const uploadDocument = useUploadDocument()
   const deleteDocument = useDeleteDocument()
@@ -84,13 +90,10 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
     [data, profile],
   )
 
-  const documents = useMemo(() => {
-    if (projectFilter === 'none') return authorizedRows.filter((doc) => !doc.project_id)
-    return authorizedRows
-  }, [authorizedRows, projectFilter])
+  const documents = authorizedRows
   const list = useListPreview(
     documents,
-    `${search}:${category}:${projectFilter}:${scope}`,
+    `${search}:${category}:${projectFilter}:${scope}:${variant}`,
     DOCUMENTS_STEP,
     DOCUMENTS_PREVIEW,
   )
@@ -99,16 +102,18 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
     const rows = authorizedRows
     return {
       total: rows.length,
-      company: rows.filter((doc) => !doc.project_id).length,
-      project: rows.filter((doc) => Boolean(doc.project_id)).length,
       mine: rows.filter((doc) => doc.owner_id === profile?.id || doc.uploaded_by === profile?.id).length,
     }
   }, [authorizedRows, profile?.id])
 
   if (isLoading && !data) return <LoadingState />
-  if (isError && !data) return <EmptyState title="Unable to load documents" />
+  if (isError && !data) {
+    return <EmptyState title={personal ? 'Unable to load personal documents' : 'Unable to load work documents'} />
+  }
 
   const mobileUpload = isMobileUploadDevice()
+  const title = personal ? 'Personal Documents' : 'Work Documents'
+  const uploadLabel = personal ? 'Upload personal document' : 'Upload work document'
 
   const stageFiles = (selected: File[]) => {
     const { accepted, errors } = partitionUploadFiles(selected)
@@ -124,15 +129,19 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
 
   const runUpload = async () => {
     if (files.length === 0) return
+    if (!personal && uploadProjectId === 'none') {
+      toast.error('Choose a project for work documents.')
+      return
+    }
     try {
-      const projectId = uploadProjectId === 'none' ? null : uploadProjectId
+      const projectId = personal ? null : uploadProjectId
       const failures: string[] = []
       let uploadedCount = 0
       for (const file of files) {
         try {
           await uploadDocument.mutateAsync({
             file,
-            category: categoryForUploadFile(file),
+            category: personal ? 'miscellaneous' : categoryForUploadFile(file),
             projectId,
             bucket: projectId ? 'project-files' : 'documents',
           })
@@ -151,7 +160,11 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
         })
       } else {
         toast.success(
-          uploadedCount === 1 ? 'Document uploaded' : `${uploadedCount} documents uploaded`,
+          uploadedCount === 1
+            ? personal
+              ? 'Personal document uploaded'
+              : 'Work document uploaded'
+            : `${uploadedCount} documents uploaded`,
         )
       }
       if (uploadedCount > 0) {
@@ -198,21 +211,23 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
         <p className="text-xs text-muted-foreground">{uploadFolderHint()}</p>
         <SelectedFilesList files={files} onChange={setFiles} />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor={projectSelectId}>Link to project (optional)</Label>
-        <NativeSelect
-          id={projectSelectId}
-          value={uploadProjectId}
-          onChange={(event) => setUploadProjectId(event.target.value)}
-        >
-          <option value="none">No project</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
-        </NativeSelect>
-      </div>
+      {personal ? null : (
+        <div className="space-y-1">
+          <Label htmlFor={projectSelectId}>Project</Label>
+          <NativeSelect
+            id={projectSelectId}
+            value={uploadProjectId}
+            onChange={(event) => setUploadProjectId(event.target.value)}
+          >
+            <option value="none">Select a project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
       <Button
         disabled={files.length === 0 || uploadDocument.isPending}
         onClick={() => void runUpload()}
@@ -226,22 +241,25 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
     </div>
   )
 
-  const headingClass =
-    variant === 'section' ? 'font-display text-2xl font-semibold' : 'font-display text-3xl font-semibold'
+  const headingClass = personal
+    ? 'font-display text-2xl font-semibold'
+    : 'font-display text-3xl font-semibold'
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          {variant === 'section' ? (
-            <h2 className={headingClass}>Documents</h2>
+          {personal ? (
+            <h2 className={headingClass}>{title}</h2>
           ) : (
-            <h1 className={headingClass}>Documents</h1>
+            <h1 className={headingClass}>{title}</h1>
           )}
           <p className="text-sm text-muted-foreground">
-            {canManage
-              ? 'Secure storage for certifications, contracts, insurance, and project files.'
-              : 'Upload and access your personal documents and files shared through assigned projects.'}
+            {personal
+              ? 'W-2s, licenses, insurance, and other files that belong to you — not a job site.'
+              : canManage
+                ? 'Project files, photos, and paperwork tied to jobs.'
+                : 'Files shared through the jobs you are assigned to.'}
           </p>
         </div>
         {mobileUpload ? null : (
@@ -253,11 +271,11 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
             }}
           >
             <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">Upload document</Button>
+              <Button className="w-full sm:w-auto">{uploadLabel}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Upload document</DialogTitle>
+                <DialogTitle>{uploadLabel}</DialogTitle>
               </DialogHeader>
               {uploadForm}
             </DialogContent>
@@ -274,10 +292,8 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
         </Card>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         <SummaryCard label="Total files" value={counts.total} />
-        <SummaryCard label="Company / personal" value={counts.company} />
-        <SummaryCard label="Project-linked" value={counts.project} />
         <SummaryCard label="Uploaded by you" value={counts.mine} />
       </div>
 
@@ -296,20 +312,21 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
             ))}
           </SelectContent>
         </Select>
-        <Select value={projectFilter} onValueChange={setProjectFilter}>
-          <SelectTrigger className="w-full sm:w-52">
-            <SelectValue placeholder="Project" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All projects</SelectItem>
-            <SelectItem value="none">Not linked to a project</SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {personal ? null : (
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-full sm:w-52">
+              <SelectValue placeholder="Project" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All projects</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={scope} onValueChange={setScope}>
           <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Scope" />
@@ -323,8 +340,12 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
 
       {documents.length === 0 ? (
         <EmptyState
-          title="No documents found"
-          description="Upload certifications, contracts, insurance, or project files to get started."
+          title={personal ? 'No personal documents yet' : 'No work documents found'}
+          description={
+            personal
+              ? 'Upload W-2s, licenses, insurance, or other personal files here.'
+              : 'Upload files onto a project to see them here.'
+          }
         />
       ) : (
         <div className="space-y-3">
@@ -335,6 +356,7 @@ export function DocumentsLibrary({ variant = 'page' }: { variant?: 'page' | 'sec
             <DocumentCard
               key={doc.id}
               doc={doc}
+              personal={personal}
               canDelete={canRemoveDocument(doc, profile)}
               onView={async () => {
                 try {
@@ -387,12 +409,14 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
 
 function DocumentCard({
   doc,
+  personal,
   canDelete,
   onView,
   onDownload,
   onDelete,
 }: {
   doc: DocumentRecord
+  personal: boolean
   canDelete: boolean
   onView: () => Promise<void>
   onDownload: () => Promise<void>
@@ -404,7 +428,7 @@ function DocumentCard({
         <div>
           <CardTitle className="text-lg">{doc.name}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            {doc.project ? doc.project.name : 'Company / personal'}
+            {personal ? 'Personal' : doc.project ? doc.project.name : 'Work'}
             {doc.uploader
               ? ` · ${fullName(doc.uploader.first_name, doc.uploader.last_name)}`
               : ''}

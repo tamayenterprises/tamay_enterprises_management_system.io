@@ -49,7 +49,7 @@ const navItems = [
   { to: '/work-schedule', label: 'Work Schedule', icon: CalendarRange, management: true },
   { to: '/activity', label: 'Activity', icon: Activity },
   { to: '/certifications', label: 'Certifications', icon: ShieldCheck },
-  { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/documents', label: 'Work Documents', icon: FileText },
   { to: '/drafts', label: 'Drafts', icon: NotebookPen },
   { to: '/payments', label: 'Payment History', icon: ReceiptText, management: true },
   { to: '/notifications', label: 'Notifications', icon: Bell },
