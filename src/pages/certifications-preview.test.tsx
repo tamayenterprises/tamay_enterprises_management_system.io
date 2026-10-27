@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { Certification } from '@/types/database'
+import type { Certification, DocumentRecord } from '@/types/database'
 import { CertificationsPage } from './certifications'
 
 vi.mock('@/features/auth/auth-hooks', () => ({
@@ -28,7 +28,27 @@ vi.mock('@/features/data/hooks', () => ({
   createCertificationProofUrl: vi.fn(),
   useProjects: () => ({ data: [] }),
   useDocuments: () => ({
-    data: [],
+    data: [
+      {
+        id: 'w2',
+        name: 'w-2',
+        category: 'miscellaneous',
+        project_id: null,
+        owner_id: 'u1',
+        uploaded_by: 'admin',
+        mime_type: 'image/webp',
+        uploader: { first_name: 'Carlos', last_name: 'Tamay' },
+      },
+      {
+        id: 'own',
+        name: 'My file.pdf',
+        category: 'project_file',
+        project_id: null,
+        owner_id: 'u1',
+        uploaded_by: 'u1',
+        mime_type: 'application/pdf',
+      },
+    ] as DocumentRecord[],
     isLoading: false,
     isError: false,
     isFetching: false,
@@ -53,6 +73,9 @@ describe('Certifications list', () => {
     expect(screen.getByRole('heading', { name: 'Your certifications' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Personal Documents' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Upload Signed Documents' })).toBeInTheDocument()
+    expect(screen.getByText('w-2')).toBeInTheDocument()
+    expect(screen.getByText('My file.pdf')).toBeInTheDocument()
+    expect(screen.getByText(/Carlos Tamay/)).toBeInTheDocument()
 
     expect(screen.getByText('Cert 1')).toBeInTheDocument()
     expect(screen.getByText('Cert 2')).toBeInTheDocument()

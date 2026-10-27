@@ -63,6 +63,22 @@ export function isWorkDocument(doc: Pick<DocumentRecord, 'project_id'>) {
   return Boolean(doc.project_id)
 }
 
+/** Files Tamay/admin added onto this worker’s record (not the worker’s own uploads). */
+export function isCompanyUploadedDocument(
+  doc: Pick<DocumentRecord, 'uploaded_by'>,
+  workerId?: string | null,
+) {
+  return Boolean(workerId && doc.uploaded_by && doc.uploaded_by !== workerId)
+}
+
+/** Files this worker uploaded themselves. */
+export function isSelfUploadedDocument(
+  doc: Pick<DocumentRecord, 'uploaded_by'>,
+  workerId?: string | null,
+) {
+  return Boolean(workerId && doc.uploaded_by === workerId)
+}
+
 /**
  * Mirrors public.can_view_document_row for rows the API already returned (it cannot check
  * assignment). The database is the enforcement point; this keeps the UI fail-closed.

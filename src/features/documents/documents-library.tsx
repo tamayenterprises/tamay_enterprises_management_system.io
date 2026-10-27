@@ -21,7 +21,12 @@ import {
   useUploadDocument,
   viewDocumentFile,
 } from '@/features/data/hooks'
-import { canRemoveDocument, canViewerSeeDocument } from '@/lib/document-visibility'
+import {
+  canRemoveDocument,
+  canViewerSeeDocument,
+  isCompanyUploadedDocument,
+  isSelfUploadedDocument,
+} from '@/lib/document-visibility'
 import { useListPreview } from '@/lib/list-preview'
 import {
   documentCategoryBadgeVariant,
@@ -58,7 +63,15 @@ const CATEGORIES: DocumentCategory[] = [
   'miscellaneous',
 ]
 
-export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'personal' }) {
+export function DocumentsLibrary({
+  variant = 'work',
+  uploader = 'anyone',
+  compact = false,
+}: {
+  variant?: 'work' | 'personal'
+  uploader?: 'anyone' | 'self' | 'company'
+  compact?: boolean
+}) {
   const personal = variant === 'personal'
   const { profile } = useAuth()
   const canManage = isManagementRole(profile?.role)
@@ -86,10 +99,12 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
   const uploadDocument = useUploadDocument()
   const deleteDocument = useDeleteDocument()
 
-  const authorizedRows = useMemo(
-    () => (data ?? []).filter((doc) => canViewerSeeDocument(doc, profile)),
-    [data, profile],
-  )
+  const authorizedRows = useMemo(() => {
+    const rows = (data ?? []).filter((doc) => canViewerSeeDocument(doc, profile))
+    if (uploader === 'company') return rows.filter((doc) => isCompanyUploadedDocument(doc, profile?.id))
+    if (uploader === 'self') return rows.filter((doc) => isSelfUploadedDocument(doc, profile?.id))
+    return rows
+  }, [data, profile, uploader])
 
   const documents = authorizedRows
   const list = useListPreview(
@@ -107,10 +122,12 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
     }
   }, [authorizedRows, profile?.id])
 
-  if (isLoading && !data) return <LoadingState />
+  if (isLoading && !data) return compact ? null : <LoadingState />
   if (isError && !data) {
+    if (compact) return null
     return <EmptyState title={personal ? 'Unable to load personal documents' : 'Unable to load work documents'} />
   }
+  if (compact && documents.length === 0) return null
 
   const mobileUpload = isMobileUploadDevice()
   const title = personal ? 'Personal Documents' : 'Work Documents'
@@ -235,6 +252,55 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
     </div>
   )
 
+  const fileCards =
+    documents.length === 0 ? null : (
+      <div className="space-y-3">
+        <div
+          className={`grid gap-4 lg:grid-cols-2 ${isFetching ? 'opacity-70 transition-opacity' : ''}`}
+        >
+          {list.visible.map((doc) => (
+            <DocumentCard
+              key={doc.id}
+              doc={doc}
+              personal={personal}
+              canDelete={canRemoveDocument(doc, profile)}
+              onView={async () => {
+                try {
+                  await viewDocumentFile(doc)
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Open failed')
+                }
+              }}
+              onDownload={async () => {
+                try {
+                  await downloadDocumentFile(doc)
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Download failed')
+                }
+              }}
+              onDelete={async () => {
+                if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`)) return
+                try {
+                  await deleteDocument.mutateAsync(doc)
+                  toast.success('Document removed')
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'Remove failed')
+                }
+              }}
+            />
+          ))}
+        </div>
+        <SeeMoreButton
+          shown={list.shown}
+          total={list.total}
+          step={DOCUMENTS_STEP}
+          onMore={list.showMore}
+        />
+      </div>
+    )
+
+  if (compact) return fileCards
+
   const headingClass = personal
     ? 'font-display text-2xl font-semibold'
     : 'font-display text-3xl font-semibold'
@@ -250,7 +316,7 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
           )}
           <p className="text-sm text-muted-foreground">
             {personal
-              ? 'W-2s, licenses, insurance, and other files that belong to you — not a job site.'
+              ? 'Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'
               : canManage
                 ? 'Project files, photos, and paperwork tied to jobs.'
                 : 'Files shared through the jobs you are assigned to.'}
@@ -337,54 +403,12 @@ export function DocumentsLibrary({ variant = 'work' }: { variant?: 'work' | 'per
           title={personal ? 'No personal documents yet' : 'No work documents found'}
           description={
             personal
-              ? 'Upload W-2s, licenses, insurance, or other personal files here.'
+              ? 'Upload signed files you added yourself. Files Tamay uploaded appear under Uploaded by Tamay.'
               : 'Upload files onto a project to see them here.'
           }
         />
       ) : (
-        <div className="space-y-3">
-        <div
-          className={`grid gap-4 lg:grid-cols-2 ${isFetching ? 'opacity-70 transition-opacity' : ''}`}
-        >
-          {list.visible.map((doc) => (
-            <DocumentCard
-              key={doc.id}
-              doc={doc}
-              personal={personal}
-              canDelete={canRemoveDocument(doc, profile)}
-              onView={async () => {
-                try {
-                  await viewDocumentFile(doc)
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Open failed')
-                }
-              }}
-              onDownload={async () => {
-                try {
-                  await downloadDocumentFile(doc)
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Download failed')
-                }
-              }}
-              onDelete={async () => {
-                if (!confirmAction(`Remove "${doc.name}"? This cannot be undone.`)) return
-                try {
-                  await deleteDocument.mutateAsync(doc)
-                  toast.success('Document removed')
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : 'Remove failed')
-                }
-              }}
-            />
-          ))}
-        </div>
-        <SeeMoreButton
-          shown={list.shown}
-          total={list.total}
-          step={DOCUMENTS_STEP}
-          onMore={list.showMore}
-        />
-        </div>
+        fileCards
       )}
     </div>
   )

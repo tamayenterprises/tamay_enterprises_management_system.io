@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -315,16 +315,18 @@ export function CertificationsPage() {
         <div className="space-y-8">
           <CertificationSourceSection
             title="Uploaded by Tamay"
-            description="Certifications management added to your record. You can view the proof; ask Tamay to change these."
+            description="Certifications and files Tamay added to your record. You can view them here; ask Tamay to change these."
             emptyTitle="No company certifications yet"
-            emptyDescription="When Tamay uploads OSHA, licenses, or other credentials for you, they show up here."
+            emptyDescription="When Tamay uploads OSHA, licenses, W-2s, or other files for you, they show up here."
             list={companyList}
             canManage={false}
             viewerId={profile?.id}
             workers={workers}
             updateCertification={updateCertification}
             deleteCertification={deleteCertification}
-          />
+          >
+            <DocumentsLibrary variant="personal" uploader="company" compact />
+          </CertificationSourceSection>
           <CertificationSourceSection
             title="Your certifications"
             description="Credentials you uploaded yourself. Add, edit, or remove these anytime."
@@ -342,7 +344,7 @@ export function CertificationsPage() {
 
       {canManage ? null : (
         <div className="border-t border-border pt-8">
-          <DocumentsLibrary variant="personal" />
+          <DocumentsLibrary variant="personal" uploader="self" />
         </div>
       )}
     </div>
@@ -360,6 +362,7 @@ function CertificationSourceSection({
   workers,
   updateCertification,
   deleteCertification,
+  children,
 }: {
   title: string
   description: string
@@ -371,6 +374,7 @@ function CertificationSourceSection({
   workers: Array<{ id: string; first_name: string; last_name: string }>
   updateCertification: ReturnType<typeof useUpdateCertification>
   deleteCertification: ReturnType<typeof useDeleteCertification>
+  children?: ReactNode
 }) {
   return (
     <section className="space-y-3">
@@ -390,6 +394,7 @@ function CertificationSourceSection({
           deleteCertification={deleteCertification}
         />
       )}
+      {children}
     </section>
   )
 }

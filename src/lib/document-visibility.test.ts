@@ -8,8 +8,10 @@ import {
   canViewerSeeDocument,
   documentVisibilityHelp,
   documentVisibilityLabel,
+  isCompanyUploadedDocument,
   isPersonalDocument,
   isProjectPhotoDocument,
+  isSelfUploadedDocument,
   isWorkDocument,
 } from './document-visibility'
 import type { DocumentRecord, UserRole } from '@/types/database'
@@ -115,6 +117,13 @@ describe('personal vs work libraries', () => {
     expect(isWorkDocument({ project_id: null })).toBe(false)
     expect(isPersonalDocument({ project_id: 'p1' })).toBe(false)
     expect(isWorkDocument({ project_id: 'p1' })).toBe(true)
+  })
+
+  it('splits admin uploads from the worker’s own files', () => {
+    expect(isCompanyUploadedDocument({ uploaded_by: 'admin-1' }, 'worker-1')).toBe(true)
+    expect(isSelfUploadedDocument({ uploaded_by: 'admin-1' }, 'worker-1')).toBe(false)
+    expect(isCompanyUploadedDocument({ uploaded_by: 'worker-1' }, 'worker-1')).toBe(false)
+    expect(isSelfUploadedDocument({ uploaded_by: 'worker-1' }, 'worker-1')).toBe(true)
   })
 })
 
