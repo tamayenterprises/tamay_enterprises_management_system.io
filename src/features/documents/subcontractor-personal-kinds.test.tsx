@@ -64,6 +64,12 @@ describe('subcontractor personal document categories', () => {
     expect(screen.getByRole('option', { name: 'Workers Compensation Certificate' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Commercial Auto Insurance' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Certification' })).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Tamay Enterprises MUST listed as a Certification Holder'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'),
+    ).not.toBeInTheDocument()
   })
 
   it('keeps generic categories for employees', () => {
@@ -72,5 +78,11 @@ describe('subcontractor personal document categories', () => {
     expect(screen.getByRole('option', { name: 'Certification' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Urgent' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Commercial Auto Insurance' })).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Tamay Enterprises MUST listed as a Certification Holder'),
+    ).not.toBeInTheDocument()
   })
 })

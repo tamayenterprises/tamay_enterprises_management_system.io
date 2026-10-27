@@ -451,12 +451,20 @@ export function DocumentsLibrary({
           ) : (
             <h1 className={headingClass}>{title}</h1>
           )}
-          <p className="text-sm text-muted-foreground">
-            {personal
-              ? 'Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'
-              : canManage
-                ? 'Project files, photos, and paperwork tied to jobs.'
-                : 'Files shared through the jobs you are assigned to.'}
+          <p
+            className={
+              subcontractorPersonalKinds
+                ? 'text-sm font-medium text-destructive'
+                : 'text-sm text-muted-foreground'
+            }
+          >
+            {subcontractorPersonalKinds
+              ? 'Tamay Enterprises MUST listed as a Certification Holder'
+              : personal
+                ? 'Files you uploaded yourself — W-2s, licenses, and other personal paperwork.'
+                : canManage
+                  ? 'Project files, photos, and paperwork tied to jobs.'
+                  : 'Files shared through the jobs you are assigned to.'}
           </p>
         </div>
         {mobileUpload ? null : (
