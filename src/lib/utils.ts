@@ -198,9 +198,13 @@ export function documentCategoryLabel(category: DocumentCategory) {
     work_photo: 'Work photo',
     project_file: 'Project file',
     company: 'Company',
-    miscellaneous: 'Miscellaneous',
+    miscellaneous: 'Urgent',
   }
   return labels[category]
+}
+
+export function documentCategoryBadgeVariant(category: DocumentCategory) {
+  return category === 'miscellaneous' ? 'destructive' : 'secondary'
 }
 
 /** Photo type options for project uploads (stored on documents.kind_label). */

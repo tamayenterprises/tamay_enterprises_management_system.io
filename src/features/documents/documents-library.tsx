@@ -24,6 +24,7 @@ import {
 import { canRemoveDocument, canViewerSeeDocument } from '@/lib/document-visibility'
 import { useListPreview } from '@/lib/list-preview'
 import {
+  documentCategoryBadgeVariant,
   documentCategoryLabel,
   formatDate,
   formatFileSize,
@@ -427,7 +428,9 @@ function DocumentCard({
               : ''}
           </p>
         </div>
-        <Badge variant="secondary">{documentCategoryLabel(doc.category)}</Badge>
+        <Badge variant={documentCategoryBadgeVariant(doc.category)}>
+          {documentCategoryLabel(doc.category)}
+        </Badge>
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-muted-foreground">
         <p>

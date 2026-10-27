@@ -6,6 +6,7 @@ import {
   cn,
   deriveCertificationStatus,
   PERSONNEL_DOCUMENT_KINDS,
+  documentCategoryBadgeVariant,
   documentCategoryLabel,
   documentStorageBucket,
   formatFileSize,
@@ -41,6 +42,9 @@ describe('utils', () => {
 
   it('labels document categories and formats file sizes', () => {
     expect(documentCategoryLabel('work_photo')).toBe('Work photo')
+    expect(documentCategoryLabel('miscellaneous')).toBe('Urgent')
+    expect(documentCategoryBadgeVariant('miscellaneous')).toBe('destructive')
+    expect(documentCategoryBadgeVariant('project_file')).toBe('secondary')
     expect(PERSONNEL_DOCUMENT_KINDS.map((item) => item.label)).toEqual([
       'W-2',
       'W-9',
