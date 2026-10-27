@@ -13,7 +13,7 @@ vi.mock('@/features/data/hooks', () => ({
     data: [1, 2, 3, 4, 5, 6].map((n) => ({
       id: `c${n}`,
       name: `Cert ${n}`,
-      certification_type: 'OSHA',
+      certification_type: n <= 3 ? 'OSHA' : 'CPR',
       status: 'valid',
       profile_id: 'u1',
       created_by: n <= 3 ? 'admin' : 'u1',
@@ -98,5 +98,31 @@ describe('Certifications list', () => {
     await user.click(moreButtons[0]!)
     expect(screen.getByText('Cert 3')).toBeInTheDocument()
     expect(screen.queryByText('Cert 6')).not.toBeInTheDocument()
+  })
+
+  it('limits the list to one certification type, and All types shows everything', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <CertificationsPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('w-2')).toBeInTheDocument()
+    expect(screen.getByText('Cert 1')).toBeInTheDocument()
+    expect(screen.getByText('Cert 4')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Type' }), 'CPR')
+
+    expect(screen.queryByText('w-2')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cert 1')).not.toBeInTheDocument()
+    expect(screen.getByText('Cert 4')).toBeInTheDocument()
+    expect(screen.getByText('Cert 5')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Type' }), 'all')
+
+    expect(screen.getByText('w-2')).toBeInTheDocument()
+    expect(screen.getByText('Cert 1')).toBeInTheDocument()
+    expect(screen.getByText('Cert 4')).toBeInTheDocument()
   })
 })

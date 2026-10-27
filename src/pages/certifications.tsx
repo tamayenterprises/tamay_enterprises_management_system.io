@@ -13,6 +13,7 @@ import { FilePickerButton } from '@/components/ui/file-picker-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/loading-state'
+import { NativeSelect } from '@/components/ui/native-select'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/features/auth/auth-hooks'
@@ -29,7 +30,12 @@ import {
 } from '@/features/data/hooks'
 import { DeleteRequestDialog } from '@/features/documents/delete-request-dialog'
 import { DocumentsLibrary } from '@/features/documents/documents-library'
-import { canRequestCertificationDelete, isSelfUploadedCertification } from '@/lib/certification-source'
+import {
+  CERTIFICATION_TYPES,
+  canRequestCertificationDelete,
+  certificationMatchesType,
+  isSelfUploadedCertification,
+} from '@/lib/certification-source'
 import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { useListPreview } from '@/lib/list-preview'
 import { canAccessAdmin, certificationStatusLabel, formatDate, fullName, isManagementRole } from '@/lib/utils'
@@ -39,8 +45,6 @@ import type { Certification, CertificationStatus } from '@/types/database'
 
 const CERTIFICATIONS_PREVIEW = 2
 const CERTIFICATIONS_STEP = 3
-
-const CERT_TYPES = ['OSHA', 'Equipment', 'Trade', 'CPR', 'First Aid', 'Company-specific', 'Other']
 
 export function CertificationsPage() {
   const { profile } = useAuth()
@@ -56,7 +60,6 @@ export function CertificationsPage() {
   const { data, isLoading } = useCertifications({
     search,
     status: status === 'all' ? undefined : status,
-    type: type === 'all' ? undefined : type,
     profileId: canManage ? undefined : profile?.id,
   })
   const { data: profiles = [] } = useProfiles({
@@ -83,7 +86,11 @@ export function CertificationsPage() {
     [profiles],
   )
 
-  const certifications = data ?? []
+  const showAllTypes = type === 'all'
+  const certifications = useMemo(
+    () => (data ?? []).filter((cert) => certificationMatchesType(cert, type)),
+    [data, type],
+  )
   const companyCerts = useMemo(
     () =>
       canManage
@@ -117,14 +124,13 @@ export function CertificationsPage() {
     CERTIFICATIONS_PREVIEW,
   )
   const alertCounts = useMemo(() => {
-    const all = data ?? []
     return {
-      expiring: all.filter((c) => c.status === 'expiring_soon').length,
-      expired: all.filter((c) => c.status === 'expired').length,
-      missing: all.filter((c) => c.status === 'missing').length,
-      valid: all.filter((c) => c.status === 'valid').length,
+      expiring: certifications.filter((c) => c.status === 'expiring_soon').length,
+      expired: certifications.filter((c) => c.status === 'expired').length,
+      missing: certifications.filter((c) => c.status === 'missing').length,
+      valid: certifications.filter((c) => c.status === 'valid').length,
     }
-  }, [data])
+  }, [certifications])
 
   if (isLoading && !data) return <LoadingState />
 
@@ -153,19 +159,19 @@ export function CertificationsPage() {
               <SelectItem value="missing">Missing</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="w-full sm:w-44">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {CERT_TYPES.map((certType) => (
-                <SelectItem key={certType} value={certType}>
-                  {certType}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <NativeSelect
+            className="w-full sm:w-44"
+            value={type}
+            aria-label="Type"
+            onChange={(event) => setType(event.target.value)}
+          >
+            <option value="all">All types</option>
+            {CERTIFICATION_TYPES.map((certType) => (
+              <option key={certType} value={certType}>
+                {certType}
+              </option>
+            ))}
+          </NativeSelect>
           <Dialog
             open={createOpen}
             onOpenChange={(open) => {
@@ -226,7 +232,7 @@ export function CertificationsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {CERT_TYPES.map((certType) => (
+                      {CERTIFICATION_TYPES.map((certType) => (
                         <SelectItem key={certType} value={certType}>
                           {certType}
                         </SelectItem>
@@ -335,7 +341,7 @@ export function CertificationsPage() {
             updateCertification={updateCertification}
             deleteCertification={deleteCertification}
           >
-            <DocumentsLibrary variant="personal" uploader="company" compact />
+            {showAllTypes ? <DocumentsLibrary variant="personal" uploader="company" compact /> : null}
           </CertificationSourceSection>
           <CertificationSourceSection
             title="Your certifications"
@@ -353,7 +359,7 @@ export function CertificationsPage() {
         </div>
       )}
 
-      {canManage ? null : (
+      {canManage || !showAllTypes ? null : (
         <div className="border-t border-border pt-8">
           <DocumentsLibrary variant="personal" uploader="self" />
         </div>
@@ -718,7 +724,7 @@ function CertificationCard({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {CERT_TYPES.map((certType) => (
+                      {CERTIFICATION_TYPES.map((certType) => (
                         <SelectItem key={certType} value={certType}>
                           {certType}
                         </SelectItem>

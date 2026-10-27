@@ -15,3 +15,22 @@ export function canRequestCertificationDelete(viewer?: Pick<Profile, 'role'> | n
   if (isManagementRole(viewer.role) || isClientRole(viewer.role)) return false
   return true
 }
+
+export const CERTIFICATION_TYPES = [
+  'OSHA',
+  'Equipment',
+  'Trade',
+  'CPR',
+  'First Aid',
+  'Company-specific',
+  'Other',
+] as const
+
+/** All types shows every certification; any other value matches that type only. */
+export function certificationMatchesType(
+  cert: { certification_type?: string | null },
+  type: string,
+) {
+  if (!type || type === 'all') return true
+  return (cert.certification_type ?? '').trim() === type
+}
