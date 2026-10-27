@@ -148,7 +148,7 @@ export function canAccessAppPage(
     if (page === 'admin') return false
     return resolvedPmPages(profile?.granted_pages).includes(page)
   }
-  if (page === 'schedule') return role === 'employee' || role === 'project_manager'
+  if (page === 'schedule') return role === 'employee'
   if (page === 'nearby') return canUseNearbyFinder(role)
   if (MANAGEMENT_PAGES.includes(page) || page === 'clients' || page === 'admin') return false
   return STAFF_PAGES.includes(page)
