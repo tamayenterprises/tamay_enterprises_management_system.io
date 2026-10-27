@@ -65,15 +65,23 @@ describe('notificationDestination', () => {
     ).toBe('/projects/p1?tab=files&doc=doc-4')
   })
 
-  it('opens the requested document or certification so admin can review it', () => {
+  it('opens the pending delete request on the notifications list, not the documents folder', () => {
     expect(
       notificationDestination({
-        destination_route: '/notifications',
+        destination_route: '/documents?doc=doc-8',
         entity_type: 'document_delete_request',
         entity_id: 'req-1',
+        metadata: { request_id: 'req-1', document_id: 'doc-8', status: 'pending' },
+      }),
+    ).toBe('/notifications?request=req-1')
+    expect(
+      notificationDestination({
+        destination_route: '/certifications?cert=cert-9',
+        entity_type: 'document_delete_request',
+        entity_id: 'req-2',
         metadata: { certification_id: 'cert-9', status: 'pending' },
       }),
-    ).toBe('/certifications?cert=cert-9')
+    ).toBe('/notifications?request=req-2')
     expect(
       notificationDestination({
         destination_route: '/notifications',
@@ -81,14 +89,7 @@ describe('notificationDestination', () => {
         project_id: 'p1',
         metadata: { document_id: 'doc-4', status: 'pending' },
       }),
-    ).toBe('/projects/p1?tab=files&doc=doc-4')
-    expect(
-      notificationDestination({
-        destination_route: '/notifications',
-        entity_type: 'document_delete_request',
-        metadata: { document_id: 'doc-8', status: 'pending' },
-      }),
-    ).toBe('/documents?doc=doc-8')
+    ).toBe('/notifications')
     expect(
       isPendingDocumentDeleteRequest({
         entity_type: 'document_delete_request',

@@ -79,12 +79,8 @@ export function documentDeleteRequestMeta(item: {
 export function documentDeleteRequestDestination(item: NotificationLinkSource) {
   const meta = documentDeleteRequestMeta(item)
   if (!meta) return null
-  if (meta.certificationId) return `/certifications?cert=${meta.certificationId}`
-  if (meta.documentId && item.project_id) {
-    return `/projects/${item.project_id}?tab=files&doc=${meta.documentId}`
-  }
-  if (meta.documentId) return `/documents?doc=${meta.documentId}`
-  return item.destination_route || item.link || '/notifications'
+  if (meta.requestId) return `/notifications?request=${meta.requestId}`
+  return '/notifications'
 }
 
 export function isPendingDocumentDeleteRequest(item: {

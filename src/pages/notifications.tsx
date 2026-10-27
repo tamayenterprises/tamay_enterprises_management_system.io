@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ import {
   useReviewNotification,
   useUpdateNotificationPreferences,
 } from '@/features/notifications/hooks'
+import { scheduleScrollToId } from '@/lib/focus-scroll'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import {
   documentDeleteRequestMeta,
@@ -39,6 +40,8 @@ import type { Notification, NotificationPreferences } from '@/types/database'
 export function NotificationsPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const focusRequestId = params.get('request')
   const canManage = isManagementRole(profile?.role)
   const [status, setStatus] = useState<'all' | 'unread' | 'read'>('all')
   const [composeOpen, setComposeOpen] = useState(false)
@@ -80,6 +83,16 @@ export function NotificationsPage() {
     return allNotifications
   }, [allNotifications, status])
   const list = useListPreview(notifications, status)
+
+  useEffect(() => {
+    if (focusRequestId) setStatus('all')
+  }, [focusRequestId])
+
+  useEffect(() => {
+    if (!focusRequestId) return
+    list.revealAll()
+    return scheduleScrollToId(`delete-request-${focusRequestId}`)
+  }, [focusRequestId, list.revealAll, list.total])
 
   const recipients = useMemo(
     () =>
@@ -330,6 +343,11 @@ export function NotificationsPage() {
             <NotificationCard
               key={item.id}
               item={item}
+              focused={
+                Boolean(focusRequestId) &&
+                (documentDeleteRequestMeta(item)?.requestId === focusRequestId ||
+                  item.entity_id === focusRequestId)
+              }
               canApproveDelete={canApproveDeletes && isPendingDocumentDeleteRequest(item)}
               canReview={
                 !isPendingDocumentDeleteRequest(item) &&
@@ -442,6 +460,7 @@ function SummaryCard({
 
 function NotificationCard({
   item,
+  focused,
   canReview,
   canApproveDelete,
   onMarkRead,
@@ -453,6 +472,7 @@ function NotificationCard({
   onOpen,
 }: {
   item: Notification
+  focused: boolean
   canReview: boolean
   canApproveDelete: boolean
   onMarkRead: () => Promise<void>
@@ -467,8 +487,19 @@ function NotificationCard({
   const destination = notificationDestination(item)
   const deleteMeta = documentDeleteRequestMeta(item)
 
+  const requestAnchor = deleteMeta?.requestId || item.entity_id
+
   return (
-    <Card className={item.is_read ? 'opacity-90' : 'border-accent/40'}>
+    <Card
+      id={requestAnchor ? `delete-request-${requestAnchor}` : undefined}
+      className={
+        focused
+          ? 'border-accent bg-accent/5 ring-2 ring-accent/30'
+          : item.is_read
+            ? 'opacity-90'
+            : 'border-accent/40'
+      }
+    >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="space-y-1">
           <CardTitle className="text-lg">{item.title}</CardTitle>
@@ -505,11 +536,6 @@ function NotificationCard({
               <Button size="sm" variant="outline" onClick={() => void onOpenFile()}>
                 {deleteRequestOpenLabel(deleteMeta?.target)}
               </Button>
-              {destination ? (
-                <Button size="sm" variant="outline" onClick={() => void onOpen()}>
-                  View record
-                </Button>
-              ) : null}
               <Button size="sm" onClick={() => void onResolveDelete(true)}>
                 Approve delete
               </Button>
