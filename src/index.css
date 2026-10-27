@@ -44,6 +44,7 @@
   html {
     @apply scroll-smooth;
     overflow-x: clip;
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -54,6 +55,12 @@
     max-width: 100%;
     overflow-x: clip;
     overflow-wrap: anywhere;
+  }
+
+  /* Radix menus lock body scroll and pad for the scrollbar, which resizes the sticky sidebar. */
+  body[data-scroll-locked] {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
   }
 
   #root {

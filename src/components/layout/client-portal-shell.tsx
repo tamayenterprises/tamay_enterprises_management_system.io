@@ -117,7 +117,7 @@ export function ClientPortalShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav
-          className="flex min-h-0 flex-1 flex-col justify-evenly overflow-y-auto px-1.5 py-1"
+          className="flex min-h-0 flex-1 flex-col justify-start gap-0.5 overflow-y-auto px-1.5 py-1"
           aria-label="Client sections"
         >
           {navItems.map((item) => (
