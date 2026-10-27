@@ -43,6 +43,8 @@ import {
   fullName,
   canAccessAdmin,
   isManagementRole,
+  SUBCONTRACTOR_PERSONAL_DOCUMENT_KINDS,
+  subcontractorPersonalKind,
 } from '@/lib/utils'
 import {
   categoryForUploadFile,
@@ -82,11 +84,14 @@ export function DocumentsLibrary({
 }) {
   const personal = variant === 'personal'
   const { profile } = useAuth()
+  const subcontractorPersonalKinds = personal && !compact && profile?.role === 'subcontractor'
   const [params] = useSearchParams()
   const focusDocId = params.get('doc')
   const canManage = isManagementRole(profile?.role)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<'all' | DocumentCategory>('all')
+  const [kindFilter, setKindFilter] = useState('all')
+  const [uploadKind, setUploadKind] = useState('')
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [scope, setScope] = useState<string>('all')
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -99,7 +104,7 @@ export function DocumentsLibrary({
   const { data: projects = [] } = useProjects({ assignedOnly: !canManage })
   const { data, isLoading, isError, isFetching } = useDocuments({
     search,
-    category: category === 'all' ? undefined : category,
+    category: subcontractorPersonalKinds || category === 'all' ? undefined : category,
     projectId: personal
       ? undefined
       : projectFilter === 'all' || projectFilter === 'none'
@@ -123,16 +128,19 @@ export function DocumentsLibrary({
   const canApproveDeletes = canAccessAdmin(profile?.role)
 
   const authorizedRows = useMemo(() => {
-    const rows = (data ?? []).filter((doc) => canViewerSeeDocument(doc, profile))
-    if (uploader === 'company') return rows.filter((doc) => isCompanyUploadedDocument(doc, profile?.id))
-    if (uploader === 'self') return rows.filter((doc) => isSelfUploadedDocument(doc, profile?.id))
+    let rows = (data ?? []).filter((doc) => canViewerSeeDocument(doc, profile))
+    if (uploader === 'company') rows = rows.filter((doc) => isCompanyUploadedDocument(doc, profile?.id))
+    if (uploader === 'self') rows = rows.filter((doc) => isSelfUploadedDocument(doc, profile?.id))
+    if (subcontractorPersonalKinds && kindFilter !== 'all') {
+      rows = rows.filter((doc) => (doc.kind_label ?? '') === kindFilter)
+    }
     return rows
-  }, [data, profile, uploader])
+  }, [data, profile, uploader, subcontractorPersonalKinds, kindFilter])
 
   const documents = authorizedRows
   const list = useListPreview(
     documents,
-    `${search}:${category}:${projectFilter}:${scope}:${variant}`,
+    `${search}:${category}:${kindFilter}:${projectFilter}:${scope}:${variant}`,
     DOCUMENTS_STEP,
     DOCUMENTS_PREVIEW,
   )
@@ -176,6 +184,10 @@ export function DocumentsLibrary({
 
   const runUpload = async () => {
     if (files.length === 0) return
+    if (subcontractorPersonalKinds && !uploadKind) {
+      toast.error('Choose a document type.')
+      return
+    }
     if (!personal && uploadProjectId === 'none') {
       toast.error('Choose a project for work documents.')
       return
@@ -186,9 +198,11 @@ export function DocumentsLibrary({
       let uploadedCount = 0
       for (const file of files) {
         try {
+          const kind = subcontractorPersonalKinds ? subcontractorPersonalKind(uploadKind) : null
           await uploadDocument.mutateAsync({
             file,
-            category: personal ? 'miscellaneous' : categoryForUploadFile(file),
+            category: kind?.category ?? (personal ? 'miscellaneous' : categoryForUploadFile(file)),
+            kindLabel: kind?.label,
             projectId,
             bucket: projectId ? 'project-files' : 'documents',
           })
@@ -217,6 +231,7 @@ export function DocumentsLibrary({
       if (uploadedCount > 0) {
         setFiles([])
         setUploadProjectId('none')
+        setUploadKind('')
         setUploadOpen(false)
       }
     } catch (error) {
@@ -226,6 +241,23 @@ export function DocumentsLibrary({
 
   const uploadForm = (
     <div className="space-y-3">
+      {subcontractorPersonalKinds ? (
+        <div className="space-y-1">
+          <Label htmlFor="subcontractor-doc-type">Document type</Label>
+          <NativeSelect
+            id="subcontractor-doc-type"
+            value={uploadKind}
+            onChange={(event) => setUploadKind(event.target.value)}
+          >
+            <option value="">Choose type</option>
+            {SUBCONTRACTOR_PERSONAL_DOCUMENT_KINDS.map((item) => (
+              <option key={item.label} value={item.label}>
+                {item.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : null}
       <div className="space-y-1">
         <Label>Files</Label>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -269,7 +301,11 @@ export function DocumentsLibrary({
         </div>
       )}
       <Button
-        disabled={files.length === 0 || uploadDocument.isPending}
+        disabled={
+          files.length === 0 ||
+          uploadDocument.isPending ||
+          (subcontractorPersonalKinds && !uploadKind)
+        }
         onClick={() => void runUpload()}
       >
         {uploadDocument.isPending
@@ -293,6 +329,11 @@ export function DocumentsLibrary({
               doc={doc}
               focused={focusDocId === doc.id}
               personal={personal}
+              badgeLabel={
+                subcontractorPersonalKinds
+                  ? doc.kind_label || documentCategoryLabel(doc.category)
+                  : documentCategoryLabel(doc.category)
+              }
               canDelete={canRemoveDocument(doc, profile) && !pendingByDocumentId.has(doc.id)}
               canRequestDelete={canRequestDocumentDelete(doc, profile)}
               canApproveDelete={canApproveDeletes && pendingByDocumentId.has(doc.id)}
@@ -457,16 +498,25 @@ export function DocumentsLibrary({
         <Input className="w-full min-w-0 sm:w-64" placeholder="Search documents..." value={search} onChange={(e) => setSearch(e.target.value)} />
         <NativeSelect
           className="w-full sm:w-52"
-          value={category}
-          onChange={(event) => setCategory(event.target.value as 'all' | DocumentCategory)}
+          value={subcontractorPersonalKinds ? kindFilter : category}
+          onChange={(event) => {
+            if (subcontractorPersonalKinds) setKindFilter(event.target.value)
+            else setCategory(event.target.value as 'all' | DocumentCategory)
+          }}
           aria-label="Category"
         >
           <option value="all">All categories</option>
-          {CATEGORIES.map((item) => (
-            <option key={item} value={item}>
-              {documentCategoryLabel(item)}
-            </option>
-          ))}
+          {subcontractorPersonalKinds
+            ? SUBCONTRACTOR_PERSONAL_DOCUMENT_KINDS.map((item) => (
+                <option key={item.label} value={item.label}>
+                  {item.label}
+                </option>
+              ))
+            : CATEGORIES.map((item) => (
+                <option key={item} value={item}>
+                  {documentCategoryLabel(item)}
+                </option>
+              ))}
         </NativeSelect>
         {personal ? null : (
           <NativeSelect
@@ -526,6 +576,7 @@ function DocumentCard({
   doc,
   focused,
   personal,
+  badgeLabel,
   canDelete,
   canRequestDelete,
   canApproveDelete,
@@ -539,6 +590,7 @@ function DocumentCard({
   doc: DocumentRecord
   focused: boolean
   personal: boolean
+  badgeLabel: string
   canDelete: boolean
   canRequestDelete: boolean
   canApproveDelete: boolean
@@ -566,7 +618,7 @@ function DocumentCard({
         </div>
         <div className="flex flex-col items-end gap-1">
           <Badge variant={documentCategoryBadgeVariant(doc.category)}>
-            {documentCategoryLabel(doc.category)}
+            {badgeLabel}
           </Badge>
           {deletePending ? <Badge variant="warning">Pending</Badge> : null}
         </div>

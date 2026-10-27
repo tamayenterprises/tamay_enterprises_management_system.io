@@ -216,6 +216,22 @@ export const PHOTO_KIND_OPTIONS = [
   'Other',
 ] as const
 
+/** Subcontractor personal files on Certifications (stored as kind_label + category). */
+export const SUBCONTRACTOR_PERSONAL_DOCUMENT_KINDS = [
+  { label: 'W-9', category: 'identification' as const },
+  { label: 'EIN/ITN', category: 'identification' as const },
+  { label: 'Business Info(Phone #, Address, email)', category: 'company' as const },
+  { label: 'Business Registration', category: 'company' as const },
+  { label: 'Certificate of General Liability Insurance', category: 'insurance' as const },
+  { label: 'Workers Compensation Certificate', category: 'insurance' as const },
+  { label: 'Commercial Auto Insurance', category: 'insurance' as const },
+] as const
+
+export function subcontractorPersonalKind(label: string | null | undefined) {
+  const match = SUBCONTRACTOR_PERSONAL_DOCUMENT_KINDS.find((item) => item.label === label)
+  return match ?? null
+}
+
 /** Admin personnel files on a worker's record (stored as kind_label + category). */
 export const PERSONNEL_DOCUMENT_KINDS = [
   { label: 'W-2', category: 'identification' as const },

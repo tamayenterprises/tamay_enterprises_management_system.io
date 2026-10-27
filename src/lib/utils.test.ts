@@ -6,6 +6,8 @@ import {
   cn,
   deriveCertificationStatus,
   PERSONNEL_DOCUMENT_KINDS,
+  SUBCONTRACTOR_PERSONAL_DOCUMENT_KINDS,
+  subcontractorPersonalKind,
   documentCategoryBadgeVariant,
   documentCategoryLabel,
   documentStorageBucket,
@@ -56,6 +58,17 @@ describe('utils', () => {
       'ITIN',
       'Trade license',
     ])
+    expect(SUBCONTRACTOR_PERSONAL_DOCUMENT_KINDS.map((item) => item.label)).toEqual([
+      'W-9',
+      'EIN/ITN',
+      'Business Info(Phone #, Address, email)',
+      'Business Registration',
+      'Certificate of General Liability Insurance',
+      'Workers Compensation Certificate',
+      'Commercial Auto Insurance',
+    ])
+    expect(subcontractorPersonalKind('W-9')?.category).toBe('identification')
+    expect(subcontractorPersonalKind('Commercial Auto Insurance')?.category).toBe('insurance')
     expect(formatFileSize(512)).toBe('512 B')
     expect(formatFileSize(2048)).toBe('2.0 KB')
     expect(documentStorageBucket({ storage_path: 'user/file.pdf', project_id: null })).toBe('documents')
