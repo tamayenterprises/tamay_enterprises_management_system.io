@@ -26,7 +26,7 @@ export function ProjectManagerPageAccess({ user }: { user: Profile }) {
   }
 
   return (
-    <div className="rounded-md border border-border/80 bg-[#fbfcff] px-3 py-3">
+    <div className="rounded-md border border-primary/30 bg-[#fbfcff] px-3 py-3">
       <p className="text-sm font-medium">Page access</p>
       <p className="mt-1 text-xs text-muted-foreground">
         Choose which pages this project manager can open. Dashboard and Notifications stay on so they

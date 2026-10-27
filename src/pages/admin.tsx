@@ -422,6 +422,7 @@ function UserRow({
   onReapprove: () => Promise<void>
 }) {
   const [showProjects, setShowProjects] = useState(false)
+  const [showPageAccess, setShowPageAccess] = useState(user.role === 'project_manager')
   const personLabel = fullName(user.first_name, user.last_name)
 
   return (
@@ -500,6 +501,15 @@ function UserRow({
           >
             {showProjects ? 'Hide projects' : 'Projects'}
           </Button>
+          {user.role === 'project_manager' ? (
+            <Button
+              size="sm"
+              className="min-h-11 w-full sm:w-auto"
+              onClick={() => setShowPageAccess((open) => !open)}
+            >
+              {showPageAccess ? 'Hide page access' : 'Page access'}
+            </Button>
+          ) : null}
           <Button size="sm" variant="destructive" className="min-h-11 w-full sm:w-auto" disabled={isSelf} onClick={onToggleRemove}>
             {user.archived_at ? 'Restore' : 'Remove'}
           </Button>
@@ -514,7 +524,7 @@ function UserRow({
           />
         </div>
       ) : null}
-      {user.role === 'project_manager' ? <ProjectManagerPageAccess user={user} /> : null}
+      {user.role === 'project_manager' && showPageAccess ? <ProjectManagerPageAccess user={user} /> : null}
       {user.role !== 'client' ? <PersonRecordsPanel profileId={user.id} personLabel={personLabel} /> : null}
     </div>
   )
