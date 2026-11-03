@@ -59,6 +59,7 @@ import { ProjectClientsSection } from '@/features/projects/project-clients-secti
 import { ProjectContactSection } from '@/features/projects/project-contact-section'
 import { FindNearbyLink } from '@/features/nearby/find-nearby-link'
 import { splitWorkerAssignments } from '@/features/projects/project-people'
+import { useSubcontractorReadiness } from '@/features/subcontractors/hooks'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
@@ -123,6 +124,18 @@ export function ProjectDetailPage() {
         !assignedIds.has(worker.id),
     )
   }, [workers, assignedIds])
+
+  const subcontractorIds = useMemo(
+    () => availableWorkers.filter((worker) => worker.role === 'subcontractor').map((worker) => worker.id),
+    [availableWorkers],
+  )
+  const { data: subcontractorReadiness } = useSubcontractorReadiness(subcontractorIds)
+  const notReadyInfo = (id: string) => {
+    const row = subcontractorReadiness?.get(id)
+    return row && row.status !== 'ready' ? row : null
+  }
+  const notReady = (id: string) => Boolean(notReadyInfo(id))
+  const selectedNotReady = selectedWorker ? notReadyInfo(selectedWorker) : null
 
   const clientOptions = useMemo(
     () =>
@@ -486,16 +499,33 @@ export function ProjectDetailPage() {
                           availableWorkers.map((worker) => (
                             <SelectItem key={worker.id} value={worker.id}>
                               {fullName(worker.first_name, worker.last_name)} ({roleLabel(worker.role)})
+                              {notReady(worker.id) ? ' — NOT READY TO WORK' : ''}
                             </SelectItem>
                           ))
                         )}
                       </SelectContent>
                     </Select>
+                    {selectedNotReady ? (
+                      <div className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-xs text-destructive" role="alert">
+                        <p className="font-semibold">NOT READY TO WORK</p>
+                        <p>
+                          {[...selectedNotReady.attention_labels, ...selectedNotReady.missing_labels, ...selectedNotReady.pending_labels].join(', ') ||
+                            'Documents are not approved yet.'}
+                        </p>
+                      </div>
+                    ) : null}
                     <Button
                       size="sm"
                       className="w-full"
+                      variant={selectedNotReady ? 'destructive' : 'default'}
                       disabled={!selectedWorker || selectedWorker === 'none'}
                       onClick={async () => {
+                        if (
+                          selectedNotReady &&
+                          !confirmAction('This subcontractor is NOT READY TO WORK. Assign anyway?')
+                        ) {
+                          return
+                        }
                         try {
                           await assignWorker.mutateAsync({
                             projectId: project.id,
@@ -508,7 +538,7 @@ export function ProjectDetailPage() {
                         }
                       }}
                     >
-                      Assign worker
+                      {selectedNotReady ? 'Assign anyway' : 'Assign worker'}
                     </Button>
                   </div>
                 ) : null}

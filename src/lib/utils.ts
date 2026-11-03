@@ -266,9 +266,13 @@ export function formatFileSize(bytes?: number | null) {
 }
 
 /** Infer storage bucket from upload path conventions used in the app. */
-export function documentStorageBucket(doc: Pick<DocumentRecord, 'storage_path' | 'project_id'>) {
+export type DocumentStorageBucket = 'documents' | 'project-files' | 'restricted-documents'
+
+export function documentStorageBucket(doc: Pick<DocumentRecord, 'storage_path' | 'project_id'>): DocumentStorageBucket {
   const parts = doc.storage_path.split('/')
   if (doc.project_id && parts.length >= 3) return 'project-files'
+  // Subcontractor payment / ACH files: Admin and the owner only.
+  if (!doc.project_id && parts[1] === 'payment') return 'restricted-documents'
   return 'documents'
 }
 

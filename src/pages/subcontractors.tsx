@@ -1,5 +1,14 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { CompactAccordion } from '@/components/ui/compact-accordion'
+import {
+  usePendingRequirementReviews,
+  useSubcontractorReadiness,
+  useSubcontractorWorkOrders,
+} from '@/features/subcontractors/hooks'
+import { ReadinessBadge } from '@/features/subcontractors/readiness-badge'
+import { SharedResourcesManager } from '@/features/subcontractors/tamay-resources'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,7 +25,7 @@ import { useAdminSetUserAccess, useProfiles, useUpdateProfile } from '@/features
 import { useAuth } from '@/features/auth/auth-hooks'
 import { ProfileAvatar } from '@/features/profile/avatar'
 import { canManageProfileField } from '@/lib/profile-fields'
-import { fullName } from '@/lib/utils'
+import { formatDate, fullName } from '@/lib/utils'
 import { PersonDirectoryFilters } from '@/components/ui/person-directory-filters'
 import { LIST_PREVIEW, useListPreview } from '@/lib/list-preview'
 import {
@@ -28,7 +37,7 @@ import { confirmAction } from '@/lib/uploads'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { profileSchema, type ProfileFormValues } from '@/lib/validations'
-import type { Profile } from '@/types/database'
+import type { Profile, SubcontractorReadiness } from '@/types/database'
 
 export function SubcontractorsPage() {
   const [search, setSearch] = useState('')
@@ -46,6 +55,21 @@ export function SubcontractorsPage() {
     return rows.filter((row) => matchesPersonDirectoryFilter(row, statusFilter))
   }, [data, statusFilter])
   const list = useListPreview(subcontractors, `${search}:${statusFilter}`)
+  const allIds = useMemo(() => (data ?? []).map((row) => row.id), [data])
+  const { data: readiness } = useSubcontractorReadiness(allIds)
+  const { data: workOrders = [] } = useSubcontractorWorkOrders(allIds)
+  const activeWorkOrders = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const row of workOrders) {
+      if (row.work_status === 'completed') continue
+      counts.set(row.profile_id, (counts.get(row.profile_id) ?? 0) + 1)
+    }
+    return counts
+  }, [workOrders])
+  const namesById = useMemo(
+    () => new Map((data ?? []).map((row) => [row.id, row.company_name || fullName(row.first_name, row.last_name)])),
+    [data],
+  )
 
   if (isLoading && !data) return <LoadingState />
   if (isError) {
@@ -63,8 +87,7 @@ export function SubcontractorsPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">Subcontractors</h1>
           <p className="text-sm text-muted-foreground">
-            Manage trade partners, remove them when Tamay is done, and unassign projects when they are
-            finished or replaced.
+            Review documents, see who is Ready to Work, and track their Work Orders.
           </p>
         </div>
         <Input
@@ -74,6 +97,18 @@ export function SubcontractorsPage() {
           className="w-full min-w-0 sm:w-72"
         />
       </div>
+
+      {readiness ? (
+        <>
+          <PendingReviewsPanel namesById={namesById} />
+          <CompactAccordion
+            title="Subcontractor Resources"
+            summary="Forms and guides every subcontractor sees under Uploaded by Tamay (blank W-9, agreement, safety rules)."
+          >
+            <SharedResourcesManager />
+          </CompactAccordion>
+        </>
+      ) : null}
 
       <PersonDirectoryFilters value={statusFilter} onChange={setStatusFilter} />
 
@@ -86,6 +121,8 @@ export function SubcontractorsPage() {
             <SubcontractorCard
               key={person.id}
               person={person}
+              readiness={readiness?.get(person.id) ?? null}
+              activeWorkOrders={activeWorkOrders.get(person.id) ?? 0}
               onSave={async (values) => {
                 try {
                   await updateProfile.mutateAsync({ id: person.id, values })
@@ -145,13 +182,44 @@ export function SubcontractorsPage() {
   )
 }
 
+function PendingReviewsPanel({ namesById }: { namesById: Map<string, string> }) {
+  const { data: pending = [] } = usePendingRequirementReviews()
+  if (pending.length === 0) return null
+  return (
+    <Card className="border-warning/40">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Waiting for review ({pending.length})</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {pending.slice(0, 8).map((doc) => (
+            <li key={doc.id} className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                <span className="font-medium">{namesById.get(doc.owner_id ?? '') ?? 'Subcontractor'}</span> ·{' '}
+                {doc.name.split(' - ')[0]} · Submitted {formatDate(doc.created_at)}
+              </span>
+              <Button asChild size="sm" variant="outline">
+                <Link to={`/subcontractors/${doc.owner_id}`}>Review</Link>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
 function SubcontractorCard({
   person,
+  readiness,
+  activeWorkOrders,
   onSave,
   onToggleActive,
   onArchive,
 }: {
   person: Profile
+  readiness: SubcontractorReadiness | null
+  activeWorkOrders: number
   onSave: (values: ProfileFormValues) => Promise<void>
   onToggleActive: () => Promise<void>
   onArchive: () => Promise<void>
@@ -189,23 +257,47 @@ function SubcontractorCard({
             </p>
           </div>
         </div>
-        {person.archived_at ? (
-          <Badge variant="destructive">Removed</Badge>
-        ) : (
-          <Badge variant={person.is_active ? 'success' : 'destructive'}>
-            {person.is_active ? 'Active' : 'Inactive'}
-          </Badge>
-        )}
+        <div className="flex flex-col items-end gap-1">
+          {person.archived_at ? (
+            <Badge variant="destructive">Removed</Badge>
+          ) : (
+            <Badge variant={person.is_active ? 'success' : 'destructive'}>
+              {person.is_active ? 'Active' : 'Inactive'}
+            </Badge>
+          )}
+          {readiness ? <ReadinessBadge status={readiness.status} management /> : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        <p>Phone: {person.phone || '—'}</p>
         <p>Trade: {person.trade_specialization || '—'}</p>
-        <p>Insurance: {person.insurance_info || '—'}</p>
-        <p>License: {person.license_info || '—'}</p>
+        <p>Phone: {person.phone || '—'}</p>
+        {readiness ? (
+          <>
+            <p>
+              Documents: {readiness.approved_count}/{readiness.required_count} approved
+            </p>
+            {readiness.missing_labels.length + readiness.attention_labels.length > 0 ? (
+              <p className="text-destructive">
+                Missing: {[...readiness.attention_labels, ...readiness.missing_labels].join(', ')}
+              </p>
+            ) : null}
+            {readiness.pending_labels.length > 0 ? (
+              <p className="text-warning">Waiting for review: {readiness.pending_labels.join(', ')}</p>
+            ) : null}
+            <p>
+              Work Orders: {activeWorkOrders} active
+            </p>
+          </>
+        ) : null}
         {canManageProfileField(viewer?.role, 'internal_notes') && person.internal_notes ? (
           <p>Notes: {person.internal_notes}</p>
         ) : null}
         <div className="flex flex-wrap gap-2 pt-2">
+          {readiness ? (
+            <Button asChild size="sm" variant={readiness.status === 'ready' ? 'outline' : 'default'}>
+              <Link to={`/subcontractors/${person.id}`}>{readiness.status === 'ready' ? 'View' : 'Review'}</Link>
+            </Button>
+          ) : null}
           <PersonnelUploadButton
             profileId={person.id}
             personLabel={person.company_name || fullName(person.first_name, person.last_name)}
@@ -258,16 +350,20 @@ function SubcontractorCard({
             {person.archived_at ? 'Restore' : 'Remove'}
           </Button>
         </div>
-        <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
-          <ProfileAssignmentsPanel
-            profileId={person.id}
-            personLabel={person.company_name || fullName(person.first_name, person.last_name)}
-          />
-        </div>
-        <PersonRecordsPanel
-          profileId={person.id}
-          personLabel={person.company_name || fullName(person.first_name, person.last_name)}
-        />
+        {readiness ? null : (
+          <>
+            <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
+              <ProfileAssignmentsPanel
+                profileId={person.id}
+                personLabel={person.company_name || fullName(person.first_name, person.last_name)}
+              />
+            </div>
+            <PersonRecordsPanel
+              profileId={person.id}
+              personLabel={person.company_name || fullName(person.first_name, person.last_name)}
+            />
+          </>
+        )}
       </CardContent>
     </Card>
   )

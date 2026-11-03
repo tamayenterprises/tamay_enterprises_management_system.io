@@ -18,6 +18,28 @@ describe('page access', () => {
     expect(canAccessAppPage(employee, 'employees')).toBe(false)
     expect(canAccessAppPage(employee, 'admin')).toBe(false)
     expect(canAccessAppPage(employee, 'clients')).toBe(false)
+    expect(canAccessAppPage(employee, 'work-orders')).toBe(false)
+    expect(canAccessAppPage(employee, 'setup')).toBe(false)
+  })
+
+  it('gives subcontractors their own workflow (no projects list, schedule, certifications or clock-in pages)', () => {
+    const sub = { role: 'subcontractor' as const, granted_pages: null }
+    for (const page of ['dashboard', 'setup', 'work-orders', 'company-profile', 'updates', 'notifications', 'nearby'] as const) {
+      expect(canAccessAppPage(sub, page)).toBe(true)
+    }
+    for (const page of ['projects', 'schedule', 'certifications', 'documents', 'drafts', 'activity', 'timesheets', 'subcontractors', 'admin'] as const) {
+      expect(canAccessAppPage(sub, page)).toBe(false)
+    }
+  })
+
+  it('keeps subcontractor-only pages away from admin and project managers', () => {
+    for (const role of ['admin', 'project_manager'] as const) {
+      const viewer = { role, granted_pages: null }
+      expect(canAccessAppPage(viewer, 'setup')).toBe(false)
+      expect(canAccessAppPage(viewer, 'work-orders')).toBe(false)
+      expect(canAccessAppPage(viewer, 'company-profile')).toBe(false)
+    }
+    expect(pageKeyFromPath('/work-orders/abc')).toBe('work-orders')
   })
 
   it('gives project managers the default management pages until admin customizes them', () => {

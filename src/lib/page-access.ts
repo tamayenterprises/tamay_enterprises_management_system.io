@@ -21,6 +21,9 @@ export const APP_PAGE_KEYS = [
   'payments',
   'notifications',
   'admin',
+  'setup',
+  'work-orders',
+  'company-profile',
 ] as const
 
 export type AppPageKey = (typeof APP_PAGE_KEYS)[number]
@@ -44,7 +47,24 @@ export const APP_PAGE_LABELS: Record<AppPageKey, string> = {
   payments: 'Payment History',
   notifications: 'Notifications',
   admin: 'Admin',
+  setup: 'Documents & Compliance',
+  'work-orders': 'Work Orders',
+  'company-profile': 'Company Profile',
 }
+
+/** Subcontractor-only pages (never shown to admin, project managers or employees). */
+export const SUBCONTRACTOR_ONLY_PAGES: readonly AppPageKey[] = ['setup', 'work-orders', 'company-profile']
+
+/** Subcontractors get their own workflow: no clock-in, schedule, projects list or employee documents. */
+const SUBCONTRACTOR_PAGES: readonly AppPageKey[] = [
+  'dashboard',
+  'setup',
+  'work-orders',
+  'company-profile',
+  'updates',
+  'notifications',
+  'nearby',
+]
 
 /** Pages every project manager always keeps so they can sign in and see alerts. */
 export const PM_ALWAYS_PAGES: readonly AppPageKey[] = ['dashboard', 'notifications']
@@ -143,6 +163,11 @@ export function canAccessAppPage(
 ) {
   const role = profile?.role
   if (!role || isClientRole(role)) return false
+  if (SUBCONTRACTOR_ONLY_PAGES.includes(page)) return role === 'subcontractor'
+  if (role === 'subcontractor') {
+    if (page === 'nearby') return canUseNearbyFinder(role)
+    return SUBCONTRACTOR_PAGES.includes(page)
+  }
   if (canAccessAdmin(role)) return true
   if (role === 'project_manager') {
     if (page === 'admin') return false

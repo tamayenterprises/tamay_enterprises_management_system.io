@@ -245,6 +245,12 @@ export interface ProjectAssignment {
   is_active: boolean
   /** Canonical project contact; optional until the Primary Client migration is applied. */
   is_primary_client?: boolean
+  /** Subcontractor work order progress (employees ignore it). */
+  work_status?: WorkOrderStatus
+  work_scope?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  completion_note?: string | null
   profile?: DirectoryProfile
   project?: Project
 }
@@ -357,11 +363,91 @@ export interface DocumentRecord {
   file_size: number | null
   /** Project documents only: assigned workers can view it when true. Photos ignore it. */
   team_visible?: boolean
+  /** Subcontractor requirement this file was submitted for. */
+  requirement_key?: SubcontractorRequirementKey | null
+  requirement_id?: string | null
+  review_status?: SubcontractorReviewStatus | null
+  review_note?: string | null
+  reviewed_by?: string | null
+  reviewed_at?: string | null
+  expires_on?: string | null
+  /** 'subcontractors' marks a Tamay resource shared with every subcontractor. */
+  audience?: 'subcontractors' | null
   created_at: string
   updated_at: string
   owner?: DirectoryProfile
   uploader?: DirectoryProfile
   project?: Project
+}
+
+export type SubcontractorRequirementKey =
+  | 'w9'
+  | 'business_info'
+  | 'subcontractor_agreement'
+  | 'general_liability'
+  | 'workers_comp'
+  | 'trade_license'
+  | 'osha_safety'
+  | 'commercial_auto'
+  | 'payment_ach'
+  | 'other'
+
+export type SubcontractorReviewStatus = 'submitted' | 'approved' | 'rejected'
+export type SubcontractorRequirementStatus = 'missing' | 'submitted' | 'approved' | 'rejected' | 'expired'
+export type SubcontractorReadinessStatus = 'setup_required' | 'pending_review' | 'ready' | 'action_required'
+export type WorkOrderStatus = 'assigned' | 'in_progress' | 'completed'
+
+export interface SubcontractorRequirementItem {
+  requirement_key: SubcontractorRequirementKey
+  requirement_id: string | null
+  label: string
+  required: boolean
+  needs_expiration: boolean
+  expiration_optional: boolean
+  counts_toward_ready: boolean
+  sort_order: number
+  status: SubcontractorRequirementStatus
+  document_id: string | null
+  document_name: string | null
+  kind_label: string | null
+  submitted_at: string | null
+  expires_on: string | null
+  review_note: string | null
+  reviewed_at: string | null
+}
+
+export interface SubcontractorReadiness {
+  profile_id: string
+  status: SubcontractorReadinessStatus
+  required_count: number
+  approved_count: number
+  missing_labels: string[]
+  attention_labels: string[]
+  pending_labels: string[]
+  /** Null when the viewer may not see payment information (Project Managers). */
+  payment_status: SubcontractorRequirementStatus | null
+}
+
+export interface SubcontractorRequirementRow {
+  id: string
+  organization_id: string
+  profile_id: string
+  requirement_key: SubcontractorRequirementKey
+  custom_label: string | null
+  required: boolean
+  needs_expiration: boolean
+  created_by: string | null
+  created_at: string
+  updated_by: string | null
+  updated_at: string
+}
+
+export interface SubcontractorCompanyProfile {
+  profile_id: string
+  organization_id: string
+  business_address: string | null
+  updated_by: string | null
+  updated_at: string
 }
 
 export type ProjectActivityType =
@@ -1001,6 +1087,14 @@ export interface Database {
       attendance_exception_requests: Table<AttendanceExceptionRequest>
       attendance_corrections: Table<AttendanceCorrection>
       nearby_saved_places: Table<NearbySavedPlace>
+      subcontractor_requirements: Table<
+        SubcontractorRequirementRow,
+        [Fk<'subcontractor_requirements_profile_id_fkey', 'profile_id', 'profiles'>]
+      >
+      subcontractor_profiles: Table<
+        SubcontractorCompanyProfile,
+        [Fk<'subcontractor_profiles_profile_id_fkey', 'profile_id', 'profiles'>]
+      >
       work_schedule_entries: Table<
         WorkScheduleEntry,
         [
@@ -1032,6 +1126,37 @@ export interface Database {
       set_worker_status: Rpc
       admin_clock_out_worker: Rpc<{ p_user_id: string; p_note?: string | null }, { ok: boolean; clocked_out: boolean; message: string }>
       run_certification_maintenance: Rpc
+      subcontractor_requirement_items: Rpc<{ p_profile_id: string }, SubcontractorRequirementItem[]>
+      subcontractor_readiness: Rpc<{ p_profile_ids: string[] }, SubcontractorReadiness[]>
+      submit_subcontractor_document: Rpc<
+        {
+          p_requirement_key: SubcontractorRequirementKey
+          p_storage_path: string
+          p_file_name: string
+          p_mime_type?: string | null
+          p_file_size?: number | null
+          p_expires_on?: string | null
+          p_license_type?: string | null
+          p_requirement_id?: string | null
+        },
+        string
+      >
+      review_subcontractor_document: Rpc<
+        { p_document_id: string; p_approve: boolean; p_note?: string | null },
+        SubcontractorReviewStatus
+      >
+      set_subcontractor_requirement: Rpc<
+        { p_profile_id: string; p_requirement_key: SubcontractorRequirementKey; p_required: boolean },
+        null
+      >
+      add_subcontractor_custom_requirement: Rpc<
+        { p_profile_id: string; p_label: string; p_required?: boolean; p_needs_expiration?: boolean },
+        string
+      >
+      update_my_work_order: Rpc<
+        { p_assignment_id: string; p_action: 'start' | 'complete'; p_note?: string | null },
+        WorkOrderStatus
+      >
       list_profiles: Rpc<
         {
           p_ids?: string[] | null

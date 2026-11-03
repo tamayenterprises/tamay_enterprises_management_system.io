@@ -76,16 +76,26 @@ export function useAssignWorker() {
       const assigneeRow = assignee.data as { organization_id: string | null; role: UserRole } | null
       const orgId = assigneeRow?.organization_id
       if (orgId) {
-        const isClient = assigneeRow?.role === 'client'
-        await supabase.from('notifications').insert({
-          organization_id: orgId,
-          recipient_id: profileId,
-          title: isClient ? 'Project shared with you' : 'Assigned to project',
-          message: isClient
-            ? 'Tamay Enterprises shared a project with you in the client portal.'
-            : 'You have been assigned to a new project.',
-          link: isClient ? `/portal/projects/${projectId}` : `/projects/${projectId}`,
-        })
+        const role = assigneeRow?.role
+        const message =
+          role === 'client'
+            ? {
+                title: 'Project shared with you',
+                message: 'Tamay Enterprises shared a project with you in the client portal.',
+                link: `/portal/projects/${projectId}`,
+              }
+            : role === 'subcontractor'
+              ? {
+                  title: 'New Work Order',
+                  message: 'Tamay Enterprises assigned you a new work order.',
+                  link: `/work-orders/${(data as ProjectAssignment).id}`,
+                }
+              : {
+                  title: 'Assigned to project',
+                  message: 'You have been assigned to a new project.',
+                  link: `/projects/${projectId}`,
+                }
+        await supabase.from('notifications').insert({ organization_id: orgId, recipient_id: profileId, ...message })
       }
 
       return data as ProjectAssignment

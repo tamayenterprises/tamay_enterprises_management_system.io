@@ -44,6 +44,11 @@ const ChangePasswordPage = lazyNamed(() => import('@/pages/auth-misc'), 'ChangeP
 const DashboardPage = lazyNamed(() => import('@/pages/dashboard'), 'DashboardPage')
 const EmployeesPage = lazyNamed(() => import('@/pages/employees'), 'EmployeesPage')
 const SubcontractorsPage = lazyNamed(() => import('@/pages/subcontractors'), 'SubcontractorsPage')
+const SubcontractorDetailPage = lazyNamed(() => import('@/pages/subcontractor-detail'), 'SubcontractorDetailPage')
+const SubcontractorSetupPage = lazyNamed(() => import('@/pages/subcontractor-setup'), 'SubcontractorSetupPage')
+const WorkOrdersPage = lazyNamed(() => import('@/pages/work-orders'), 'WorkOrdersPage')
+const WorkOrderDetailPage = lazyNamed(() => import('@/pages/work-orders'), 'WorkOrderDetailPage')
+const CompanyProfilePage = lazyNamed(() => import('@/pages/company-profile'), 'CompanyProfilePage')
 const ClientsPage = lazyNamed(() => import('@/pages/clients'), 'ClientsPage')
 const ProjectsPage = lazyNamed(() => import('@/pages/projects'), 'ProjectsPage')
 const ProjectDetailPage = lazyNamed(() => import('@/pages/project-detail'), 'ProjectDetailPage')
@@ -168,6 +173,17 @@ export default function App() {
                       </Route>
                       <Route element={<PageAccessRoute page="subcontractors" />}>
                         <Route path="/subcontractors" element={<SubcontractorsPage />} />
+                        <Route path="/subcontractors/:profileId" element={<SubcontractorDetailPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="setup" />}>
+                        <Route path="/setup" element={<SubcontractorSetupPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="work-orders" />}>
+                        <Route path="/work-orders" element={<WorkOrdersPage />} />
+                        <Route path="/work-orders/:assignmentId" element={<WorkOrderDetailPage />} />
+                      </Route>
+                      <Route element={<PageAccessRoute page="company-profile" />}>
+                        <Route path="/company-profile" element={<CompanyProfilePage />} />
                       </Route>
                       <Route element={<PageAccessRoute page="timesheets" />}>
                         <Route path="/timesheets" element={<TimesheetsPage />} />

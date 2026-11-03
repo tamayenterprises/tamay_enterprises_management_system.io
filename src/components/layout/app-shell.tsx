@@ -3,6 +3,9 @@ import {
   Activity,
   Bell,
   Briefcase,
+  Building2,
+  ClipboardCheck,
+  FileCheck2,
   CalendarDays,
   CalendarRange,
   ClipboardList,
@@ -36,6 +39,9 @@ import { useUnreadNotifications } from '@/features/notifications/hooks'
 
 const navItems: Array<{ to: string; label: string; icon: typeof LayoutDashboard; page: AppPageKey }> = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, page: 'dashboard' },
+  { to: '/work-orders', label: 'Work Orders', icon: ClipboardCheck, page: 'work-orders' },
+  { to: '/setup', label: 'Documents & Compliance', icon: FileCheck2, page: 'setup' },
+  { to: '/company-profile', label: 'Company Profile', icon: Building2, page: 'company-profile' },
   { to: '/projects', label: 'Projects', icon: Briefcase, page: 'projects' },
   { to: '/schedule', label: 'My Schedule', icon: CalendarDays, page: 'schedule' },
   { to: '/nearby', label: 'Nearby Finder', icon: MapPin, page: 'nearby' },

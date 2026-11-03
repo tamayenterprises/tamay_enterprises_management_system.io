@@ -19,6 +19,7 @@ import { ClockInOutCard } from '@/features/attendance/clock-card'
 import { DailyAttendanceSummary } from '@/features/attendance/timesheets'
 import { TodayWorkCard } from '@/features/schedule/today-work-card'
 import { EmployeeDashboard } from '@/features/dashboard/employee-dashboard'
+import { SubcontractorHome } from '@/features/subcontractors/subcontractor-home'
 import { notificationDestination } from '@/lib/notification-destination'
 import {
   formatDate,
@@ -40,9 +41,8 @@ export function DashboardPage() {
     isManagement,
   } = useDashboardData()
 
-  if (profile?.role === 'employee' || profile?.role === 'subcontractor') {
-    return <EmployeeDashboard />
-  }
+  if (profile?.role === 'subcontractor') return <SubcontractorHome />
+  if (profile?.role === 'employee') return <EmployeeDashboard />
 
   const loading =
     projects.isLoading ||
