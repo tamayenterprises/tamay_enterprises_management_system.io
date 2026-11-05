@@ -9,7 +9,6 @@ import {
 import { prepareUploadFileAsync, uploadErrorMessage, validateUploadFile } from '@/lib/uploads'
 import type {
   DocumentRecord,
-  ProjectAssignment,
   SubcontractorCompanyProfile,
   SubcontractorReadiness,
   SubcontractorRequirementItem,
@@ -20,9 +19,6 @@ import type {
 function isNotInstalled(error: { code?: string; message?: string } | null) {
   return Boolean(error && (error.code === 'PGRST202' || error.code === 'PGRST205' || error.code === '42883'))
 }
-
-const WORK_ORDER_SELECT =
-  '*, project:projects(id, name, location, job_site_address, status, start_date, deadline, archived_at)'
 
 function invalidateRequirements(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ['subcontractor-requirements'] })
@@ -382,72 +378,5 @@ export function useSaveCompanyProfile() {
       void queryClient.invalidateQueries({ queryKey: ['profiles'] })
       if (values.profileId === profile?.id) await refreshProfile()
     },
-  })
-}
-
-// ------------------------------------------------------------------ work orders
-
-export type WorkOrder = Omit<ProjectAssignment, 'project' | 'profile'> & {
-  project?: {
-    id: string
-    name: string
-    location: string | null
-    job_site_address: string | null
-    status: string
-    start_date: string | null
-    deadline: string | null
-    archived_at: string | null
-  } | null
-}
-
-export function useMyWorkOrders() {
-  const { profile } = useAuth()
-  return useQuery({
-    queryKey: ['work-orders', profile?.id],
-    enabled: Boolean(profile?.id),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('project_assignments')
-        .select(WORK_ORDER_SELECT)
-        .eq('profile_id', profile!.id)
-        .eq('is_active', true)
-        .order('assigned_at', { ascending: false })
-      if (error) throw error
-      return (data ?? []) as unknown as WorkOrder[]
-    },
-  })
-}
-
-export function useSubcontractorWorkOrders(profileIds: string[]) {
-  const ids = [...new Set(profileIds)].sort()
-  return useQuery({
-    queryKey: ['work-orders', 'management', ids.join(',')],
-    enabled: ids.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('project_assignments')
-        .select(WORK_ORDER_SELECT)
-        .in('profile_id', ids)
-        .eq('is_active', true)
-        .order('assigned_at', { ascending: false })
-      if (error) throw error
-      return (data ?? []) as unknown as WorkOrder[]
-    },
-  })
-}
-
-export function useUpdateWorkOrder() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ assignmentId, action, note }: { assignmentId: string; action: 'start' | 'complete'; note?: string | null }) => {
-      const { data, error } = await supabase.rpc('update_my_work_order', {
-        p_assignment_id: assignmentId,
-        p_action: action,
-        p_note: note?.trim() || null,
-      })
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['work-orders'] }),
   })
 }

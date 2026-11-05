@@ -60,6 +60,7 @@ import { ProjectContactSection } from '@/features/projects/project-contact-secti
 import { FindNearbyLink } from '@/features/nearby/find-nearby-link'
 import { splitWorkerAssignments } from '@/features/projects/project-people'
 import { useSubcontractorReadiness } from '@/features/subcontractors/hooks'
+import { ProjectWorkOrdersSection } from '@/features/work-orders/project-work-orders-section'
 
 export function ProjectDetailPage() {
   const { projectId } = useParams()
@@ -472,6 +473,7 @@ export function ProjectDetailPage() {
         </div>
 
         <div className="space-y-6">
+          {canManage ? <ProjectWorkOrdersSection projectId={project.id} /> : null}
           <Card>
             <CardHeader>
               <CardTitle>People on this project</CardTitle>

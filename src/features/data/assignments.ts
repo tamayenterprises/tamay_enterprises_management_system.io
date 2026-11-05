@@ -86,9 +86,9 @@ export function useAssignWorker() {
               }
             : role === 'subcontractor'
               ? {
-                  title: 'New Work Order',
-                  message: 'Tamay Enterprises assigned you a new work order.',
-                  link: `/work-orders/${(data as ProjectAssignment).id}`,
+                  title: 'Added to a project team',
+                  message: 'Tamay Enterprises added you to a project team. Your work comes as Work Orders.',
+                  link: '/work-orders',
                 }
               : {
                   title: 'Assigned to project',

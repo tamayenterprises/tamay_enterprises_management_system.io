@@ -47,7 +47,7 @@ const SubcontractorsPage = lazyNamed(() => import('@/pages/subcontractors'), 'Su
 const SubcontractorDetailPage = lazyNamed(() => import('@/pages/subcontractor-detail'), 'SubcontractorDetailPage')
 const SubcontractorSetupPage = lazyNamed(() => import('@/pages/subcontractor-setup'), 'SubcontractorSetupPage')
 const WorkOrdersPage = lazyNamed(() => import('@/pages/work-orders'), 'WorkOrdersPage')
-const WorkOrderDetailPage = lazyNamed(() => import('@/pages/work-orders'), 'WorkOrderDetailPage')
+const WorkOrderDetailPage = lazyNamed(() => import('@/pages/work-order-detail'), 'WorkOrderDetailPage')
 const CompanyProfilePage = lazyNamed(() => import('@/pages/company-profile'), 'CompanyProfilePage')
 const ClientsPage = lazyNamed(() => import('@/pages/clients'), 'ClientsPage')
 const ProjectsPage = lazyNamed(() => import('@/pages/projects'), 'ProjectsPage')
@@ -180,7 +180,10 @@ export default function App() {
                       </Route>
                       <Route element={<PageAccessRoute page="work-orders" />}>
                         <Route path="/work-orders" element={<WorkOrdersPage />} />
-                        <Route path="/work-orders/:assignmentId" element={<WorkOrderDetailPage />} />
+                      </Route>
+                      {/* One work order: its subcontractor or management (rows are protected by the database). */}
+                      <Route element={<ProtectedRoute roles={['admin', 'project_manager', 'subcontractor']} />}>
+                        <Route path="/work-orders/:workOrderId" element={<WorkOrderDetailPage />} />
                       </Route>
                       <Route element={<PageAccessRoute page="company-profile" />}>
                         <Route path="/company-profile" element={<CompanyProfilePage />} />

@@ -8,22 +8,13 @@ import { LoadingState } from '@/components/ui/loading-state'
 import { PersonRecordsPanel, PersonnelUploadButton } from '@/features/admin/person-records-panel'
 import { ProfileAssignmentsPanel } from '@/features/admin/profile-assignments-panel'
 import { fetchProfile } from '@/features/data/profile-list'
-import {
-  useCompanyProfile,
-  useFilesFromTamay,
-  useSubcontractorReadiness,
-  useSubcontractorWorkOrders,
-} from '@/features/subcontractors/hooks'
+import { useCompanyProfile, useFilesFromTamay, useSubcontractorReadiness } from '@/features/subcontractors/hooks'
 import { ReadinessBadge, RequirementProgress } from '@/features/subcontractors/readiness-badge'
 import { RequirementChecklist } from '@/features/subcontractors/requirement-checklist'
-import {
-  WORK_ORDER_STATUS_LABEL,
-  formatDay,
-  sortWorkOrders,
-  workOrderDisplayStatus,
-  workOrderStatusVariant,
-} from '@/lib/subcontractor-requirements'
+import { useSubcontractorWorkOrders, useWorkOrderProjectSummaries } from '@/features/work-orders/hooks'
+import { WorkOrderCard } from '@/features/work-orders/work-order-card'
 import { formatDate, fullName } from '@/lib/utils'
+import { sortWorkOrders } from '@/lib/work-orders'
 
 export function SubcontractorDetailPage() {
   const { profileId = '' } = useParams()
@@ -36,6 +27,7 @@ export function SubcontractorDetailPage() {
   const { data: company } = useCompanyProfile(profileId)
   const { data: workOrders = [] } = useSubcontractorWorkOrders(profileId ? [profileId] : [])
   const { data: tamayFiles = [] } = useFilesFromTamay(profileId)
+  const { data: summaries } = useWorkOrderProjectSummaries(workOrders.map((row) => row.id))
 
   if (person.isLoading) return <LoadingState label="Loading subcontractor..." />
   if (person.isError || !person.data || person.data.role !== 'subcontractor') {
@@ -45,8 +37,6 @@ export function SubcontractorDetailPage() {
   const sub = person.data
   const readiness = readinessMap?.get(sub.id) ?? null
   const name = sub.company_name || fullName(sub.first_name, sub.last_name)
-  const ready = readiness?.status === 'ready'
-
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <Button asChild size="sm" variant="outline">
@@ -134,34 +124,17 @@ export function SubcontractorDetailPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Work Orders</CardTitle>
-          <CardDescription>Assign projects from each project&apos;s team section. Status updates come from the subcontractor.</CardDescription>
+          <CardDescription>Create work orders from each project&apos;s Work Orders section.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {workOrders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active work orders.</p>
+            <p className="text-sm text-muted-foreground">No work orders yet.</p>
           ) : (
-            <ul className="space-y-2">
-              {sortWorkOrders(workOrders).map((row) => {
-                const status = workOrderDisplayStatus(row.work_status, ready)
-                return (
-                  <li key={row.id} className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <Link className="font-medium text-primary hover:underline" to={`/projects/${row.project_id}`}>
-                        {row.project?.name ?? 'Project'}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        Assigned {formatDate(row.assigned_at)}
-                        {row.started_at ? ` · Started ${formatDate(row.started_at)}` : ''}
-                        {row.completed_at ? ` · Completed ${formatDate(row.completed_at)}` : ''}
-                        {row.project?.deadline ? ` · Target ${formatDay(row.project.deadline)}` : ''}
-                      </p>
-                      {row.completion_note ? <p className="text-xs">Note: {row.completion_note}</p> : null}
-                    </div>
-                    <Badge variant={workOrderStatusVariant(status)}>{WORK_ORDER_STATUS_LABEL[status]}</Badge>
-                  </li>
-                )
-              })}
-            </ul>
+            <div className="grid gap-3 md:grid-cols-2">
+              {sortWorkOrders(workOrders).map((row) => (
+                <WorkOrderCard key={row.id} workOrder={row} project={summaries?.get(row.id)} />
+              ))}
+            </div>
           )}
           <div className="rounded-md border border-border bg-[#fbfcff] px-3 py-2">
             <ProfileAssignmentsPanel profileId={sub.id} personLabel={name} />

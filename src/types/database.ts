@@ -246,7 +246,7 @@ export interface ProjectAssignment {
   /** Canonical project contact; optional until the Primary Client migration is applied. */
   is_primary_client?: boolean
   /** Subcontractor work order progress (employees ignore it). */
-  work_status?: WorkOrderStatus
+  work_status?: AssignmentWorkStatus
   work_scope?: string | null
   started_at?: string | null
   completed_at?: string | null
@@ -395,7 +395,73 @@ export type SubcontractorRequirementKey =
 export type SubcontractorReviewStatus = 'submitted' | 'approved' | 'rejected'
 export type SubcontractorRequirementStatus = 'missing' | 'submitted' | 'approved' | 'rejected' | 'expired'
 export type SubcontractorReadinessStatus = 'setup_required' | 'pending_review' | 'ready' | 'action_required'
-export type WorkOrderStatus = 'assigned' | 'in_progress' | 'completed'
+/** Legacy per-assignment progress (subcontractor MVP v1). New work goes through work_orders. */
+export type AssignmentWorkStatus = 'assigned' | 'in_progress' | 'completed'
+
+export type WorkOrderStatus = 'assigned' | 'accepted' | 'in_progress' | 'work_completed' | 'closed'
+
+/** A subcontractor's specific assignment on a Tamay project. */
+export interface WorkOrderRecord {
+  id: string
+  work_order_number: number
+  organization_id: string
+  project_id: string
+  subcontractor_id: string
+  trade: string | null
+  title: string
+  scope_of_work: string | null
+  measurements_and_specs: string | null
+  important_requirements: string | null
+  agreed_price: number | string | null
+  start_date: string | null
+  target_completion_date: string | null
+  payment_notes: string | null
+  warranty_applies: boolean
+  warranty_notes: string | null
+  status: WorkOrderStatus
+  accepted_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  closed_at: string | null
+  created_by: string | null
+  updated_by: string | null
+  created_at: string
+  updated_at: string
+  subcontractor?: DirectoryProfile | null
+}
+
+export interface WorkOrderUpdateRecord {
+  id: string
+  work_order_id: string
+  organization_id: string
+  author_id: string | null
+  completed_today: string | null
+  next_steps: string | null
+  issue_question: string | null
+  created_at: string
+  author?: DirectoryProfile | null
+}
+
+export interface WorkOrderFileRecord {
+  id: string
+  work_order_id: string
+  update_id: string | null
+  organization_id: string
+  uploaded_by: string | null
+  kind: 'reference' | 'update_photo'
+  name: string
+  storage_path: string
+  mime_type: string | null
+  file_size: number | null
+  created_at: string
+}
+
+export interface WorkOrderProjectSummary {
+  work_order_id: string
+  project_id: string
+  project_name: string
+  job_address: string | null
+}
 
 export interface SubcontractorRequirementItem {
   requirement_key: SubcontractorRequirementKey
@@ -1091,6 +1157,24 @@ export interface Database {
         SubcontractorRequirementRow,
         [Fk<'subcontractor_requirements_profile_id_fkey', 'profile_id', 'profiles'>]
       >
+      work_orders: Table<
+        WorkOrderRecord,
+        [
+          Fk<'work_orders_subcontractor_id_fkey', 'subcontractor_id', 'profiles'>,
+          Fk<'work_orders_project_id_fkey', 'project_id', 'projects'>,
+        ]
+      >
+      work_order_updates: Table<
+        WorkOrderUpdateRecord,
+        [
+          Fk<'work_order_updates_work_order_id_fkey', 'work_order_id', 'work_orders'>,
+          Fk<'work_order_updates_author_id_fkey', 'author_id', 'profiles'>,
+        ]
+      >
+      work_order_files: Table<
+        WorkOrderFileRecord,
+        [Fk<'work_order_files_work_order_id_fkey', 'work_order_id', 'work_orders'>]
+      >
       subcontractor_profiles: Table<
         SubcontractorCompanyProfile,
         [Fk<'subcontractor_profiles_profile_id_fkey', 'profile_id', 'profiles'>]
@@ -1153,9 +1237,24 @@ export interface Database {
         { p_profile_id: string; p_label: string; p_required?: boolean; p_needs_expiration?: boolean },
         string
       >
+      work_order_project_summaries: Rpc<{ p_work_order_ids: string[] }, WorkOrderProjectSummary[]>
+      update_work_order_status: Rpc<
+        { p_work_order_id: string; p_action: 'accept' | 'start' | 'complete' | 'close' },
+        WorkOrderStatus
+      >
+      add_work_order_update: Rpc<
+        {
+          p_work_order_id: string
+          p_completed_today?: string | null
+          p_next_steps?: string | null
+          p_issue_question?: string | null
+          p_photos?: Array<{ path: string; name: string; mime_type?: string | null; file_size?: number | null }>
+        },
+        string
+      >
       update_my_work_order: Rpc<
         { p_assignment_id: string; p_action: 'start' | 'complete'; p_note?: string | null },
-        WorkOrderStatus
+        AssignmentWorkStatus
       >
       list_profiles: Rpc<
         {

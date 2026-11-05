@@ -9,10 +9,7 @@ import {
   requirementAction,
   requirementStoragePath,
   sharedResourceStoragePath,
-  sortWorkOrders,
   submissionStatus,
-  workOrderAction,
-  workOrderDisplayStatus,
 } from './subcontractor-requirements'
 import type { SubcontractorRequirementItem, SubcontractorRequirementStatus } from '@/types/database'
 
@@ -142,31 +139,6 @@ describe('submissions', () => {
 })
 
 describe('work orders', () => {
-  it('shows Assigned until Ready to Work, then Ready to Start', () => {
-    expect(workOrderDisplayStatus('assigned', false)).toBe('assigned')
-    expect(workOrderDisplayStatus('assigned', true)).toBe('ready_to_start')
-    expect(workOrderDisplayStatus('in_progress', false)).toBe('in_progress')
-    expect(workOrderDisplayStatus('completed', true)).toBe('completed')
-    expect(workOrderDisplayStatus(undefined, true)).toBe('ready_to_start')
-  })
-
-  it('Start Work only when ready to start; Complete Work only when in progress', () => {
-    expect(workOrderAction('ready_to_start')).toBe('start')
-    expect(workOrderAction('in_progress')).toBe('complete')
-    expect(workOrderAction('assigned')).toBeNull()
-    expect(workOrderAction('completed')).toBeNull()
-  })
-
-  it('lists in-progress first, then assigned (newest), then completed', () => {
-    const rows = [
-      { id: 'done', work_status: 'completed' as const, assigned_at: '2026-01-01', completed_at: '2026-02-01' },
-      { id: 'old', work_status: 'assigned' as const, assigned_at: '2026-01-01', completed_at: null },
-      { id: 'new', work_status: 'assigned' as const, assigned_at: '2026-03-01', completed_at: null },
-      { id: 'busy', work_status: 'in_progress' as const, assigned_at: '2026-01-01', completed_at: null },
-    ]
-    expect(sortWorkOrders(rows).map((r) => r.id)).toEqual(['busy', 'new', 'old', 'done'])
-  })
-
   it('work area is visible when Ready or Action Required, not during setup or review', () => {
     expect(canSeeWorkOrders('ready')).toBe(true)
     expect(canSeeWorkOrders('action_required')).toBe(true)

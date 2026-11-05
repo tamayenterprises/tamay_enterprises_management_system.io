@@ -2,11 +2,9 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { CompactAccordion } from '@/components/ui/compact-accordion'
-import {
-  usePendingRequirementReviews,
-  useSubcontractorReadiness,
-  useSubcontractorWorkOrders,
-} from '@/features/subcontractors/hooks'
+import { usePendingRequirementReviews, useSubcontractorReadiness } from '@/features/subcontractors/hooks'
+import { useSubcontractorWorkOrders } from '@/features/work-orders/hooks'
+import { isOpenWorkOrder } from '@/lib/work-orders'
 import { ReadinessBadge } from '@/features/subcontractors/readiness-badge'
 import { SharedResourcesManager } from '@/features/subcontractors/tamay-resources'
 import { Badge } from '@/components/ui/badge'
@@ -61,8 +59,8 @@ export function SubcontractorsPage() {
   const activeWorkOrders = useMemo(() => {
     const counts = new Map<string, number>()
     for (const row of workOrders) {
-      if (row.work_status === 'completed') continue
-      counts.set(row.profile_id, (counts.get(row.profile_id) ?? 0) + 1)
+      if (!isOpenWorkOrder(row.status)) continue
+      counts.set(row.subcontractor_id, (counts.get(row.subcontractor_id) ?? 0) + 1)
     }
     return counts
   }, [workOrders])

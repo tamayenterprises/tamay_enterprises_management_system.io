@@ -1,11 +1,9 @@
 import { formatDate } from '@/lib/utils'
 import type {
-  ProjectAssignment,
   SubcontractorReadinessStatus,
   SubcontractorRequirementItem,
   SubcontractorRequirementKey,
   SubcontractorRequirementStatus,
-  WorkOrderStatus,
 } from '@/types/database'
 
 type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive' | 'accent'
@@ -149,47 +147,4 @@ export function requirementStoragePath(
 export function sharedResourceStoragePath(uploaderId: string, fileName: string, now = Date.now()) {
   const safeName = fileName.replace(/[^\w.\-()+ ]+/g, '_') || 'upload'
   return `${uploaderId}/shared-subcontractors/${now}-${safeName}`
-}
-
-export const WORK_ORDER_STATUS_LABEL = {
-  assigned: 'Assigned',
-  ready_to_start: 'Ready to Start',
-  in_progress: 'In Progress',
-  completed: 'Work Completed',
-} as const
-
-export type WorkOrderDisplayStatus = keyof typeof WORK_ORDER_STATUS_LABEL
-
-export function workOrderDisplayStatus(
-  workStatus: WorkOrderStatus | undefined | null,
-  readyToWork: boolean,
-): WorkOrderDisplayStatus {
-  if (workStatus === 'completed') return 'completed'
-  if (workStatus === 'in_progress') return 'in_progress'
-  return readyToWork ? 'ready_to_start' : 'assigned'
-}
-
-export function workOrderAction(status: WorkOrderDisplayStatus): 'start' | 'complete' | null {
-  if (status === 'ready_to_start') return 'start'
-  if (status === 'in_progress') return 'complete'
-  return null
-}
-
-export function workOrderStatusVariant(status: WorkOrderDisplayStatus): BadgeVariant {
-  if (status === 'completed') return 'success'
-  if (status === 'in_progress') return 'accent'
-  if (status === 'ready_to_start') return 'default'
-  return 'secondary'
-}
-
-/** In Progress first, then Ready to Start / Assigned, then completed (newest first). */
-export function sortWorkOrders<T extends Pick<ProjectAssignment, 'work_status' | 'assigned_at' | 'completed_at'>>(rows: T[]) {
-  const rank = (row: T) => (row.work_status === 'in_progress' ? 0 : row.work_status === 'completed' ? 2 : 1)
-  return [...rows].sort((a, b) => {
-    const diff = rank(a) - rank(b)
-    if (diff) return diff
-    const aTime = a.work_status === 'completed' ? a.completed_at ?? '' : a.assigned_at
-    const bTime = b.work_status === 'completed' ? b.completed_at ?? '' : b.assigned_at
-    return bTime.localeCompare(aTime)
-  })
 }

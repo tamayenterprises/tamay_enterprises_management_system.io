@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useAuth } from '@/features/auth/auth-hooks'
-import { useCompanyProfile, useMyWorkOrders } from '@/features/subcontractors/hooks'
+import { useCompanyProfile } from '@/features/subcontractors/hooks'
 import { ReadinessBadge, RequirementProgress } from '@/features/subcontractors/readiness-badge'
-import { WorkOrderCard } from '@/features/subcontractors/work-order-card'
-import { sortWorkOrders } from '@/lib/subcontractor-requirements'
+import { useMyWorkOrders } from '@/features/work-orders/hooks'
+import { MyWorkOrderGroups } from '@/features/work-orders/my-work-order-groups'
 import { fullName } from '@/lib/utils'
 import type { SubcontractorReadiness } from '@/types/database'
 
@@ -17,10 +17,9 @@ export function SubcontractorDashboard({ readiness }: { readiness: Subcontractor
   const { data: workOrders = [], isLoading } = useMyWorkOrders()
   const { data: company } = useCompanyProfile(profile?.id)
   const ready = readiness.status === 'ready'
-  const open = sortWorkOrders(workOrders.filter((row) => row.work_status !== 'completed'))
-  const completed = sortWorkOrders(workOrders.filter((row) => row.work_status === 'completed')).slice(0, 3)
   const attention = [...readiness.attention_labels, ...readiness.missing_labels]
-  const toStart = open.filter((row) => (row.work_status ?? 'assigned') === 'assigned').length
+  const toAccept = workOrders.filter((row) => row.status === 'assigned').length
+  const toStart = workOrders.filter((row) => row.status === 'accepted').length
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
@@ -34,7 +33,7 @@ export function SubcontractorDashboard({ readiness }: { readiness: Subcontractor
         <ReadinessBadge status={readiness.status} />
       </div>
 
-      {attention.length > 0 || (ready && toStart > 0) ? (
+      {attention.length > 0 || toAccept > 0 || (ready && toStart > 0) ? (
         <Card className="border-destructive/40">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -51,6 +50,11 @@ export function SubcontractorDashboard({ readiness }: { readiness: Subcontractor
                 </Button>
               </div>
             ))}
+            {toAccept > 0 ? (
+              <p>
+                {toAccept} new work order{toAccept === 1 ? '' : 's'} to accept.
+              </p>
+            ) : null}
             {ready && toStart > 0 ? (
               <p>
                 {toStart} work order{toStart === 1 ? '' : 's'} ready to start.
@@ -63,26 +67,18 @@ export function SubcontractorDashboard({ readiness }: { readiness: Subcontractor
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Work Orders</h2>
+            <h2 className="text-lg font-semibold">My Work Orders</h2>
             <Button asChild size="sm" variant="outline">
               <Link to="/work-orders">View all</Link>
             </Button>
           </div>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading work orders…</p>
-          ) : open.length === 0 ? (
-            <EmptyState title="No active work orders" description="New work from Tamay shows up here." />
+          ) : workOrders.length === 0 ? (
+            <EmptyState title="No work orders yet" description="New work from Tamay shows up here." />
           ) : (
-            open.map((row) => <WorkOrderCard key={row.id} workOrder={row} readyToWork={ready} />)
+            <MyWorkOrderGroups workOrders={workOrders} completedLimit={3} />
           )}
-          {completed.length > 0 ? (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recently completed</h3>
-              {completed.map((row) => (
-                <WorkOrderCard key={row.id} workOrder={row} readyToWork={ready} />
-              ))}
-            </div>
-          ) : null}
         </section>
 
         <div className="space-y-4">

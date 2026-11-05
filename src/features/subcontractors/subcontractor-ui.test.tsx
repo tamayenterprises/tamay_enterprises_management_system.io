@@ -4,7 +4,6 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DocumentRecord, SubcontractorReadiness, SubcontractorRequirementItem } from '@/types/database'
 import { RequirementChecklist } from './requirement-checklist'
-import { WorkOrderCard } from './work-order-card'
 import { SubcontractorHome } from './subcontractor-home'
 
 const state = vi.hoisted(() => ({
@@ -15,7 +14,6 @@ const state = vi.hoisted(() => ({
   submit: vi.fn(),
   review: vi.fn(),
   setRequired: vi.fn(),
-  updateWorkOrder: vi.fn(),
 }))
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
 
@@ -33,7 +31,6 @@ vi.mock('@/features/subcontractors/hooks', () => ({
   useSetRequirementRequired: () => ({ mutateAsync: state.setRequired, isPending: false }),
   useAddCustomRequirement: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRemoveCustomRequirement: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useUpdateWorkOrder: () => ({ mutateAsync: state.updateWorkOrder, isPending: false }),
   useMyReadiness: () => ({ readiness: state.readiness, isLoading: false, installed: state.installed, isError: false }),
 }))
 
@@ -164,55 +161,6 @@ describe('RequirementChecklist (management)', () => {
     await userEvent.type(within(dialog).getByLabelText('Reason (optional)'), 'Updated certificate required')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Reject' }))
     expect(state.review).toHaveBeenCalledWith({ documentId: 'doc-wc', approve: false, note: 'Updated certificate required' })
-  })
-})
-
-describe('WorkOrderCard', () => {
-  const workOrder = {
-    id: 'wo-1',
-    project_id: 'p1',
-    profile_id: 'sub-1',
-    assigned_by: null,
-    assigned_at: '2026-11-01T12:00:00Z',
-    removed_at: null,
-    is_active: true,
-    work_status: 'assigned' as const,
-    work_scope: 'Rough-in plumbing',
-    project: { id: 'p1', name: 'Kim Bathroom', location: 'New Haven, CT', job_site_address: null, status: 'in_progress', start_date: '2026-11-10', deadline: '2026-11-21', archived_at: null },
-  }
-
-  const renderCard = (props: Partial<Parameters<typeof WorkOrderCard>[0]>) =>
-    render(
-      <MemoryRouter>
-        <WorkOrderCard workOrder={workOrder} readyToWork {...props} />
-      </MemoryRouter>,
-    )
-
-  it('Ready to Start shows Start Work and starts the work order', async () => {
-    state.updateWorkOrder.mockResolvedValue('in_progress')
-    renderCard({})
-    expect(screen.getByText('Ready to Start')).toBeInTheDocument()
-    expect(screen.getByText('Scope: Rough-in plumbing')).toBeInTheDocument()
-    expect(screen.getByText('Starts Nov 10, 2026 · Target Nov 21, 2026')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Start Work/ }))
-    expect(state.updateWorkOrder).toHaveBeenCalledWith({ assignmentId: 'wo-1', action: 'start', note: null })
-  })
-
-  it('not Ready to Work: Assigned, no Start Work, setup warning', () => {
-    renderCard({ readyToWork: false })
-    expect(screen.getByText('Assigned')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Start Work/ })).not.toBeInTheDocument()
-    expect(screen.getByText('Complete your setup before starting this work order.')).toBeInTheDocument()
-  })
-
-  it('In Progress offers Complete Work with an optional note', async () => {
-    state.updateWorkOrder.mockResolvedValue('completed')
-    renderCard({ workOrder: { ...workOrder, work_status: 'in_progress' } })
-    await userEvent.click(screen.getByRole('button', { name: /Complete Work/ }))
-    const dialog = await screen.findByRole('dialog')
-    await userEvent.type(within(dialog).getByLabelText('Completion note (optional)'), 'All done')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Complete Work' }))
-    expect(state.updateWorkOrder).toHaveBeenCalledWith({ assignmentId: 'wo-1', action: 'complete', note: 'All done' })
   })
 })
 
