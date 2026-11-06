@@ -43,13 +43,13 @@ vi.mock('@/features/subcontractors/hooks', () => ({
     data: new Map([['sub-2', { profile_id: 'sub-2', status: 'setup_required', missing_labels: ['W-9'], attention_labels: [], pending_labels: [] }]]),
   }),
 }))
+const subProfile = (id: string, first: string, last: string, company: string | null, trade: string) => ({
+  id, first_name: first, last_name: last, company_name: company, trade_specialization: trade, approval_status: 'approved', is_active: true, archived_at: null,
+})
+const TWO_SUBS = [subProfile('sub-1', 'Ana', 'Ruiz', 'Ruiz Plumbing', 'Plumbing'), subProfile('sub-2', 'Ben', 'Cole', null, 'Plumbing')]
+const profiles = vi.hoisted(() => ({ list: [] as unknown[] }))
 vi.mock('@/features/data/hooks', () => ({
-  useProfiles: () => ({
-    data: [
-      { id: 'sub-1', first_name: 'Ana', last_name: 'Ruiz', company_name: 'Ruiz Plumbing', trade_specialization: 'Plumbing', approval_status: 'approved', is_active: true, archived_at: null },
-      { id: 'sub-2', first_name: 'Ben', last_name: 'Cole', company_name: null, trade_specialization: 'Plumbing', approval_status: 'approved', is_active: true, archived_at: null },
-    ],
-  }),
+  useProfiles: () => ({ data: profiles.list }),
 }))
 const mutation = (fn: unknown) => ({ mutateAsync: fn, isPending: false })
 vi.mock('@/features/work-orders/hooks', () => ({
@@ -139,6 +139,7 @@ const renderDetail = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  profiles.list = TWO_SUBS
   state.confirm.mockReturnValue(true)
   state.profile = { id: 'sub-1', role: 'subcontractor' }
   state.workOrder = workOrder()
@@ -280,6 +281,7 @@ describe('Work order (management)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Send to subcontractors' }))
     const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Choose subcontractors' }))
     expect(within(dialog).queryByLabelText('Ruiz Plumbing')).not.toBeInTheDocument()
     await userEvent.click(within(dialog).getByLabelText('Ben Cole'))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Send' }))
@@ -305,6 +307,7 @@ describe('Work order (management)', () => {
       file({ id: 's1', category: 'receipt', review_status: null, name: 'Home Depot.jpg' }),
     ]
     renderDetail()
+    expect(within(screen.getByTestId('work-order-site-photos')).getByRole('button', { name: 'Open site.jpg' })).toBeInTheDocument()
     const rows = screen.getAllByTestId('work-order-file')
     expect(within(rows[0]!).getByText('Signed contract.pdf')).toBeInTheDocument()
     expect(within(rows[0]!).getByText(/Contract \/ Agreement/)).toBeInTheDocument()
@@ -345,8 +348,10 @@ describe('Project Detail: Work Orders section', () => {
     expect(within(second!).getByText('Offered')).toBeInTheDocument()
   })
 
-  it('creates a work order and sends it to several subcontractors, with insurance required', async () => {
+  it('creates a work order with job site photos and sends it to several subcontractors, with insurance required', async () => {
     state.save.mockResolvedValue('wo-new')
+    URL.createObjectURL = vi.fn(() => 'blob:preview')
+    URL.revokeObjectURL = vi.fn()
     render(
       <MemoryRouter>
         <ProjectWorkOrdersSection projectId="p1" />
@@ -354,10 +359,19 @@ describe('Project Detail: Work Orders section', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Create Work Order' }))
     const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).queryByLabelText('Ruiz Plumbing')).not.toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Choose subcontractors' }))
     await userEvent.click(within(dialog).getByLabelText('Ruiz Plumbing'))
     await userEvent.click(within(dialog).getByLabelText('Ben Cole'))
     expect(within(dialog).getByText(/NOT READY TO WORK — W-9/)).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done (2)' }))
+    expect(within(dialog).queryByLabelText('Ruiz Plumbing')).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: '2 selected: Ruiz Plumbing, Ben Cole' })).toHaveAttribute('aria-expanded', 'false')
     expect(within(dialog).getByLabelText('Trade / specialty')).toHaveValue('Plumbing')
+
+    const photo = new File(['x'], 'bathroom.jpg', { type: 'image/jpeg' })
+    await userEvent.upload(dialog.querySelector('input[type="file"]') as HTMLInputElement, photo)
+    expect(within(within(dialog).getByTestId('job-site-photos')).getByAltText('bathroom.jpg')).toBeInTheDocument()
     await userEvent.type(within(dialog).getByLabelText('Title'), 'Rough-in plumbing')
     await userEvent.type(within(dialog).getByLabelText('Agreed subcontractor price ($)'), '$4,500')
     await userEvent.click(within(dialog).getByLabelText(/Required for this work order/))
@@ -373,8 +387,31 @@ describe('Project Detail: Work Orders section', () => {
         insurance_required: true,
         certificate_holder: 'Kim Family, 12 Elm St',
       }),
+      photos: [photo],
     })
     expect(toast.success).toHaveBeenCalledWith('Work order sent to 2 subcontractors — the first to accept gets it')
+  })
+
+  it('with many subcontractors, search narrows the list', async () => {
+    profiles.list = [
+      ...TWO_SUBS,
+      subProfile('e1', 'Eli', 'Volt', 'Volt Electric', 'Electrical'),
+      subProfile('e2', 'Kay', 'Watts', 'Watts Electric', 'Electrical'),
+      subProfile('t1', 'Lu', 'Tile', 'Tile Pros', 'Tile'),
+      subProfile('h1', 'Mo', 'Air', 'Air HVAC', 'HVAC'),
+      subProfile('r1', 'Ned', 'Roof', 'Top Roofing', 'Roofing'),
+    ]
+    render(
+      <MemoryRouter>
+        <ProjectWorkOrdersSection projectId="p1" />
+      </MemoryRouter>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Create Work Order' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Choose subcontractors' }))
+    await userEvent.type(within(dialog).getByLabelText('Search subcontractors'), 'electric')
+    const list = within(dialog).getByTestId('subcontractor-picker-list')
+    expect(within(list).getAllByRole('checkbox').map((box) => box.getAttribute('aria-label'))).toEqual(['Volt Electric', 'Watts Electric'])
   })
 })
 

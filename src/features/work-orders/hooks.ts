@@ -216,10 +216,15 @@ async function sendOffers(workOrderId: string, subcontractorIds: string[]) {
   return data as number
 }
 
+/**
+ * Create: save, upload the job site photos, then send the offers — so subcontractors see the photos
+ * from the first notification. Edit: save the fields only (photos are added in the work order).
+ */
 export function useSaveWorkOrder() {
   const queryClient = useQueryClient()
+  const { profile } = useAuth()
   return useMutation({
-    mutationFn: async ({ id, values }: { id?: string | null; values: WorkOrderFormValues }) => {
+    mutationFn: async ({ id, values, photos = [] }: { id?: string | null; values: WorkOrderFormValues; photos?: File[] }) => {
       const payload = workOrderPayload(values)
       if (!payload.title) throw new Error('Enter a title for the work order.')
       if (!id && values.subcontractor_ids.length === 0) throw new Error('Choose at least one subcontractor to send it to.')
@@ -237,10 +242,22 @@ export function useSaveWorkOrder() {
       const { data, error } = await supabase
         .from('work_orders')
         .insert({ ...payload, status: 'offered' })
-        .select('id')
+        .select('id, organization_id')
         .single()
       if (error) throw error
-      const newId = (data as { id: string }).id
+      const created = data as { id: string; organization_id: string }
+      const newId = created.id
+      if (photos.length > 0) {
+        try {
+          if (!profile) throw new Error('sign in again')
+          await uploadTamayDocuments(created, photos, 'photo', profile.id)
+        } catch (photoError) {
+          const reason = photoError instanceof Error ? photoError.message : 'unknown error'
+          throw new Error(
+            `Work order created, but the photos did not upload (${reason}). It was not sent yet: open it, add the photos, then use "Send to subcontractors".`,
+          )
+        }
+      }
       try {
         await sendOffers(newId, values.subcontractor_ids)
       } catch (offerError) {
@@ -319,6 +336,33 @@ async function removeUploaded(paths: string[]) {
   if (paths.length > 0) await supabase.storage.from(WORK_ORDER_FILES_BUCKET).remove(paths)
 }
 
+/** Tamay documents (contract, proposal, plans, photos…) attached to a work order. */
+async function uploadTamayDocuments(
+  workOrder: Pick<WorkOrderRecord, 'id' | 'organization_id'>,
+  files: File[],
+  category: WorkOrderDocumentCategory,
+  uploadedBy: string,
+) {
+  for (const file of files) {
+    const uploaded = await uploadWorkOrderFile(workOrder.id, 'reference', file)
+    const { error } = await supabase.from('work_order_files').insert({
+      work_order_id: workOrder.id,
+      organization_id: workOrder.organization_id,
+      uploaded_by: uploadedBy,
+      kind: 'reference',
+      category,
+      name: uploaded.name,
+      storage_path: uploaded.path,
+      mime_type: uploaded.mime_type,
+      file_size: uploaded.file_size,
+    })
+    if (error) {
+      await removeUploaded([uploaded.path])
+      throw new Error(uploadErrorMessage(error))
+    }
+  }
+}
+
 export function useUploadWorkOrderReferences() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
@@ -333,24 +377,7 @@ export function useUploadWorkOrderReferences() {
       category: WorkOrderDocumentCategory
     }) => {
       if (!profile) throw new Error('Sign in again to upload.')
-      for (const file of files) {
-        const uploaded = await uploadWorkOrderFile(workOrder.id, 'reference', file)
-        const { error } = await supabase.from('work_order_files').insert({
-          work_order_id: workOrder.id,
-          organization_id: workOrder.organization_id,
-          uploaded_by: profile.id,
-          kind: 'reference',
-          category,
-          name: uploaded.name,
-          storage_path: uploaded.path,
-          mime_type: uploaded.mime_type,
-          file_size: uploaded.file_size,
-        })
-        if (error) {
-          await removeUploaded([uploaded.path])
-          throw new Error(uploadErrorMessage(error))
-        }
-      }
+      await uploadTamayDocuments(workOrder, files, category, profile.id)
     },
     onSuccess: (_data, vars) =>
       queryClient.invalidateQueries({ queryKey: ['work-orders-v2', 'files', vars.workOrder.id] }),

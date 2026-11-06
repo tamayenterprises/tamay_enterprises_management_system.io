@@ -196,6 +196,16 @@ export function WorkOrderDetailPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Contract & Documents</CardTitle>
+          <p className="text-sm text-muted-foreground">Job site photos, contract, proposal and plans from Tamay.</p>
+        </CardHeader>
+        <CardContent>
+          <TamayDocuments workOrder={workOrder} canManage={manage} />
+        </CardContent>
+      </Card>
+
       {workOrder.accepted_at && workOrder.acceptance_statement ? <AcceptanceRecord workOrder={workOrder} /> : null}
 
       {workOrder.important_requirements ? (
@@ -223,16 +233,6 @@ export function WorkOrderDetailPage() {
           {workOrder.warranty_applies && workOrder.warranty_notes ? (
             <p className="whitespace-pre-line">{workOrder.warranty_notes}</p>
           ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Contract & Documents</CardTitle>
-          <p className="text-sm text-muted-foreground">Contract, proposal, plans and photos from Tamay.</p>
-        </CardHeader>
-        <CardContent>
-          <TamayDocuments workOrder={workOrder} canManage={manage} />
         </CardContent>
       </Card>
 

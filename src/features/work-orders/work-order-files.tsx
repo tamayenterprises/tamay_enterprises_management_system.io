@@ -14,6 +14,7 @@ import {
   useSubmitWorkOrderDocument,
   useUploadWorkOrderReferences,
   useWorkOrderFiles,
+  useWorkOrderPhotoUrls,
 } from '@/features/work-orders/hooks'
 import { confirmAction, resolvedDocumentUploadAccept } from '@/lib/uploads'
 import { formatDate } from '@/lib/utils'
@@ -81,12 +82,18 @@ function FileRow({ file, children }: { file: WorkOrderFileRecord; children?: Rea
   )
 }
 
-function RemoveButton({ file }: { file: WorkOrderFileRecord }) {
+/** Tamay photos show as thumbnails; other documents as rows. */
+function isPhoto(file: WorkOrderFileRecord) {
+  return file.category === 'photo' || Boolean(file.mime_type?.startsWith('image/') && file.category !== 'plans')
+}
+
+function RemoveButton({ file, compact = false }: { file: WorkOrderFileRecord; compact?: boolean }) {
   const remove = useRemoveWorkOrderFile()
   return (
     <Button
       size="sm"
-      variant="destructive"
+      variant={compact ? 'ghost' : 'destructive'}
+      className={compact ? 'h-7 w-full text-xs text-destructive' : undefined}
       disabled={remove.isPending}
       onClick={() => {
         if (!confirmAction(`Remove "${file.name}" from this work order?`)) return
@@ -106,14 +113,40 @@ export function TamayDocuments({ workOrder, canManage }: { workOrder: WorkOrderR
   const { data: files = [], isLoading } = useWorkOrderFiles(workOrder.id)
   const upload = useUploadWorkOrderReferences()
   const [category, setCategory] = useState<WorkOrderDocumentCategory>('contract')
-  const documents = sortTamayDocuments(files.filter((file) => file.kind === 'reference'))
+  const references = files.filter((file) => file.kind === 'reference')
+  const photos = references.filter(isPhoto)
+  const documents = sortTamayDocuments(references.filter((file) => !isPhoto(file)))
+  const { data: urls } = useWorkOrderPhotoUrls(photos.map((photo) => photo.storage_path))
 
   return (
     <div className="space-y-3">
+      {photos.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Job site photos ({photos.length})</p>
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4" data-testid="work-order-site-photos">
+            {photos.map((photo) => {
+              const url = urls?.get(photo.storage_path)
+              return (
+                <li key={photo.id} className="space-y-1">
+                  <button
+                    type="button"
+                    className="block aspect-square w-full overflow-hidden rounded-md border border-border bg-muted"
+                    aria-label={`Open ${photo.name}`}
+                    onClick={() => openFile(photo)}
+                  >
+                    {url ? <img src={url} alt={photo.name} className="h-full w-full object-cover" loading="lazy" /> : null}
+                  </button>
+                  {canManage ? <RemoveButton file={photo} compact /> : null}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ) : null}
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading documents…</p>
       ) : documents.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No documents yet.</p>
+        photos.length === 0 ? <p className="text-sm text-muted-foreground">No documents yet.</p> : null
       ) : (
         <ul className="space-y-2">
           {documents.map((file) => (

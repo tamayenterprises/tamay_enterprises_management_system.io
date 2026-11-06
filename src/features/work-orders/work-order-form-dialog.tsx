@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useSaveWorkOrder, type WorkOrderFormValues } from '@/features/work-orders/hooks'
+import { JobSitePhotoPicker } from '@/features/work-orders/job-site-photo-picker'
 import { SubcontractorPicker } from '@/features/work-orders/subcontractor-picker'
 import { DEFAULT_WARRANTY_NOTE } from '@/lib/work-orders'
 import type { WorkOrderRecord } from '@/types/database'
@@ -46,6 +47,7 @@ export function WorkOrderFormDialog({
 }) {
   const save = useSaveWorkOrder()
   const [values, setValues] = useState<WorkOrderFormValues>(() => initialValues(projectId, workOrder))
+  const [photos, setPhotos] = useState<File[]>([])
   const creating = !workOrder
 
   const set = <K extends keyof WorkOrderFormValues>(key: K, value: WorkOrderFormValues[K]) =>
@@ -72,7 +74,7 @@ export function WorkOrderFormDialog({
 
   async function onSubmit() {
     try {
-      const id = await save.mutateAsync({ id: workOrder?.id, values })
+      const id = await save.mutateAsync({ id: workOrder?.id, values, photos: creating ? photos : [] })
       const count = values.subcontractor_ids.length
       toast.success(
         workOrder ? 'Work order updated' : `Work order sent to ${count} subcontractor${count === 1 ? '' : 's'} — the first to accept gets it`,
@@ -106,6 +108,7 @@ export function WorkOrderFormDialog({
           </div>
           {area('scope_of_work', 'Scope of work', 'What exactly this subcontractor is responsible for')}
           {area('measurements_and_specs', 'Measurements & specifications', 'Sizes, fixtures, materials, models…')}
+          {creating ? <JobSitePhotoPicker photos={photos} onChange={setPhotos} /> : null}
           {area('important_requirements', 'Important job requirements', 'Protect finished floors · keep area clean · photos before covering concealed work · notify Tamay before scope changes')}
           <div className="grid gap-3 sm:grid-cols-3">
             {text('agreed_price', 'Agreed subcontractor price ($)', { inputMode: 'decimal', placeholder: '4500' })}
@@ -167,7 +170,7 @@ export function WorkOrderFormDialog({
           </fieldset>
           {creating ? (
             <p className="text-xs text-muted-foreground">
-              After creating, add the contract, proposal, plans and photos in the work order's Contract & Documents section.
+              After creating, add the contract, proposal and plans in the work order's Contract & Documents section.
             </p>
           ) : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
