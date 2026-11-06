@@ -2,16 +2,18 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useLatestWorkOrderUpdates, useProjectWorkOrders } from '@/features/work-orders/hooks'
+import { useLatestWorkOrderUpdates, useProjectWorkOrders, useWorkOrderOffers } from '@/features/work-orders/hooks'
 import { WorkOrderCard } from '@/features/work-orders/work-order-card'
 import { WorkOrderFormDialog } from '@/features/work-orders/work-order-form-dialog'
-import { sortWorkOrders } from '@/lib/work-orders'
+import { offerSummaryText, sortWorkOrders } from '@/lib/work-orders'
 
 /** Project Detail (management): the subcontractor work orders on this project. */
 export function ProjectWorkOrdersSection({ projectId }: { projectId: string }) {
   const [creating, setCreating] = useState(false)
   const { data: workOrders = [], isLoading } = useProjectWorkOrders(projectId)
-  const { data: latest } = useLatestWorkOrderUpdates(workOrders.map((row) => row.id))
+  const ids = workOrders.map((row) => row.id)
+  const { data: latest } = useLatestWorkOrderUpdates(ids)
+  const { data: offers = [] } = useWorkOrderOffers(workOrders.filter((row) => row.status === 'offered').map((row) => row.id))
 
   return (
     <Card>
@@ -32,7 +34,13 @@ export function ProjectWorkOrdersSection({ projectId }: { projectId: string }) {
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {sortWorkOrders(workOrders).map((row) => (
-              <WorkOrderCard key={row.id} workOrder={row} latestUpdate={latest?.get(row.id) ?? null} showSubcontractor />
+              <WorkOrderCard
+                key={row.id}
+                workOrder={row}
+                latestUpdate={latest?.get(row.id) ?? null}
+                showSubcontractor
+                offerSummary={offerSummaryText(offers.filter((offer) => offer.work_order_id === row.id))}
+              />
             ))}
           </div>
         )}

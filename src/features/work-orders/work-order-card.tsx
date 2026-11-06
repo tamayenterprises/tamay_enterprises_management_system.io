@@ -18,14 +18,19 @@ export function WorkOrderCard({
   project,
   latestUpdate,
   showSubcontractor = false,
+  offerSummary,
 }: {
   workOrder: WorkOrderRecord
   project?: Pick<WorkOrderProjectSummary, 'project_name' | 'job_address'> | null
   latestUpdate?: WorkOrderUpdateRecord | null
+  /** Management view: show who has it (or who it was offered to). */
   showSubcontractor?: boolean
+  offerSummary?: string | null
 }) {
   const sub = workOrder.subcontractor
-  const subName = sub ? sub.company_name || fullName(sub.first_name, sub.last_name) : 'Subcontractor'
+  const subName = sub ? sub.company_name || fullName(sub.first_name, sub.last_name) : offerSummary || 'Not sent yet'
+  const awaitingAnswer = workOrder.status === 'offered' || workOrder.status === 'assigned'
+  const statusLabel = !showSubcontractor && awaitingAnswer ? 'New Offer' : WORK_ORDER_STATUS_LABEL[workOrder.status]
   const latestText = latestUpdate
     ? latestUpdate.issue_question || latestUpdate.completed_today || latestUpdate.next_steps || 'Photos added'
     : null
@@ -39,7 +44,7 @@ export function WorkOrderCard({
             {workOrder.trade ? ` · ${workOrder.trade}` : ''}
           </p>
           <h3 className="line-clamp-2 font-semibold">{workOrder.title}</h3>
-          {showSubcontractor ? <p className="truncate text-sm">{subName}</p> : null}
+          {showSubcontractor ? <p className={sub ? 'truncate text-sm' : 'text-sm text-muted-foreground'}>{subName}</p> : null}
           {project ? (
             <p className="flex items-start gap-1 text-sm text-muted-foreground">
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -51,7 +56,7 @@ export function WorkOrderCard({
           ) : null}
         </div>
         <Badge className="shrink-0 whitespace-nowrap" variant={workOrderStatusVariant(workOrder.status)}>
-          {WORK_ORDER_STATUS_LABEL[workOrder.status]}
+          {statusLabel}
         </Badge>
       </div>
       <p className="text-xs text-muted-foreground">

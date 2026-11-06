@@ -18,7 +18,7 @@ export function SubcontractorDashboard({ readiness }: { readiness: Subcontractor
   const { data: company } = useCompanyProfile(profile?.id)
   const ready = readiness.status === 'ready'
   const attention = [...readiness.attention_labels, ...readiness.missing_labels]
-  const toAccept = workOrders.filter((row) => row.status === 'assigned').length
+  const toAccept = workOrders.filter((row) => row.status === 'assigned' || row.status === 'offered').length
   const toStart = workOrders.filter((row) => row.status === 'accepted').length
 
   return (
@@ -52,7 +52,7 @@ export function SubcontractorDashboard({ readiness }: { readiness: Subcontractor
             ))}
             {toAccept > 0 ? (
               <p>
-                {toAccept} new work order{toAccept === 1 ? '' : 's'} to accept.
+                {toAccept} new work order offer{toAccept === 1 ? '' : 's'} to accept or decline.
               </p>
             ) : null}
             {ready && toStart > 0 ? (

@@ -4,19 +4,16 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { NativeSelect } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea'
-import { useProfiles } from '@/features/data/hooks'
-import { useSubcontractorReadiness } from '@/features/subcontractors/hooks'
 import { useSaveWorkOrder, type WorkOrderFormValues } from '@/features/work-orders/hooks'
-import { fullName } from '@/lib/utils'
+import { SubcontractorPicker } from '@/features/work-orders/subcontractor-picker'
 import { DEFAULT_WARRANTY_NOTE } from '@/lib/work-orders'
 import type { WorkOrderRecord } from '@/types/database'
 
 function initialValues(projectId: string, workOrder?: WorkOrderRecord | null): WorkOrderFormValues {
   return {
     project_id: projectId,
-    subcontractor_id: workOrder?.subcontractor_id ?? '',
+    subcontractor_ids: [],
     trade: workOrder?.trade ?? '',
     title: workOrder?.title ?? '',
     scope_of_work: workOrder?.scope_of_work ?? '',
@@ -28,10 +25,12 @@ function initialValues(projectId: string, workOrder?: WorkOrderRecord | null): W
     payment_notes: workOrder?.payment_notes ?? '',
     warranty_applies: workOrder?.warranty_applies ?? false,
     warranty_notes: workOrder?.warranty_notes ?? '',
+    insurance_required: workOrder?.insurance_required ?? false,
+    certificate_holder: workOrder?.certificate_holder ?? '',
   }
 }
 
-/** Create or edit a work order (management). */
+/** Create (and send to one or more subcontractors) or edit a work order (management). */
 export function WorkOrderFormDialog({
   open,
   onOpenChange,
@@ -47,11 +46,7 @@ export function WorkOrderFormDialog({
 }) {
   const save = useSaveWorkOrder()
   const [values, setValues] = useState<WorkOrderFormValues>(() => initialValues(projectId, workOrder))
-  const { data: subcontractors = [] } = useProfiles({ role: 'subcontractor' })
-  const options = subcontractors.filter((p) => p.approval_status === 'approved' && p.is_active && !p.archived_at)
-  const { data: readiness } = useSubcontractorReadiness(options.map((p) => p.id))
-  const selectedReadiness = values.subcontractor_id ? readiness?.get(values.subcontractor_id) : null
-  const notReady = selectedReadiness && selectedReadiness.status !== 'ready'
+  const creating = !workOrder
 
   const set = <K extends keyof WorkOrderFormValues>(key: K, value: WorkOrderFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }))
@@ -78,7 +73,10 @@ export function WorkOrderFormDialog({
   async function onSubmit() {
     try {
       const id = await save.mutateAsync({ id: workOrder?.id, values })
-      toast.success(workOrder ? 'Work order updated' : 'Work order created and sent to the subcontractor')
+      const count = values.subcontractor_ids.length
+      toast.success(
+        workOrder ? 'Work order updated' : `Work order sent to ${count} subcontractor${count === 1 ? '' : 's'} — the first to accept gets it`,
+      )
       onOpenChange(false)
       onSaved?.(id)
     } catch (error) {
@@ -90,43 +88,18 @@ export function WorkOrderFormDialog({
     <Dialog open={open} onOpenChange={(next) => !save.isPending && onOpenChange(next)}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{workOrder ? 'Edit Work Order' : 'Create Work Order'}</DialogTitle>
+          <DialogTitle>{creating ? 'Create Work Order' : 'Edit Work Order'}</DialogTitle>
           <DialogDescription>Only what the subcontractor needs: scope, specs, price, dates and job requirements.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="wo-subcontractor">Subcontractor</Label>
-            <NativeSelect
-              id="wo-subcontractor"
-              value={values.subcontractor_id}
-              onChange={(event) => {
-                const sub = options.find((p) => p.id === event.target.value)
-                setValues((current) => ({
-                  ...current,
-                  subcontractor_id: event.target.value,
-                  trade: current.trade || sub?.trade_specialization || '',
-                }))
-              }}
-            >
-              <option value="">Choose subcontractor</option>
-              {options.map((p) => {
-                const status = readiness?.get(p.id)?.status
-                return (
-                  <option key={p.id} value={p.id}>
-                    {p.company_name || fullName(p.first_name, p.last_name)}
-                    {p.trade_specialization ? ` · ${p.trade_specialization}` : ''}
-                    {status && status !== 'ready' ? ' — NOT READY TO WORK' : ''}
-                  </option>
-                )
-              })}
-            </NativeSelect>
-            {notReady ? (
-              <p className="text-xs font-semibold text-destructive" role="alert">
-                NOT READY TO WORK — {[...selectedReadiness.attention_labels, ...selectedReadiness.missing_labels, ...selectedReadiness.pending_labels].join(', ') ||
-                  'documents are not approved yet'}. You can still assign; they cannot start until Ready.
-              </p>
-            ) : null}
-          </div>
+          {creating ? (
+            <SubcontractorPicker
+              selected={values.subcontractor_ids}
+              onChange={(ids, firstTrade) =>
+                setValues((current) => ({ ...current, subcontractor_ids: ids, trade: current.trade || firstTrade || '' }))
+              }
+            />
+          ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
             {text('trade', 'Trade / specialty', { placeholder: 'Plumbing, Electrical, Tile…', maxLength: 120 })}
             {text('title', 'Title', { placeholder: 'Rough-in plumbing, 2nd floor bath', maxLength: 160 })}
@@ -140,6 +113,36 @@ export function WorkOrderFormDialog({
             {text('target_completion_date', 'Target completion', { type: 'date' })}
           </div>
           {text('payment_notes', 'Payment notes (optional)', { placeholder: 'Paid on completion and approval', maxLength: 1000 })}
+          <fieldset className="space-y-2 rounded-md border border-border px-3 py-2">
+            <legend className="px-1 text-sm font-medium">Insurance certificate</legend>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-primary"
+                checked={values.insurance_required}
+                onChange={(event) => set('insurance_required', event.target.checked)}
+              />
+              <span>
+                Required for this work order — the subcontractor uploads it and Tamay approves it before work can start.
+              </span>
+            </label>
+            {values.insurance_required ? (
+              <div className="space-y-1">
+                <Label htmlFor="wo-certificate_holder">Certificate Holder (name and address)</Label>
+                <Textarea
+                  id="wo-certificate_holder"
+                  rows={2}
+                  maxLength={500}
+                  placeholder={'Client name\nStreet, City, State ZIP'}
+                  value={values.certificate_holder}
+                  onChange={(event) => set('certificate_holder', event.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Usually the client. The subcontractor only sees this name and address, not the client's contact details.
+                </p>
+              </div>
+            ) : null}
+          </fieldset>
           <fieldset className="space-y-2 rounded-md border border-border px-3 py-2">
             <legend className="px-1 text-sm font-medium">Warranty responsibility</legend>
             <div className="flex flex-wrap gap-4 text-sm">
@@ -162,12 +165,17 @@ export function WorkOrderFormDialog({
             </div>
             {values.warranty_applies ? area('warranty_notes', 'Warranty notes') : null}
           </fieldset>
+          {creating ? (
+            <p className="text-xs text-muted-foreground">
+              After creating, add the contract, proposal, plans and photos in the work order's Contract & Documents section.
+            </p>
+          ) : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" disabled={save.isPending} onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button disabled={save.isPending} onClick={() => void onSubmit()}>
-              {save.isPending ? 'Saving…' : workOrder ? 'Save changes' : 'Create Work Order'}
+              {save.isPending ? 'Saving…' : creating ? 'Create & Send' : 'Save changes'}
             </Button>
           </div>
         </div>

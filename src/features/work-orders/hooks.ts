@@ -5,7 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { prepareUploadFileAsync, uploadErrorMessage, validateUploadFile } from '@/lib/uploads'
 import { WORK_ORDER_FILES_BUCKET, workOrderFilePath } from '@/lib/work-orders'
 import type {
+  WorkOrderDocumentCategory,
   WorkOrderFileRecord,
+  WorkOrderOfferRecord,
   WorkOrderProjectSummary,
   WorkOrderRecord,
   WorkOrderUpdateRecord,
@@ -51,12 +53,32 @@ export function useSubcontractorWorkOrders(profileIds: string[]) {
   })
 }
 
+/** Subcontractor: own work orders plus open offers (the database only returns offers made to them). */
 export function useMyWorkOrders() {
   const { profile } = useAuth()
   return useQuery({
     queryKey: ['work-orders-v2', 'mine', profile?.id],
     enabled: Boolean(profile?.id),
-    queryFn: () => selectWorkOrders((q) => q.eq('subcontractor_id', profile!.id)),
+    queryFn: () => selectWorkOrders((q) => q.or(`subcontractor_id.eq.${profile!.id},status.eq.offered`)),
+  })
+}
+
+/** Management: who each work order was offered to, and their answers. */
+export function useWorkOrderOffers(workOrderIds: string[]) {
+  const ids = [...new Set(workOrderIds)].sort()
+  return useQuery({
+    queryKey: ['work-orders-v2', 'offers', ids.join(',')],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_order_offers')
+        .select(`*, subcontractor:profiles!subcontractor_id(${PROFILE_DIRECTORY_COLUMNS})`)
+        .in('work_order_id', ids)
+        .order('created_at', { ascending: true })
+      if (isNotInstalled(error)) return []
+      if (error) throw error
+      return (data ?? []) as unknown as WorkOrderOfferRecord[]
+    },
   })
 }
 
@@ -147,7 +169,8 @@ export function useLatestWorkOrderUpdates(workOrderIds: string[]) {
 
 export type WorkOrderFormValues = {
   project_id: string
-  subcontractor_id: string
+  /** Create only: everyone the work order is offered to. The first to accept gets it. */
+  subcontractor_ids: string[]
   trade: string
   title: string
   scope_of_work: string
@@ -159,6 +182,8 @@ export type WorkOrderFormValues = {
   payment_notes: string
   warranty_applies: boolean
   warranty_notes: string
+  insurance_required: boolean
+  certificate_holder: string
 }
 
 export function workOrderPayload(values: WorkOrderFormValues) {
@@ -166,7 +191,6 @@ export function workOrderPayload(values: WorkOrderFormValues) {
   const price = values.agreed_price.trim().replace(/[$,\s]/g, '')
   return {
     project_id: values.project_id,
-    subcontractor_id: values.subcontractor_id,
     trade: text(values.trade),
     title: values.title.trim(),
     scope_of_work: text(values.scope_of_work),
@@ -178,7 +202,18 @@ export function workOrderPayload(values: WorkOrderFormValues) {
     payment_notes: text(values.payment_notes),
     warranty_applies: values.warranty_applies,
     warranty_notes: values.warranty_applies ? text(values.warranty_notes) : null,
+    insurance_required: values.insurance_required,
+    certificate_holder: values.insurance_required ? text(values.certificate_holder) : null,
   }
+}
+
+async function sendOffers(workOrderId: string, subcontractorIds: string[]) {
+  const { data, error } = await supabase.rpc('send_work_order_offers', {
+    p_work_order_id: workOrderId,
+    p_subcontractor_ids: subcontractorIds,
+  })
+  if (error) throw error
+  return data as number
 }
 
 export function useSaveWorkOrder() {
@@ -187,16 +222,69 @@ export function useSaveWorkOrder() {
     mutationFn: async ({ id, values }: { id?: string | null; values: WorkOrderFormValues }) => {
       const payload = workOrderPayload(values)
       if (!payload.title) throw new Error('Enter a title for the work order.')
-      if (!payload.subcontractor_id) throw new Error('Choose a subcontractor.')
+      if (!id && values.subcontractor_ids.length === 0) throw new Error('Choose at least one subcontractor to send it to.')
       if (payload.agreed_price != null && (!Number.isFinite(payload.agreed_price) || payload.agreed_price < 0)) {
         throw new Error('Enter the agreed price as a number.')
       }
-      const query = id
-        ? supabase.from('work_orders').update(payload).eq('id', id).select('id').single()
-        : supabase.from('work_orders').insert(payload).select('id').single()
-      const { data, error } = await query
+      if (payload.insurance_required && !payload.certificate_holder) {
+        throw new Error('Enter the Certificate Holder name and address for the insurance certificate.')
+      }
+      if (id) {
+        const { error } = await supabase.from('work_orders').update(payload).eq('id', id)
+        if (error) throw error
+        return id
+      }
+      const { data, error } = await supabase
+        .from('work_orders')
+        .insert({ ...payload, status: 'offered' })
+        .select('id')
+        .single()
       if (error) throw error
-      return (data as { id: string }).id
+      const newId = (data as { id: string }).id
+      try {
+        await sendOffers(newId, values.subcontractor_ids)
+      } catch (offerError) {
+        const reason = offerError instanceof Error ? offerError.message : 'unknown error'
+        throw new Error(`Work order created, but it was not sent (${reason}). Open it and use "Send to subcontractors".`)
+      }
+      return newId
+    },
+    onSuccess: () => invalidateWorkOrders(queryClient),
+  })
+}
+
+export function useSendWorkOrderOffers() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ workOrderId, subcontractorIds }: { workOrderId: string; subcontractorIds: string[] }) =>
+      sendOffers(workOrderId, subcontractorIds),
+    onSuccess: () => invalidateWorkOrders(queryClient),
+  })
+}
+
+/** Subcontractor: accept (with the agreement checkbox) or decline (optional reason). */
+export function useRespondToWorkOrder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      workOrderId,
+      accept,
+      agree = false,
+      reason = null,
+    }: {
+      workOrderId: string
+      accept: boolean
+      agree?: boolean
+      reason?: string | null
+    }) => {
+      const { data, error } = await supabase.rpc('respond_to_work_order', {
+        p_work_order_id: workOrderId,
+        p_accept: accept,
+        p_agree: agree,
+        p_reason: reason?.trim() || null,
+      })
+      if (error) throw error
+      return data as 'accepted' | 'declined'
     },
     onSuccess: () => invalidateWorkOrders(queryClient),
   })
@@ -205,7 +293,7 @@ export function useSaveWorkOrder() {
 export function useUpdateWorkOrderStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ workOrderId, action }: { workOrderId: string; action: 'accept' | 'start' | 'complete' | 'close' }) => {
+    mutationFn: async ({ workOrderId, action }: { workOrderId: string; action: 'start' | 'complete' | 'close' }) => {
       const { data, error } = await supabase.rpc('update_work_order_status', { p_work_order_id: workOrderId, p_action: action })
       if (error) throw error
       return data
@@ -214,7 +302,7 @@ export function useUpdateWorkOrderStatus() {
   })
 }
 
-async function uploadWorkOrderFile(workOrderId: string, kind: 'reference' | 'update_photo', file: File) {
+async function uploadWorkOrderFile(workOrderId: string, kind: WorkOrderFileRecord['kind'], file: File) {
   const validationError = validateUploadFile(file)
   if (validationError) throw new Error(validationError)
   const prepared = await prepareUploadFileAsync(file)
@@ -235,7 +323,15 @@ export function useUploadWorkOrderReferences() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
   return useMutation({
-    mutationFn: async ({ workOrder, files }: { workOrder: Pick<WorkOrderRecord, 'id' | 'organization_id'>; files: File[] }) => {
+    mutationFn: async ({
+      workOrder,
+      files,
+      category,
+    }: {
+      workOrder: Pick<WorkOrderRecord, 'id' | 'organization_id'>
+      files: File[]
+      category: WorkOrderDocumentCategory
+    }) => {
       if (!profile) throw new Error('Sign in again to upload.')
       for (const file of files) {
         const uploaded = await uploadWorkOrderFile(workOrder.id, 'reference', file)
@@ -244,6 +340,7 @@ export function useUploadWorkOrderReferences() {
           organization_id: workOrder.organization_id,
           uploaded_by: profile.id,
           kind: 'reference',
+          category,
           name: uploaded.name,
           storage_path: uploaded.path,
           mime_type: uploaded.mime_type,
@@ -257,6 +354,48 @@ export function useUploadWorkOrderReferences() {
     },
     onSuccess: (_data, vars) =>
       queryClient.invalidateQueries({ queryKey: ['work-orders-v2', 'files', vars.workOrder.id] }),
+  })
+}
+
+/** Subcontractor: insurance certificate, permit, receipt / invoice or other document for this work order. */
+export function useSubmitWorkOrderDocument() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ workOrderId, files, category }: { workOrderId: string; files: File[]; category: WorkOrderDocumentCategory }) => {
+      for (const file of files) {
+        const uploaded = await uploadWorkOrderFile(workOrderId, 'subcontractor_document', file)
+        const { error } = await supabase.rpc('submit_work_order_document', {
+          p_work_order_id: workOrderId,
+          p_category: category,
+          p_path: uploaded.path,
+          p_name: uploaded.name,
+          p_mime_type: uploaded.mime_type,
+          p_file_size: uploaded.file_size,
+        })
+        if (error) {
+          await removeUploaded([uploaded.path])
+          throw new Error(uploadErrorMessage(error))
+        }
+      }
+    },
+    onSuccess: (_data, vars) => queryClient.invalidateQueries({ queryKey: ['work-orders-v2', 'files', vars.workOrderId] }),
+  })
+}
+
+/** Management: approve or reject an insurance certificate. */
+export function useReviewWorkOrderDocument() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ file, approve, note = null }: { file: Pick<WorkOrderFileRecord, 'id' | 'work_order_id'>; approve: boolean; note?: string | null }) => {
+      const { data, error } = await supabase.rpc('review_work_order_document', {
+        p_file_id: file.id,
+        p_approve: approve,
+        p_note: note?.trim() || null,
+      })
+      if (error) throw error
+      return data as 'approved' | 'rejected'
+    },
+    onSuccess: (_data, vars) => queryClient.invalidateQueries({ queryKey: ['work-orders-v2', 'files', vars.file.work_order_id] }),
   })
 }
 

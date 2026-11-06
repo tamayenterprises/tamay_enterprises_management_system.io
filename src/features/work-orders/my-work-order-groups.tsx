@@ -4,12 +4,13 @@ import { sortWorkOrders, workOrderGroup, type WorkOrderGroup } from '@/lib/work-
 import type { WorkOrderRecord } from '@/types/database'
 
 const GROUPS: Array<{ key: WorkOrderGroup; title: string }> = [
+  { key: 'offers', title: 'New Offers' },
   { key: 'assigned', title: 'Assigned' },
   { key: 'in_progress', title: 'In Progress' },
   { key: 'work_completed', title: 'Work Completed' },
 ]
 
-/** Subcontractor work orders grouped Assigned / In Progress / Work Completed. */
+/** Subcontractor work orders grouped New Offers / Assigned / In Progress / Work Completed. */
 export function MyWorkOrderGroups({ workOrders, completedLimit }: { workOrders: WorkOrderRecord[]; completedLimit?: number }) {
   const { data: summaries } = useWorkOrderProjectSummaries(workOrders.map((row) => row.id))
   return (

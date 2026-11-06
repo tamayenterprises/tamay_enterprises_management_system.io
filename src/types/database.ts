@@ -398,15 +398,19 @@ export type SubcontractorReadinessStatus = 'setup_required' | 'pending_review' |
 /** Legacy per-assignment progress (subcontractor MVP v1). New work goes through work_orders. */
 export type AssignmentWorkStatus = 'assigned' | 'in_progress' | 'completed'
 
-export type WorkOrderStatus = 'assigned' | 'accepted' | 'in_progress' | 'work_completed' | 'closed'
+export type WorkOrderStatus = 'offered' | 'assigned' | 'accepted' | 'in_progress' | 'work_completed' | 'closed'
 
-/** A subcontractor's specific assignment on a Tamay project. */
+/** A subcontractor's specific assignment on a Tamay project. No subcontractor while Offered. */
 export interface WorkOrderRecord {
   id: string
   work_order_number: number
   organization_id: string
   project_id: string
-  subcontractor_id: string
+  subcontractor_id: string | null
+  insurance_required: boolean
+  certificate_holder: string | null
+  accepted_by: string | null
+  acceptance_statement: string | null
   trade: string | null
   title: string
   scope_of_work: string | null
@@ -448,12 +452,34 @@ export interface WorkOrderFileRecord {
   update_id: string | null
   organization_id: string
   uploaded_by: string | null
-  kind: 'reference' | 'update_photo'
+  kind: 'reference' | 'update_photo' | 'subcontractor_document'
+  category: WorkOrderDocumentCategory | null
+  review_status: 'submitted' | 'approved' | 'rejected' | null
+  review_note: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
   name: string
   storage_path: string
   mime_type: string | null
   file_size: number | null
   created_at: string
+}
+
+export type WorkOrderDocumentCategory = 'contract' | 'proposal' | 'plans' | 'photo' | 'insurance' | 'permit' | 'receipt' | 'other'
+
+export type WorkOrderOfferStatus = 'pending' | 'accepted' | 'declined' | 'closed'
+
+export interface WorkOrderOfferRecord {
+  id: string
+  work_order_id: string
+  organization_id: string
+  subcontractor_id: string
+  status: WorkOrderOfferStatus
+  decline_reason: string | null
+  responded_at: string | null
+  created_by: string | null
+  created_at: string
+  subcontractor?: DirectoryProfile | null
 }
 
 export interface WorkOrderProjectSummary {
@@ -1175,6 +1201,13 @@ export interface Database {
         WorkOrderFileRecord,
         [Fk<'work_order_files_work_order_id_fkey', 'work_order_id', 'work_orders'>]
       >
+      work_order_offers: Table<
+        WorkOrderOfferRecord,
+        [
+          Fk<'work_order_offers_work_order_id_fkey', 'work_order_id', 'work_orders'>,
+          Fk<'work_order_offers_subcontractor_id_fkey', 'subcontractor_id', 'profiles'>,
+        ]
+      >
       subcontractor_profiles: Table<
         SubcontractorCompanyProfile,
         [Fk<'subcontractor_profiles_profile_id_fkey', 'profile_id', 'profiles'>]
@@ -1239,9 +1272,26 @@ export interface Database {
       >
       work_order_project_summaries: Rpc<{ p_work_order_ids: string[] }, WorkOrderProjectSummary[]>
       update_work_order_status: Rpc<
-        { p_work_order_id: string; p_action: 'accept' | 'start' | 'complete' | 'close' },
+        { p_work_order_id: string; p_action: 'start' | 'complete' | 'close' },
         WorkOrderStatus
       >
+      send_work_order_offers: Rpc<{ p_work_order_id: string; p_subcontractor_ids: string[] }, number>
+      respond_to_work_order: Rpc<
+        { p_work_order_id: string; p_accept: boolean; p_agree?: boolean; p_reason?: string | null },
+        'accepted' | 'declined'
+      >
+      submit_work_order_document: Rpc<
+        {
+          p_work_order_id: string
+          p_category: WorkOrderDocumentCategory
+          p_path: string
+          p_name: string
+          p_mime_type?: string | null
+          p_file_size?: number | null
+        },
+        string
+      >
+      review_work_order_document: Rpc<{ p_file_id: string; p_approve: boolean; p_note?: string | null }, 'approved' | 'rejected'>
       add_work_order_update: Rpc<
         {
           p_work_order_id: string

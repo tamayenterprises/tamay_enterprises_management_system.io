@@ -59,7 +59,7 @@ export function SubcontractorsPage() {
   const activeWorkOrders = useMemo(() => {
     const counts = new Map<string, number>()
     for (const row of workOrders) {
-      if (!isOpenWorkOrder(row.status)) continue
+      if (!row.subcontractor_id || !isOpenWorkOrder(row.status)) continue
       counts.set(row.subcontractor_id, (counts.get(row.subcontractor_id) ?? 0) + 1)
     }
     return counts
